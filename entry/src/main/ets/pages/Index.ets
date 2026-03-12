@@ -1,10 +1,9 @@
 ﻿import { MqttClientService } from '../services/MqttClientService';
-import { SensorData } from '../models/SensorData';
-import { DeviceState } from '../models/DeviceState';
 import { Device } from '../models/Device';
 import { DashboardView } from '../views/DashboardView';
 import { ControlView } from '../views/ControlView';
 import { SettingsView } from '../views/SettingsView';
+import { AlertView } from '../views/AlertView';
 import { promptAction } from '@kit.ArkUI';
 import { HttpService } from '../services/HttpService';
 
@@ -60,11 +59,60 @@ struct Index {
   @State currentDeviceIndex: number = 0;
   @Provide tempThreshold: number = 30;
   @Provide humidThreshold: number = 40;
-  @Provide autoIrrigation: boolean = false; // 新增全局状态：允许自动灌溉
-  @Provide autoCooling: boolean = false; // 新增全局状态：允许自动降温排风
-  @State connectionStatus: 'connected' | 'mock' | 'disconnected' = 'disconnected';
-  @State mqttDebugMsg: string = '';
+  @Provide autoIrrigation: boolean = false;
+  @Provide autoCooling: boolean = false;
+  @Provide @Watch('onConnectionStatusChange') connectionStatus: 'connected' | 'mock' | 'disconnected' = 'disconnected';
   private lastAlertTime: number = 0;
+  private mockTimer: number = -1;
+
+  onConnectionStatusChange() {
+    if (this.connectionStatus === 'mock') {
+      if (this.mockTimer === -1) {
+        this.mockTimer = setInterval(() => {
+          this.devices.forEach(device => {
+            // 产生一些随机波动的模拟数据
+            device.sensorData.temperature = 22 + Math.random() * 10; // 22~32度
+            device.sensorData.humidity = 40 + Math.random() * 40; // 40%~80%
+            device.sensorData.light = 1000 + Math.random() * 2000; // 1000~3000 Lux
+            device.sensorData.co2 = 380 + Math.random() * 100; // 380~480 ppm
+
+            // 同时检查模拟模式下是否触发自动阈值（演示用）
+            let currentTime = new Date().getTime();
+            if (currentTime - this.lastAlertTime > 10000 &&
+              this.currentDeviceIndex === this.devices.indexOf(device)) {
+              if (device.sensorData.humidity < this.humidThreshold && !device.deviceState.waterPumpOn) {
+                promptAction.showToast({ message: `模拟：${device.name}湿度过低！`, duration: 2000 });
+                if (this.autoIrrigation) {
+                  device.deviceState.waterPumpOn = true;
+                  promptAction.showToast({ message: '模拟：已自动开启水泵', duration: 2000 });
+                }
+                this.lastAlertTime = currentTime;
+              } else if (device.sensorData.temperature > this.tempThreshold) {
+                if (this.autoCooling && !device.deviceState.extensionOn) {
+                  device.deviceState.extensionOn = true;
+                  promptAction.showToast({ message: '模拟：高温！已自动开启排风', duration: 2000 });
+                }
+                this.lastAlertTime = currentTime;
+              }
+            }
+          });
+        }, 3000);
+
+        // 切为模拟模式时，尝试先赋一个初始可用值，避免一开始全为0
+        this.devices.forEach(device => {
+          device.sensorData.temperature = 25;
+          device.sensorData.humidity = 50;
+          device.sensorData.light = 1500;
+          device.sensorData.co2 = 400;
+        });
+      }
+    } else {
+      if (this.mockTimer !== -1) {
+        clearInterval(this.mockTimer);
+        this.mockTimer = -1;
+      }
+    }
+  }
 
   aboutToAppear() {
     HttpService.getInstance().setDeviceId(this.devices[0].id);
@@ -142,16 +190,16 @@ struct Index {
             }
           }
         }
-      }, (status, debugInfo) => {
+      }, (status) => {
         this.connectionStatus = status;
-        if (debugInfo) {
-          this.mqttDebugMsg = debugInfo;
-        }
       });
   }
 
   aboutToDisappear() {
     MqttClientService.getInstance().disconnect();
+    if (this.mockTimer !== -1) {
+      clearInterval(this.mockTimer);
+    }
   }
 
   build() {
@@ -204,13 +252,7 @@ struct Index {
       .backgroundColor('#FFFFFF')
       .shadow({ radius: 10, color: 'rgba(76, 175, 80, 0.05)', offsetY: 4 })
 
-      if (this.mqttDebugMsg) {
-        Text(`DEBUG: ${this.mqttDebugMsg}`)
-          .fontSize(10)
-          .fontColor('#FF0000')
-          .padding({ left: 20, right: 20, bottom: 5 })
-          .width('100%')
-      }
+
 
       Tabs({ barPosition: BarPosition.End }) {
         TabContent() {
@@ -227,9 +269,15 @@ struct Index {
         .tabBar(SubTabBarStyle.of('控制').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
 
         TabContent() {
+          AlertView()
+        }
+        .tabBar(SubTabBarStyle.of('告警').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+
+        TabContent() {
           SettingsView()
         }
         .tabBar(SubTabBarStyle.of('设置').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+
       }
       .animationDuration(300)
       .layoutWeight(1)

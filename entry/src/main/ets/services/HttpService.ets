@@ -7,6 +7,12 @@ export class ApiQueryPayload {
   sensor_type?: string;
   device_type?: string;
   time_range?: string;
+  page?: number;
+  size?: number;
+  sort_by?: string;
+  order?: string;
+  filter_type?: string;
+  filter_status?: string;
 }
 
 export class ApiDataSettingsPayload {
@@ -19,6 +25,9 @@ export class ApiDataSettingsPayload {
 export class ApiDataPayload {
   automation?: ApiDataSettingsPayload;
   thresholds?: ApiDataSettingsPayload;
+  alert_id?: string;
+  action?: string;
+  notes?: string;
 }
 
 export class AppApiPayload {
@@ -115,6 +124,33 @@ export class HttpService {
     payload.data = dataPayload;
 
     let res = await this.postRequest('/api/v1/settings/save', payload);
+    return res !== null;
+  }
+
+  public async getAlerts(page: number, size: number, sortBy: string, order: string, filterType: string,
+    filterStatus: string): Promise<Record<string, Object> | null> {
+    let payload = new AppApiPayload();
+    let query = new ApiQueryPayload();
+    query.page = page;
+    query.size = size;
+    query.sort_by = sortBy;
+    query.order = order;
+    query.filter_type = filterType;
+    query.filter_status = filterStatus;
+    payload.query = query;
+    return await this.postRequest('/api/v1/alerts/list', payload);
+  }
+
+  public async handleAlert(alertId: string, action: string, notes?: string): Promise<boolean> {
+    let payload = new AppApiPayload();
+    let dataPayload = new ApiDataPayload();
+    dataPayload.alert_id = alertId;
+    dataPayload.action = action;
+    if (notes) {
+      dataPayload.notes = notes;
+    }
+    payload.data = dataPayload;
+    let res = await this.postRequest('/api/v1/alerts/handle', payload);
     return res !== null;
   }
 }

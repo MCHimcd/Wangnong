@@ -7,11 +7,24 @@ export struct SettingsView {
   @Consume humidThreshold: number; // 从全局注入的湿度灌溉阈值
   @Consume autoIrrigation: boolean; // 自动灌溉开关
   @Consume autoCooling: boolean; // 自动降温排风开关
+  @Consume connectionStatus: 'connected' | 'mock' | 'disconnected'; // 模拟/实际连接状态
+
+  async syncSettings() {
+    let success = await HttpService.getInstance().saveSettings(
+      this.autoIrrigation,
+      this.autoCooling,
+      this.tempThreshold,
+      this.humidThreshold
+    );
+    if (!success) {
+      console.warn('云端同步失败，使用本地配置兜底');
+    }
+  }
 
   build() {
     Scroll() {
       Column() {
-        Text('自动化与预警限制')
+        Text('系统与模式切换')
           .fontSize(28)
           .fontWeight(FontWeight.Bolder)
           .fontColor('#2C3E50')
@@ -19,7 +32,19 @@ export struct SettingsView {
           .width('100%')
           .textAlign(TextAlign.Center)
 
-        Text('智能控制').fontSize(14).fontColor('#90A4AE').width('100%').padding({ left: 20, bottom: 10 })
+        Text('系统模式').fontSize(14).fontColor('#90A4AE').width('100%').padding({ left: 20, bottom: 10 })
+
+        SettingToggleItemComp({
+          title: '启用模拟模式',
+          description: '断开实际连接，系统进入纯本地模拟数据源状态',
+          isOn: this.connectionStatus === 'mock',
+          onStateChange: (val) => {
+            this.connectionStatus = val ? 'mock' : 'connected'
+            promptAction.showToast({ message: val ? '已切至模拟模式' : '已切至实际连接模式', duration: 1500 })
+          }
+        })
+
+        Text('智能控制').fontSize(14).fontColor('#90A4AE').width('100%').padding({ left: 20, top: 15, bottom: 10 })
 
         SettingToggleItemComp({
           title: '允许自动灌溉系统',
@@ -27,6 +52,7 @@ export struct SettingsView {
           isOn: this.autoIrrigation,
           onStateChange: (val) => {
             this.autoIrrigation = val
+            this.syncSettings()
           }
         })
 
@@ -36,6 +62,7 @@ export struct SettingsView {
           isOn: this.autoCooling,
           onStateChange: (val) => {
             this.autoCooling = val
+            this.syncSettings()
           }
         })
 
@@ -48,6 +75,7 @@ export struct SettingsView {
           max: 50,
           onValueChange: (val) => {
             this.tempThreshold = val
+            this.syncSettings()
           }
         })
         SettingItemComp({
@@ -57,36 +85,12 @@ export struct SettingsView {
           max: 80,
           onValueChange: (val) => {
             this.humidThreshold = val
+            this.syncSettings()
           }
         })
-
-        Button('保存并应用配置', { type: ButtonType.Capsule })
-          .width('85%')
-          .height(50)
-          .backgroundColor('#4CAF50')
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .margin({ top: 40, bottom: 40 })
-          .shadow({
-            radius: 10,
-            color: 'rgba(76, 175, 80, 0.3)',
-            offsetX: 0,
-            offsetY: 5
-          })
-          .onClick(async () => {
-            let success = await HttpService.getInstance().saveSettings(
-              this.autoIrrigation,
-              this.autoCooling,
-              this.tempThreshold,
-              this.humidThreshold
-            );
-            promptAction.showToast({
-              message: success ? '配置已保存到云端' : '云端无响应，使用本地配置兜底',
-              duration: 2000
-            });
-          })
       }
       .width('100%')
+      .padding({ bottom: 40 })
     }
     .width('100%')
     .height('100%')
