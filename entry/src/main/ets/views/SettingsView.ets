@@ -1,5 +1,7 @@
 import { HttpService } from '../services/HttpService';
-import { promptAction } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
+import { preferences } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
 
 @Component
 export struct SettingsView {

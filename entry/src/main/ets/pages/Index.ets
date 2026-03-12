@@ -4,6 +4,7 @@ import { DashboardView } from '../views/DashboardView';
 import { ControlView } from '../views/ControlView';
 import { SettingsView } from '../views/SettingsView';
 import { AlertView } from '../views/AlertView';
+import { ProfileView } from '../views/ProfileView';
 import { promptAction } from '@kit.ArkUI';
 import { HttpService } from '../services/HttpService';
 
@@ -277,6 +278,11 @@ struct Index {
           SettingsView()
         }
         .tabBar(SubTabBarStyle.of('设置').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+
+        TabContent() {
+          ProfileView()
+        }
+        .tabBar(SubTabBarStyle.of('我的').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
 
       }
       .animationDuration(300)
