@@ -72,6 +72,12 @@ struct SensorDetailPage {
     } else if (this.type === 'humidity') {
       variance =
         10;
+    } else if (this.type === 'soil_temperature') {
+      variance = 3;
+    } else if (this.type === 'soil_humidity') {
+      variance = 8;
+    } else if (this.type === 'soil_ph') {
+      variance = 0.12;
     } else if (this.type === 'light') {
       variance = 500;
     } else if (this.type === 'co2') {
@@ -101,6 +107,14 @@ struct SensorDetailPage {
       targetBase = targetBase + (Math.random() * variance * 0.8 - variance * 0.4);
       if (targetBase < 0) {
         targetBase = 0;
+      }
+      if (this.type === 'soil_ph') {
+        if (targetBase < 4.5) {
+          targetBase = 4.5;
+        }
+        if (targetBase > 8.5) {
+          targetBase = 8.5;
+        }
       }
 
       let timeStr = '';

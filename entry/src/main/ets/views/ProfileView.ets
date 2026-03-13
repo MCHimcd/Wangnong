@@ -4,10 +4,13 @@ import { common } from '@kit.AbilityKit';
 
 @Component
 export struct ProfileView {
+  @State avatarSrc: Resource = $r('app.media.startIcon');
+  @State userId: string = 'WangNong_001';
+
   build() {
     Scroll() {
       Column() {
-        Text('个人中心')
+        Text('我的')
           .fontSize(28)
           .fontWeight(FontWeight.Bolder)
           .fontColor('#2C3E50')
@@ -15,16 +18,96 @@ export struct ProfileView {
           .width('100%')
           .textAlign(TextAlign.Center)
           
-        Blank()
+        Column() {
+          Image(this.avatarSrc)
+            .width(100)
+            .height(100)
+            .borderRadius(50)
+            .backgroundColor('#E0E0E0')
+            .margin({ top: 20, bottom: 10 })
+            .onClick(() => {
+              // 简易模拟修改头像
+              promptAction.showActionMenu({
+                title: '修改头像',
+                buttons: [
+                  { text: '拍照', color: '#4CAF50' },
+                  { text: '从相册选择', color: '#4CAF50' }
+                ]
+              }).then(data => {
+                promptAction.showToast({ message: '模拟：头像已更新' });
+              });
+            })
+            
+          Text(`ID: ${this.userId}`)
+            .fontSize(18)
+            .fontColor('#546E7A')
+            .margin({ bottom: 30 })
 
-        Button('退出登录', { type: ButtonType.Capsule })
+          Row() {
+            Text('溯源码：扫码展示作物信息')
+              .fontSize(16)
+              .fontColor('#2C3E50')
+            Blank()
+            Text('...')
+              .fontSize(16)
+          }
           .width('90%')
-          .height(50)
-          .margin({ top: 40, bottom: 40 })
-          .backgroundColor('#E53935')
-          .fontColor(Color.White)
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
+          .padding(20)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ bottom: 15 })
+          .onClick(() => {
+            promptAction.showToast({ message: '此功能暂未开放' });
+          })
+
+          Row() {
+            Text('设置')
+              .fontSize(16)
+              .fontColor('#2C3E50')
+            Blank()
+            Text('>')
+              .fontSize(16)
+          }
+          .width('90%')
+          .padding(20)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ bottom: 15 })
+          .onClick(() => {
+            promptAction.showToast({ message: '设置功能暂未开放' });
+          })
+          
+          Row() {
+            Text('切换账号')
+              .fontSize(16)
+              .fontColor('#2C3E50')
+            Blank()
+            Text('>')
+              .fontSize(16)
+          }
+          .width('90%')
+          .padding(20)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ bottom: 15 })
+          .onClick(() => {
+             router.replaceUrl({ url: 'pages/LoginPage' });
+          })
+
+          Row() {
+            Text('退出登录')
+              .fontSize(16)
+              .fontColor('#E53935')
+            Blank()
+            Text('>')
+              .fontSize(16)
+              .fontColor('#E53935')
+          }
+          .width('90%')
+          .padding(20)
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .margin({ bottom: 40 })
           .onClick(async () => {
              try {
                 let context = getContext(this) as common.UIAbilityContext;
@@ -37,6 +120,11 @@ export struct ProfileView {
                 promptAction.showToast({ message: '退出失败' });
              }
           })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+
+        Blank()
       }
       .width('100%')
       .height('100%')

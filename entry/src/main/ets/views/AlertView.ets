@@ -1,6 +1,6 @@
-import { AlertData } from '../models/AlertData';
-import { HttpService } from '../services/HttpService';
+﻿import { AlertData } from '../models/AlertData';
 import { promptAction } from '@kit.ArkUI';
+import { AlertSyncService } from '../services/AlertSyncService';
 
 @Component
 export struct AlertView {
@@ -8,93 +8,42 @@ export struct AlertView {
   @State isLoading: boolean = false;
   @State sortBy: string = 'timestamp';
   @State order: string = 'desc';
-  @State filterType: string = 'all';
-  @State filterStatus: string = 'all';
+  @State highlightedAlertId: string = '';
 
   aboutToAppear() {
     this.fetchAlerts();
   }
 
-  async fetchAlerts() {
+  fetchAlerts() {
     this.isLoading = true;
-    try {
-      let res =
-        await HttpService.getInstance().getAlerts(1, 20, this.sortBy, this.order, this.filterType, this.filterStatus);
-      if (res && res.data) {
-        let data = res.data as Record<string, Object>;
-        if (data.alerts) {
-          this.alerts = data.alerts as AlertData[];
-        } else {
-          // Mock data fallback if backend structure differs or fails
-          this.alerts = this.getMockAlerts();
-        }
-      } else {
-        // Fallback to mock data if network fails
-        this.alerts = this.getMockAlerts();
+    setTimeout(() => {
+      this.alerts = AlertSyncService.getInstance().getAllAlerts();
+      this.sortAlertsLocally();
+      const newAlerts = AlertSyncService.getInstance().consumeNewAlertsForDialog();
+      if (newAlerts.length > 0) {
+        this.showNewAlertDialog(newAlerts);
       }
-    } catch (e) {
-      console.error('Fetch alerts failed, using mock data.');
-      this.alerts = this.getMockAlerts();
-    }
-
-    // Sort locally in case backend mock doesn't handle params
-    this.sortAlertsLocally();
-    this.isLoading = false;
+      this.isLoading = false;
+    }, 500);
   }
 
-  getMockAlerts(): AlertData[] {
-    return [
-      {
-        alert_id: "AL_001",
-        type: "temp_high",
-        type_name: "高温异常",
-        level: "critical",
-        timestamp: 1710200000000,
-        message: "气温持续高于32°C(最高达35.3°C)，超出番茄适宜生长温度范围(25-28°C)，可能导致植株热胁迫、落花落果。",
-        is_handled: false,
-        handle_time: null
-      },
-      {
-        alert_id: "AL_002",
-        type: "pest_warning",
-        type_name: "病害预警",
-        level: "warning",
-        timestamp: 1710100000000,
-        message: "视觉检测连续识别到番茄早疫病(置信度0.9-0.98)，高湿环境可能加速病害扩散，需立即干预。",
-        is_handled: true,
-        handle_time: 1710105000000
-      },
-      {
-        alert_id: "AL_003",
-        type: "humidity_low",
-        type_name: "空气湿度过低",
-        level: "info",
-        timestamp: 1710000000000,
-        message: "气湿最低至41.7%，低于番茄生长适宜湿度(60-70%)，可能加剧蒸腾作用与水分胁迫。",
-        is_handled: false,
-        handle_time: null
-      },
-      {
-        alert_id: "AL_004",
-        type: "moisture_low",
-        type_name: "土壤湿度偏低",
-        level: "warning",
-        timestamp: 1709900000000,
-        message: "土湿仅18.5%-20.5%，低于番茄生长适宜阈值(约25-30%)，需关注灌溉系统是否正常。",
-        is_handled: false,
-        handle_time: null
-      },
-      {
-        alert_id: "AL_005",
-        type: "equipment_offline",
-        type_name: "设备未响应环境异常",
-        level: "critical",
-        timestamp: 1709800000000,
-        message: "系统处于自动模式，但高温、低湿条件下风扇与水泵均未启动，可能存在控制逻辑或执行器故障。",
-        is_handled: false,
-        handle_time: null
+  private showNewAlertDialog(newAlerts: AlertData[]) {
+    const latest = newAlerts.sort((a, b) => b.timestamp - a.timestamp)[0];
+    promptAction.showDialog({
+      title: '新告警提示',
+      message: `检测到 ${newAlerts.length} 条新告警（最新：${latest.type_name}），是否立即查看？`,
+      buttons: [
+        { text: '稍后处理', color: '#90A4AE' },
+        { text: '立即查看', color: '#D84315' }
+      ]
+    }).then((res) => {
+      if (res.index === 1) {
+        this.sortBy = 'timestamp';
+        this.order = 'desc';
+        this.sortAlertsLocally();
+        this.highlightedAlertId = latest.alert_id;
       }
-    ];
+    });
   }
 
   sortAlertsLocally() {
@@ -109,20 +58,14 @@ export struct AlertView {
     });
   }
 
-  async markAsHandled(alertId: string) {
-    let success = await HttpService.getInstance().handleAlert(alertId, 'mark_handled', '已处理');
-    if (success) {
-      promptAction.showToast({ message: '标记成功' });
-    } else {
-      promptAction.showToast({ message: '(模拟) 标记成功' });
-    }
-    // Update local state
+  markAsHandled(alertId: string) {
+    promptAction.showToast({ message: '模拟：标记成功' });
     let target = this.alerts.find(a => a.alert_id === alertId);
     if (target) {
       target.is_handled = true;
       target.handle_time = new Date().getTime();
+      AlertSyncService.getInstance().markHandled(alertId);
     }
-    // Reassign array to trigger UI update
     this.alerts = [...this.alerts];
   }
 
@@ -138,16 +81,23 @@ export struct AlertView {
   getLevelColor(level: string): string {
     if (level === 'critical') {
       return '#F44336';
-    } // Red
+    } 
     if (level === 'warning') {
       return '#FF9800';
-    } // Orange
-    return '#2196F3'; // Blue info
+    } 
+    return '#2196F3'; 
   }
 
   build() {
     Column() {
-      // Top Control Bar
+      Text('告警消息')
+        .fontSize(28)
+        .fontWeight(FontWeight.Bolder)
+        .fontColor('#2C3E50')
+        .margin({ top: 30, bottom: 20 })
+        .width('100%')
+        .textAlign(TextAlign.Center)
+
       Row() {
         Text('排序:')
           .fontSize(14).fontColor('#666')
@@ -182,13 +132,13 @@ export struct AlertView {
       }
       .width('100%')
       .padding(15)
-      .backgroundColor('#FFF')
+      .backgroundColor('#FFFFFF')
+      .shadow({ radius: 5, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
 
-      // List of Alerts
       if (this.isLoading) {
         Column() {
           Text('加载中...').fontSize(16).fontColor('#999')
-        }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+        }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
       } else {
         List({ space: 10 }) {
           ForEach(this.alerts, (alert: AlertData) => {
@@ -200,6 +150,13 @@ export struct AlertView {
                     .fontSize(16)
                     .fontWeight(FontWeight.Bold)
                     .fontColor('#333')
+                  Text(alert.source_name)
+                    .fontSize(11)
+                    .fontColor('#546E7A')
+                    .backgroundColor('#ECEFF1')
+                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                    .borderRadius(8)
+                    .margin({ left: 8 })
                   Blank()
                   Text(this.formatDate(alert.timestamp))
                     .fontSize(12)
@@ -243,9 +200,13 @@ export struct AlertView {
                 }.width('100%').alignItems(VerticalAlign.Center)
               }
               .padding(15)
-              .backgroundColor('#FFF')
+              .backgroundColor(alert.alert_id === this.highlightedAlertId ? '#FFF8E1' : '#FFF')
               .borderRadius(8)
-              .shadow({ radius: 4, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
+              .shadow({
+                radius: alert.alert_id === this.highlightedAlertId ? 8 : 4,
+                color: alert.alert_id === this.highlightedAlertId ? 'rgba(255,193,7,0.35)' : 'rgba(0,0,0,0.05)',
+                offsetY: 2
+              })
               .width('100%')
             }
           })
@@ -253,7 +214,7 @@ export struct AlertView {
         .padding({
           left: 15,
           right: 15,
-          top: 5,
+          top: 15,
           bottom: 15
         })
         .layoutWeight(1)

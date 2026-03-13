@@ -19,7 +19,7 @@ export struct DashboardView {
         GridItem() {
           DataCardComp({
             type: 'temperature',
-            title: '温度',
+            title: '空气温度',
             value: `${this.sensorData.temperature.toFixed(1)}`,
             unit: '°C',
             badgeColor: '#FF7043',
@@ -31,7 +31,7 @@ export struct DashboardView {
         GridItem() {
           DataCardComp({
             type: 'humidity',
-            title: '湿度',
+            title: '空气湿度',
             value: `${this.sensorData.humidity.toFixed(1)}`,
             unit: '%',
             badgeColor: '#42A5F5',
@@ -63,17 +63,52 @@ export struct DashboardView {
             currentValue: this.sensorData.co2
           })
         }
+
+        GridItem() {
+          DataCardComp({
+            type: 'soil_temperature',
+            title: '土壤温度',
+            value: `${this.sensorData.soilTemp.toFixed(1)}`,
+            unit: '°C',
+            badgeColor: '#8D6E63',
+            bgColor: '#EFEBE9',
+            currentValue: this.sensorData.soilTemp
+          })
+        }
+
+        GridItem() {
+          DataCardComp({
+            type: 'soil_humidity',
+            title: '土壤湿度',
+            value: `${this.sensorData.soilHumidity.toFixed(1)}`,
+            unit: '%',
+            badgeColor: '#5C6BC0',
+            bgColor: '#E8EAF6',
+            currentValue: this.sensorData.soilHumidity
+          })
+        }
+
+        GridItem() {
+          DataCardComp({
+            type: 'soil_ph',
+            title: '土壤pH值',
+            value: `${this.sensorData.soilPh.toFixed(2)}`,
+            unit: '',
+            badgeColor: '#66BB6A',
+            bgColor: '#E8F5E9',
+            currentValue: this.sensorData.soilPh
+          })
+        }
       }
       .columnsTemplate('1fr 1fr')
-      .rowsTemplate('1fr 1fr')
+      .rowsTemplate('1fr 1fr 1fr 1fr')
       .columnsGap(15)
       .rowsGap(15)
-      .layoutWeight(1)
+      .height(760)
       .width('90%')
       .margin({ top: 10, bottom: 30 })
     }
     .width('100%')
-    .height('100%')
     .backgroundColor('#F2F6F3')
   }
 }
@@ -89,19 +124,54 @@ struct DataCardComp {
   @Prop currentValue: number = 0;
   @State isTouched: boolean = false;
 
+  private getIcon(type: string): string {
+    if (type === 'temperature') {
+      return '🌤️';
+    }
+    if (type === 'humidity') {
+      return '💧';
+    }
+    if (type === 'light') {
+      return '🌞';
+    }
+    if (type === 'co2') {
+      return '🌿';
+    }
+    if (type === 'soil_temperature') {
+      return '🌡️';
+    }
+    if (type === 'soil_humidity') {
+      return '🪴';
+    }
+    if (type === 'soil_ph') {
+      return '🧪';
+    }
+    return '📊';
+  }
+
   build() {
     Column() {
       Row() {
-        Circle({ width: 14, height: 14 }).fill(this.badgeColor).margin({ right: 8 })
+        Text(this.getIcon(this.type))
+          .fontSize(20)
+          .margin({ right: 8 })
         Text(this.title).fontSize(16).fontWeight(FontWeight.Medium).fontColor('#546E7A')
       }
       .width('100%')
+      .height(28)
+      .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.Start)
       .margin({ bottom: 20 })
 
       Row() {
         Text(this.value).fontSize(36).fontWeight(FontWeight.Bolder).fontColor('#263238')
-        Text(this.unit).fontSize(16).fontWeight(FontWeight.Normal).fontColor('#78909C').margin({ left: 4, bottom: 6 })
+        if (this.unit.length > 0) {
+          Text(this.unit)
+            .fontSize(16)
+            .fontWeight(FontWeight.Normal)
+            .fontColor('#78909C')
+            .margin({ left: 4, bottom: 6 })
+        }
       }.alignItems(VerticalAlign.Bottom)
     }
     .width('100%')

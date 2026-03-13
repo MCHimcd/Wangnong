@@ -34,87 +34,29 @@ export struct ControlView {
           }
         })
 
-        // LED 补光控制
-        Column() {
-          Row() {
-            Text('植物补光 - LED灯')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.deviceState.ledOn ? '#FFFFFF' : '#2C3E50')
-            Blank()
-            Toggle({ type: ToggleType.Switch, isOn: this.deviceState.ledOn })
-              .selectedColor('#E6EE9C')
-              .switchPointColor('#4CAF50')
-              .onChange((isOn: boolean) => {
-                this.deviceState.ledOn = isOn;
-                MqttClientService.getInstance().publishCommand(
-                  this.deviceId,
-                  'led_light',
-                  isOn ? 'turn_on' : 'turn_off'
-                );
-              })
-          }
-          .width('100%')
-          .padding({
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: 10
-          })
-
-          Row() {
-            Text('亮度').fontSize(14).fontColor(this.deviceState.ledOn ? '#E8F5E9' : '#78909C')
-            Slider({ value: this.deviceState.ledBrightness, min: 0, max: 100 })
-              .selectedColor(this.deviceState.ledOn ? '#FFFFFF' : '#4CAF50')
-              .blockColor('#FFFFFF')
-              .onChange((value: number, mode: SliderChangeMode) => {
-                this.deviceState.ledBrightness = value;
-                if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
-                  let param: Record<string, number> = { "brightness": Math.round(value) };
-                  MqttClientService.getInstance().publishCommand(
-                    this.deviceId,
-                    'led_light',
-                    'set_brightness',
-                    param
-                  );
-                }
-              })
-              .layoutWeight(1)
-              .margin({ left: 10, right: 10 })
-            Text(`${this.deviceState.ledBrightness.toFixed(0)}%`)
-              .fontSize(14)
-              .fontColor(this.deviceState.ledOn ? '#E8F5E9' : '#78909C')
-              .width(40)
-          }.width('100%').padding({ left: 20, right: 20, bottom: 20 })
-        }
-        .width('90%')
-        .backgroundColor(this.deviceState.ledOn ? '#4CAF50' : Color.White)
-        .borderRadius(20)
-        .margin({ bottom: 15 })
-        .shadow({
-          radius: 15,
-          color: 'rgba(76, 175, 80, 0.1)',
-          offsetX: 0,
-          offsetY: 8
-        })
-        .animation({ duration: 300, curve: Curve.FastOutSlowIn })
-        .onClick(() => {
-          router.pushUrl({
-            url: 'pages/DeviceDetailPage',
-            params: { type: 'led_light', title: '植物补光 - LED灯', isOn: this.deviceState.ledOn }
-          });
-        })
-
-        // 扩展设备 - YOLO CNN 智能识别
         ControlCardComp({
-          type: 'ai_camera',
-          title: 'AI 摄像头 - YOLO识别',
-          isOn: this.deviceState.extensionOn,
+          type: 'led_light',
+          title: '植物补光 - LED灯',
+          isOn: this.deviceState.ledOn,
           onStateChange: (isOn: boolean) => {
-            this.deviceState.extensionOn = isOn;
+            this.deviceState.ledOn = isOn;
             MqttClientService.getInstance().publishCommand(
               this.deviceId,
-              'camera',
+              'led_light',
+              isOn ? 'turn_on' : 'turn_off'
+            );
+          }
+        })
+
+        ControlCardComp({
+          type: 'fan',
+          title: '通风系统 - 排风扇',
+          isOn: this.deviceState.fanOn,
+          onStateChange: (isOn: boolean) => {
+            this.deviceState.fanOn = isOn;
+            MqttClientService.getInstance().publishCommand(
+              this.deviceId,
+              'fan',
               isOn ? 'turn_on' : 'turn_off'
             );
           }
@@ -139,9 +81,37 @@ struct ControlCardComp {
   onStateChange: ((isOn: boolean) => void) | null = null;
   @State isTouched: boolean = false;
 
+  private getIcon(type: string): string {
+    if (type === 'water_pump') {
+      return '🚿';
+    }
+    if (type === 'led_light') {
+      return '💡';
+    }
+    if (type === 'fan') {
+      return '🌀';
+    }
+    return '⚙️';
+  }
+
   build() {
     Row() {
-      Text(this.title).fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.isOn ? '#FFFFFF' : '#2C3E50')
+      Row() {
+        Text(this.getIcon(this.type))
+          .fontSize(20)
+          .width(32)
+          .height(32)
+          .textAlign(TextAlign.Center)
+          .borderRadius(16)
+          .backgroundColor(this.isOn ? 'rgba(255,255,255,0.25)' : '#E8F5E9')
+          .margin({ right: 10 })
+        Text(this.title)
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.isOn ? '#FFFFFF' : '#2C3E50')
+      }
+      .alignItems(VerticalAlign.Center)
+
       Blank()
       Toggle({ type: ToggleType.Switch, isOn: this.isOn })
         .selectedColor('#E6EE9C')

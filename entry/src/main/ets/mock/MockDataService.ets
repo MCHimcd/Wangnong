@@ -12,6 +12,9 @@ export class MockDataService {
     this.sensorData.humidity = 60;
     this.sensorData.light = 5000;
     this.sensorData.co2 = 400;
+    this.sensorData.soilTemp = 21;
+    this.sensorData.soilHumidity = 52;
+    this.sensorData.soilPh = 6.6;
   }
 
   public static getInstance(): MockDataService {
@@ -29,6 +32,16 @@ export class MockDataService {
       this.sensorData.humidity += (Math.random() - 0.5) * 2;
       this.sensorData.light += (Math.random() - 0.5) * 100;
       this.sensorData.co2 += (Math.random() - 0.5) * 5;
+      this.sensorData.soilTemp += (Math.random() - 0.5) * 0.4;
+      this.sensorData.soilHumidity += (Math.random() - 0.5) * 1.8;
+      this.sensorData.soilPh += (Math.random() - 0.5) * 0.06;
+
+      if (this.sensorData.soilPh < 5.0) {
+        this.sensorData.soilPh = 5.0;
+      }
+      if (this.sensorData.soilPh > 7.8) {
+        this.sensorData.soilPh = 7.8;
+      }
 
       callback(this.sensorData);
     }, 2000);

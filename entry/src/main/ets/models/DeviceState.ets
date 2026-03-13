@@ -4,5 +4,6 @@ export class DeviceState {
   waterPumpOn: boolean = false; // 水泵状态
   ledOn: boolean = false; // LED状态
   ledBrightness: number = 0; // LED亮度 (0-100)
+  fanOn: boolean = false; // 排风扇状态
   extensionOn: boolean = false; // 扩展设备
 }
