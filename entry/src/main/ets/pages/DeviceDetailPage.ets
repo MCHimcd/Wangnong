@@ -64,6 +64,9 @@ struct DeviceDetailPage {
       } else if (this.type === 'ai_camera') {
         this.yAxisLabel = '识别病虫(次)';
         val = Math.floor(Math.random() * 6);
+      } else if (this.type === 'fan') {
+        this.yAxisLabel = '排风时长(H)';
+        val = Math.floor(Math.random() * 8) + 1;
       }
 
       newData.push({ timeLabel: label, value: val });
@@ -126,7 +129,9 @@ struct DeviceDetailPage {
       } else if (this.type === 'led_light') {
         grd.addColorStop(0, '#FFF176');
         grd.addColorStop(1, '#FFF9C4');
-      } else {
+      } else if (this.type === 'fan') {
+        grd.addColorStop(0, '#81D4FA');
+        grd.addColorStop(1, '#B3E5FC');
         grd.addColorStop(0, '#4CAF50');
         grd.addColorStop(1, '#A5D6A7');
       }

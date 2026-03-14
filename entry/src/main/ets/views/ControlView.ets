@@ -1,92 +1,80 @@
-import { DeviceState } from '../models/DeviceState';
+﻿import { DeviceState } from '../models/DeviceState';
 import router from '@ohos.router';
-
-interface DeviceControlItem {
-  type: string;
-  title: string;
-  icon: string;
-  isOn: boolean;
-  onToggle: (isOn: boolean) => void;
-}
 
 @Component
 export struct ControlView {
   @Prop deviceId: string = '';
   @ObjectLink deviceState: DeviceState;
-
-  private getDeviceItems(): DeviceControlItem[] {
-    return [
-      {
-        type: 'water_pump',
-        title: '水泵',
-        icon: '💧',
-        isOn: this.deviceState.waterPumpOn,
-        onToggle: (isOn: boolean) => {
-          this.deviceState.waterPumpOn = isOn;
-        }
-      },
-      {
-        type: 'led_light',
-        title: '补光灯',
-        icon: '💡',
-        isOn: this.deviceState.ledOn,
-        onToggle: (isOn: boolean) => {
-          this.deviceState.ledOn = isOn;
-        }
-      },
-      {
-        type: 'fan',
-        title: '排风扇',
-        icon: '🌀',
-        isOn: this.deviceState.fanOn,
-        onToggle: (isOn: boolean) => {
-          this.deviceState.fanOn = isOn;
-        }
-      }
-    ];
-  }
+  @State isSmartMode: boolean = false;
 
   build() {
     Scroll() {
       Column() {
+        Text('设备实时状态')
+          .fontSize(28)
+          .fontWeight(FontWeight.Bolder)
+          .fontColor('#2C3E50')
+          .margin({ top: 30, bottom: 10 })
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          
         Row() {
-          Row() {
-            Text('⚙️')
-              .fontSize(20)
-              .margin({ right: 6 })
-            Text('设备实时状态')
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#1F2D24')
-          }
-
-          Blank()
-
-          Text('LIVE')
-            .fontSize(12)
-            .fontColor('#FFFFFF')
-            .fontWeight(FontWeight.Bold)
-            .padding({ left: 12, right: 12, top: 4, bottom: 4 })
-            .backgroundColor('#2E7D32')
-            .borderRadius(12)
+          Text('智能控制模式')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#34495E')
+          
+          Toggle({ type: ToggleType.Switch, isOn: this.isSmartMode })
+            .selectedColor('#4CAF50')
+            .onChange((isOn: boolean) => {
+              this.isSmartMode = isOn;
+            })
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-        .margin({ top: 24, bottom: 16 })
-        .padding({ left: 20, right: 20 })
+        .width('90%')
+        .justifyContent(FlexAlign.SpaceBetween)
+        .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+        .margin({ bottom: 20 })
+        .backgroundColor('#FFFFFF')
+        .borderRadius(12)
+        .shadow({ radius: 4, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
 
         Grid() {
-          ForEach(this.getDeviceItems(), (item: DeviceControlItem) => {
-            GridItem() {
-              ControlCardComp({
-                type: item.type,
-                title: item.title,
-                icon: item.icon,
-                isOn: item.isOn,
-                onStateChange: item.onToggle
-              })
-            }
-          }, (item: DeviceControlItem) => item.type)
+          GridItem() {
+            ControlCardComp({
+              type: 'water_pump',
+              title: '水泵',
+              icon: '💧',
+              isOn: this.deviceState.waterPumpOn,
+              isSmartMode: this.isSmartMode,
+              onStateChange: (isOn: boolean) => {
+                this.deviceState.waterPumpOn = isOn;
+              }
+            })
+          }
+          GridItem() {
+            ControlCardComp({
+              type: 'led_light',
+              title: '补光灯',
+              icon: '💡',
+              isOn: this.deviceState.ledOn,
+              isSmartMode: this.isSmartMode,
+              onStateChange: (isOn: boolean) => {
+                this.deviceState.ledOn = isOn;
+              }
+            })
+          }
+          GridItem() {
+            ControlCardComp({
+              type: 'fan',
+              title: '排风扇',
+              icon: '🌀',
+              isOn: this.deviceState.fanOn,
+              isSmartMode: this.isSmartMode,
+              onStateChange: (isOn: boolean) => {
+                this.deviceState.fanOn = isOn;
+              }
+            })
+          }
         }
         .columnsTemplate('1fr 1fr')
         .columnsGap(14)
@@ -111,7 +99,8 @@ struct ControlCardComp {
   @Prop title: string = '';
   @Prop icon: string = '⚙️';
   @Prop isOn: boolean = false;
-  @Prop onStateChange: (isOn: boolean) => void = () => {};
+  @Prop isSmartMode: boolean = false;
+  onStateChange: (isOn: boolean) => void = () => {};
   @State isTouched: boolean = false;
 
   build() {
@@ -135,33 +124,30 @@ struct ControlCardComp {
       Button({ type: ButtonType.Capsule }) {
         Row() {
           Circle({ width: 8, height: 8 })
-            .fill(this.isOn ? '#2E7D32' : '#B0B7B0')
+            .fill(this.isSmartMode ? (this.isOn ? '#1976D2' : '#90A4AE') : (this.isOn ? '#2E7D32' : '#B0B7B0'))
             .margin({ right: 6 })
 
-          Text(this.isOn ? '运行中' : '已停止')
-            .fontSize(16)
+          Text(this.isSmartMode ? (this.isOn ? '自动(运行)' : '自动(停止)') : (this.isOn ? '运行中' : '已停止'))
+            .fontSize(14)
             .fontWeight(FontWeight.Medium)
-            .fontColor(this.isOn ? '#2E7D32' : '#7B847D')
+            .fontColor(this.isSmartMode ? (this.isOn ? '#1976D2' : '#78909C') : (this.isOn ? '#2E7D32' : '#7B847D'))
         }
       }
-      .width('74%')
+      .width('82%')
       .height(36)
-      .backgroundColor(this.isOn ? '#E5F3E7' : '#F4F5F4')
+      .backgroundColor(this.isSmartMode ? (this.isOn ? '#E3F2FD' : '#ECEFF1') : (this.isOn ? '#E5F3E7' : '#F4F5F4'))
       .border({
         width: 1,
-        color: this.isOn ? '#92C69A' : '#D9DFDA'
+        color: this.isSmartMode ? (this.isOn ? '#90CAF9' : '#CFD8DC') : (this.isOn ? '#92C69A' : '#D9DFDA')
       })
-      .stateEffect(false)
+      .stateEffect(!this.isSmartMode)
       .onClick(() => {
-        this.onStateChange(!this.isOn);
+        if (!this.isSmartMode) {
+          this.onStateChange(!this.isOn);
+        }
       })
 
       Blank()
-
-      Text(this.type === 'water_pump' ? '灌溉设备' : this.type === 'led_light' ? '光照设备' : '通风设备')
-        .fontSize(12)
-        .fontColor('#98A29A')
-        .margin({ bottom: 8 })
     }
     .width('100%')
     .height(176)
@@ -174,15 +160,17 @@ struct ControlCardComp {
     .padding({ left: 12, right: 12, top: 8, bottom: 8 })
     .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)
+    .opacity(this.isSmartMode ? 0.6 : 1.0)
     .shadow({
       radius: this.isTouched ? 6 : 10,
       color: this.isOn ? 'rgba(58, 131, 66, 0.14)' : 'rgba(0, 0, 0, 0.06)',
       offsetX: 0,
       offsetY: this.isTouched ? 2 : 5
     })
-    .scale({ x: this.isTouched ? 0.98 : 1, y: this.isTouched ? 0.98 : 1 })
+    .scale({ x: this.isTouched && !this.isSmartMode ? 0.98 : 1, y: this.isTouched && !this.isSmartMode ? 0.98 : 1 })
     .animation({ duration: 180, curve: Curve.EaseOut })
     .onTouch((event: TouchEvent) => {
+      if (this.isSmartMode) return;
       if (event.type === TouchType.Down) {
         this.isTouched = true;
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {

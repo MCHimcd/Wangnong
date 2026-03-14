@@ -1,5 +1,20 @@
-import router from '@ohos.router';
-import { HttpService } from '../services/HttpService';
+﻿import router from '@ohos.router';
+import {
+  LineChart,
+  LineChartModel,
+  LineData,
+  LineDataSet,
+  ILineDataSet,
+  EntryOhos,
+  JArrayList,
+  Mode,
+  XAxisPosition,
+  YAxisLabelPosition,
+  OnChartValueSelectedListener,
+  Highlight,
+  IAxisValueFormatter,
+  AxisBase
+} from '@ohos/mpchart';
 
 export interface HistoricalDatapoint {
   time: string;
@@ -8,11 +23,31 @@ export interface HistoricalDatapoint {
   minVal?: number;
 }
 
-export interface PointCoord {
-  x: number;
-  y: number;
-  yMax?: number;
-  yMin?: number;
+class ValueSelectedListener implements OnChartValueSelectedListener {
+  private cb: (e: EntryOhos | null, h: Highlight | null) => void;
+  constructor(cb: (e: EntryOhos | null, h: Highlight | null) => void) {
+    this.cb = cb;
+  }
+  onValueSelected(e: EntryOhos, h: Highlight): void {
+    this.cb(e, h);
+  }
+  onNothingSelected(): void {
+    this.cb(null, null);
+  }
+}
+
+class XAxisFormatter implements IAxisValueFormatter {
+  private labels: string[];
+  constructor(labels: string[]) {
+    this.labels = labels;
+  }
+  getFormattedValue(value: number, axis: AxisBase): string {
+    let index = Math.floor(value);
+    if (index >= 0 && index < this.labels.length) {
+      return this.labels[index];
+    }
+    return "";
+  }
 }
 
 @Entry
@@ -23,17 +58,32 @@ struct SensorDetailPage {
   @State currentValue: number = 0;
   @State badgeColor: string = '#4CAF50';
   @State timeRange: string = '24h'; // '24h', '7d', '30d'
-  @State dataPoints: HistoricalDatapoint[] = [];
   @State maxValue: number = 0;
   @State minValue: number = 0;
   @State avgValue: number = 0;
-  @State selectedIdx: number = -1;
-  @State showAvg: boolean = true;
-  @State showMax: boolean = true;
-  @State showMin: boolean = true;
-  private pointsCoords: PointCoord[] = [];
-  private settings: RenderingContextSettings = new RenderingContextSettings(true);
-  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+  
+  @State realTimeModel: LineChartModel = new LineChartModel();
+  @State historyModel: LineChartModel = new LineChartModel();
+
+  @State selectedTooltipText: string = '';
+  @State isTooltipVisible: boolean = false;
+  @State tooltipX: number = 0;
+  @State tooltipY: number = 0;
+
+  @State showAvgLine: boolean = true;
+  @State showMaxLine: boolean = true;
+  @State showMinLine: boolean = true;
+
+  private realTimer: number = -1;
+  private realTimePoints: number = 0;
+  private realTimeEntries: JArrayList<EntryOhos> = new JArrayList<EntryOhos>();
+  private realTimeLabels: string[] = [];
+
+  private historyEntriesAvg: JArrayList<EntryOhos> = new JArrayList<EntryOhos>();
+  private historyEntriesMax: JArrayList<EntryOhos> = new JArrayList<EntryOhos>();
+  private historyEntriesMin: JArrayList<EntryOhos> = new JArrayList<EntryOhos>();
+  private historyLabels: string[] = [];
+  private historyFullTimeLabels: string[] = [];
 
   aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
@@ -43,352 +93,356 @@ struct SensorDetailPage {
       this.currentValue = params['currentValue'] as number;
       this.badgeColor = params['badgeColor'] as string;
     }
-    this.loadData();
+    
+    this.initChartModel(this.realTimeModel);
+    this.initChartModel(this.historyModel);
+
+    this.realTimeModel.setOnChartValueSelectedListener(new ValueSelectedListener((e: EntryOhos | null, h: Highlight | null) => {
+      if (e && h) {
+        let unit = this.getUnit();
+        let unitStr = unit ? `(${unit})` : '';
+        let startX = this.realTimePoints - this.realTimeLabels.length;
+        let idx = Math.floor(e.getX()) - startX;
+        let timeStr = idx >= 0 && idx < this.realTimeLabels.length ? this.realTimeLabels[idx] : this.getTimeString(new Date());
+        this.selectedTooltipText = `${timeStr}\n${this.title}${unitStr}: ${e.getY().toFixed(2)}`;
+        this.updateTooltipPosition(h, 160);
+        this.isTooltipVisible = true;
+      } else {
+        this.isTooltipVisible = false;
+      }
+    }));
+
+    this.historyModel.setOnChartValueSelectedListener(new ValueSelectedListener((e: EntryOhos | null, h: Highlight | null) => {
+      if (e && h) {
+        let unit = this.getUnit();
+        let unitStr = unit ? `(${unit})` : '';
+        let index = Math.floor(e.getX());
+        let timeStr = index < this.historyFullTimeLabels.length ? this.historyFullTimeLabels[index] : "";
+        this.selectedTooltipText = `${timeStr}\n${this.title}${unitStr}: ${e.getY().toFixed(2)}`;
+        this.updateTooltipPosition(h, 180);
+        this.isTooltipVisible = true;
+      } else {
+        this.isTooltipVisible = false;
+      }
+    }));
+
+    this.startRealTimeMock();
+    this.loadMockHistoryData();
   }
 
-  async loadData() {
-    let res = await HttpService.getInstance().getSensorHistory(this.type, this.timeRange);
-    if (res && res['code'] === 200 && res['data']) {
-      let dataObj = res['data'] as Record<string, Object>;
-      let summaryObj = dataObj['summary'] as Record<string, number>;
-      let pointsArr = dataObj['points'] as HistoricalDatapoint[];
-      this.avgValue = summaryObj['avg_value'] || 0;
-      this.maxValue = summaryObj['max_value'] || 0;
-      this.minValue = summaryObj['min_value'] || 0;
-      this.dataPoints = pointsArr || [];
-      this.drawChart();
-    } else {
-      this.loadMockData(); // HTTP Error fallback to pure mock
+  aboutToDisappear() {
+    if (this.realTimer !== -1) {
+      clearInterval(this.realTimer);
     }
   }
 
-  loadMockData() {
+  getUnit(): string {
+    let t = (this.type + this.title).toLowerCase();
+    if (t.includes('temp') || t.includes('温度')) return '℃';
+    if (t.includes('humidity') || t.includes('湿度')) return '%';
+    if (t.includes('ph')) return 'pH';
+    if (t.includes('light') || t.includes('照度') || t.includes('光照')) return 'Lux';
+    if (t.includes('co2') || t.includes('二氧化碳')) return 'ppm';
+    if (t.includes('speed') || t.includes('风速') || t.includes('fan')) return 'm/s';
+    if (t.includes('ec') || t.includes('电导率')) return 'µS/cm';
+    if (t.includes('n') || t.includes('氮') || t.includes('p') || t.includes('磷') || t.includes('k') || t.includes('钾')) return 'mg/kg';
+    return '';
+  }
+
+  getFullTimeString(date: Date): string {
+    let y = date.getFullYear();
+    let m = (date.getMonth() + 1).toString().padStart(2, '0');
+    let d = date.getDate().toString().padStart(2, '0');
+    let hh = date.getHours().toString().padStart(2, '0');
+    let mm = date.getMinutes().toString().padStart(2, '0');
+    let ss = date.getSeconds().toString().padStart(2, '0');
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+  }
+
+  updateTooltipPosition(h: Highlight, widthVp: number): void {
+    let xVp = h.getXPx();
+    let yVp = h.getYPx();
+
+    let left = xVp + 10;
+    if (left + widthVp > 300) {
+      left = xVp - widthVp - 10;
+    }
+    if (left < 8) {
+      left = 8;
+    }
+
+    let top = yVp - 60;
+    if (top < 8) {
+      top = yVp + 12;
+    }
+
+    this.tooltipX = left;
+    this.tooltipY = top;
+  }
+
+  toggleHistoryLine(lineKey: string): void {
+    if (lineKey === 'avg') {
+      this.showAvgLine = !this.showAvgLine;
+    } else if (lineKey === 'max') {
+      this.showMaxLine = !this.showMaxLine;
+    } else if (lineKey === 'min') {
+      this.showMinLine = !this.showMinLine;
+    }
+    this.updateHistoryDataset();
+  }
+
+  initChartModel(model: LineChartModel) {
+    model.setDrawGridBackground(false);
+    model.getDescription()?.setEnabled(false);
+    model.getLegend()?.setEnabled(false);
+    model.setTouchEnabled(true);
+    model.setDragEnabled(true);
+    model.setScaleEnabled(false);
+    model.setPinchZoom(false);
+    model.setExtraOffsets(20, 20, 20, 20); // Extra padding for tooltip and labels
+
+    let xAxis = model.getXAxis();
+    if (xAxis) {
+      xAxis.setPosition(XAxisPosition.BOTTOM);
+      xAxis.setDrawGridLines(true);
+      xAxis.setGridColor(0xFFECEFF1);
+      xAxis.setAxisLineColor(0xFFECEFF1);
+      xAxis.setTextColor(0xFF90A4AE);
+      xAxis.setAxisMinimum(0);
+      xAxis.setLabelCount(5, true);
+    }
+
+    let leftAxis = model.getAxisLeft();
+    if (leftAxis) {
+      leftAxis.setPosition(YAxisLabelPosition.OUTSIDE_CHART);
+      leftAxis.setDrawGridLines(true);
+      leftAxis.setGridColor(0xFFECEFF1);
+      leftAxis.setAxisLineColor(0xFFECEFF1);
+      leftAxis.setTextColor(0xFF90A4AE);
+    }
+
+    let rightAxis = model.getAxisRight();
+    if (rightAxis) {
+      rightAxis.setEnabled(false);
+    }
+  }
+
+  getTimeString(date: Date): string {
+    let h = date.getHours().toString().padStart(2, '0');
+    let m = date.getMinutes().toString().padStart(2, '0');
+    let s = date.getSeconds().toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
+
+  startRealTimeMock() {
+    for (let i = 0; i < 60; i++) {
+       let val = this.currentValue + (Math.random() * 4 - 2);
+       this.realTimeEntries.add(new EntryOhos(this.realTimePoints, val));
+       let d = new Date();
+       d.setSeconds(d.getSeconds() - (60 - i) * 2);
+       this.realTimeLabels.push(this.getTimeString(d));
+       this.realTimePoints++;
+    }
+    this.updateRealTimeDataset();
+
+    this.realTimer = setInterval(() => {
+       // Update @State to make UI text refresh
+       this.currentValue = this.currentValue + (Math.random() * 4 - 2);
+       
+       this.realTimeEntries.add(new EntryOhos(this.realTimePoints, this.currentValue));
+       this.realTimeLabels.push(this.getTimeString(new Date()));
+       this.realTimePoints++;
+
+       if (this.realTimeEntries.size() > 60) {
+         this.realTimeEntries.removeIndex(0);
+         this.realTimeLabels.shift();
+       }
+       
+       let xAxis = this.realTimeModel.getXAxis();
+       if (xAxis) {
+         xAxis.setAxisMinimum(this.realTimePoints - 60);
+         xAxis.setAxisMaximum(this.realTimePoints);
+       }
+
+       this.updateRealTimeDataset();
+       this.realTimeModel.notifyDataSetChanged();
+       this.realTimeModel.invalidate();
+    }, 2000);
+  }
+
+  updateRealTimeDataset() {
+    let dataSet = new LineDataSet(this.realTimeEntries, "实时数据");
+    dataSet.setMode(Mode.CUBIC_BEZIER);
+    dataSet.setDrawCircles(true);
+    dataSet.setCircleColor(this.getSolidColorInt());
+    dataSet.setCircleRadius(3);
+    dataSet.setDrawValues(false);
+    dataSet.setColorByColor(this.getSolidColorInt());
+    dataSet.setLineWidth(3);
+    dataSet.setDrawFilled(true);
+    dataSet.setFillColor(this.getSolidColorInt());
+    dataSet.setFillAlpha(80);
+
+    let dataItems = new JArrayList<ILineDataSet>();
+    dataItems.add(dataSet);
+    
+    let lineData = new LineData(dataItems);
+    this.realTimeModel.setData(lineData);
+
+    let xAxis = this.realTimeModel.getXAxis();
+    if (xAxis) {
+      xAxis.setValueFormatter(new XAxisFormatter(this.realTimeLabels));
+    }
+  }
+
+  getSolidColorInt(): number {
+    return 0xff4CAF50;
+  }
+
+  loadMockHistoryData() {
     let points = 0;
     let baseValue = this.currentValue;
-    let variance = 0;
+    let variance = 10;
 
-    if (this.type === 'temperature') {
-      variance = 5;
-    } else if (this.type === 'humidity') {
-      variance =
-        10;
-    } else if (this.type === 'soil_temperature') {
-      variance = 3;
-    } else if (this.type === 'soil_humidity') {
-      variance = 8;
-    } else if (this.type === 'soil_ph') {
-      variance = 0.12;
-    } else if (this.type === 'light') {
-      variance = 500;
-    } else if (this.type === 'co2') {
-      variance = 100;
-    } else {
-      variance =
-        10;
-    }
+    if (this.timeRange === '24h') points = 24;
+    else if (this.timeRange === '7d') points = 7;
+    else if (this.timeRange === '30d') points = 30;
 
-    if (this.timeRange === '24h') {
-      points = 24;
-    } else if (this.timeRange === '7d') {
-      points = 7;
-    } else if (this.timeRange ===
-      '30d') {
-      points = 30;
-    }
-
-    const newData: HistoricalDatapoint[] = [];
     let sum = 0;
-    let min = Number.MAX_VALUE;
-    let max = Number.MIN_VALUE;
+    let minT = Number.MAX_VALUE;
+    let maxT = Number.MIN_VALUE;
+
+    this.historyEntriesAvg.clear();
+    this.historyEntriesMax.clear();
+    this.historyEntriesMin.clear();
+    this.historyLabels = [];
+    this.historyFullTimeLabels = [];
 
     let targetBase = baseValue;
     for (let i = 0; i < points; i++) {
-      // make it a bit smooth looking in random
-      targetBase = targetBase + (Math.random() * variance * 0.8 - variance * 0.4);
-      if (targetBase < 0) {
-        targetBase = 0;
-      }
-      if (this.type === 'soil_ph') {
-        if (targetBase < 4.5) {
-          targetBase = 4.5;
-        }
-        if (targetBase > 8.5) {
-          targetBase = 8.5;
-        }
-      }
+       targetBase = targetBase + (Math.random() * variance * 0.8 - variance * 0.4);
+       if (targetBase < 0) targetBase = 0;
+       
+       let pMax = targetBase + (Math.random() * 5);
+       let pMin = targetBase - (Math.random() * 5);
+       if (pMin < 0) pMin = 0;
 
-      let timeStr = '';
-      let d = new Date();
-      if (this.timeRange === '24h') {
-        d.setHours(d.getHours() - (points - 1 - i));
-        timeStr = `${d.getHours()}:00`;
-        newData.push({ time: timeStr, value: targetBase });
+       sum += targetBase;
+       if (pMin < minT) minT = pMin;
+       if (pMax > maxT) maxT = pMax;
 
-        sum += targetBase;
-        if (targetBase < min) {
-          min = targetBase;
-        }
-        if (targetBase > max) {
-          max = targetBase;
-        }
-      } else {
-        d.setDate(d.getDate() - (points - 1 - i));
-        timeStr = `${d.getMonth() + 1}-${d.getDate()}`;
-
-        let dMax = targetBase + Math.random() * variance * 0.5;
-        let dMin = Math.max(0, targetBase - Math.random() * variance * 0.5);
-        newData.push({
-          time: timeStr,
-          value: targetBase,
-          maxVal: dMax,
-          minVal: dMin
-        });
-
-        sum += targetBase;
-        if (dMin < min) {
-          min = dMin;
-        }
-        if (dMax > max) {
-          max = dMax;
-        }
-      }
+       this.historyEntriesAvg.add(new EntryOhos(i, targetBase));
+       this.historyEntriesMax.add(new EntryOhos(i, pMax));
+       this.historyEntriesMin.add(new EntryOhos(i, pMin));
+       
+       let d = new Date();
+       if (this.timeRange === '24h') {
+         d.setHours(d.getHours() - (points - 1 - i));
+         this.historyLabels.push(`${d.getHours()}:00`);
+       } else {
+         d.setDate(d.getDate() - (points - 1 - i));
+         this.historyLabels.push(`${d.getMonth() + 1}-${d.getDate()}`);
+       }
+       this.historyFullTimeLabels.push(this.getFullTimeString(d));
     }
 
-    this.dataPoints = newData;
-    this.maxValue = max;
-    this.minValue = min;
+    this.maxValue = maxT;
+    this.minValue = minT;
     this.avgValue = sum / points;
 
-    this.drawChart();
+    this.updateHistoryDataset();
   }
 
-  drawChart() {
-    if (!this.context || this.dataPoints.length === 0) {
-      return;
+  updateHistoryDataset() {
+    let dataItems = new JArrayList<ILineDataSet>();
+
+    if (this.showMaxLine) {
+      let dsMax = new LineDataSet(this.historyEntriesMax, "最高");
+      dsMax.setMode(Mode.CUBIC_BEZIER);
+      dsMax.setDrawCircles(true);
+      dsMax.setCircleColor(0xffFF5252);
+      dsMax.setCircleRadius(3);
+      dsMax.setDrawValues(false);
+      dsMax.setColorByColor(0xffFF5252); // Red
+      dsMax.setLineWidth(2);
+      dsMax.setDrawFilled(true);
+      dsMax.setFillColor(0xffFF5252);
+      dsMax.setFillAlpha(30);
+      dataItems.add(dsMax);
     }
 
-    const width = this.context.width;
-    const height = this.context.height;
-    this.context.clearRect(0, 0, width, height);
-
-    const paddingLeft = 50;
-    const paddingRight = 30;
-    const paddingTop = 40;
-    const paddingBottom = 50;
-    const graphWidth = width - paddingLeft - paddingRight;
-    const graphHeight = height - paddingTop - paddingBottom;
-
-    // Draw grid lines instead of solid axes
-    this.context.strokeStyle = '#E0E0E0';
-    this.context.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) {
-      let yLine = paddingTop + (graphHeight / 4) * i;
-      this.context.beginPath();
-      this.context.moveTo(paddingLeft, yLine);
-      this.context.lineTo(width - paddingRight, yLine);
-      this.context.stroke();
+    if (this.showAvgLine) {
+      let dsAvg = new LineDataSet(this.historyEntriesAvg, "平均");
+      dsAvg.setMode(Mode.CUBIC_BEZIER);
+      dsAvg.setDrawCircles(true);
+      dsAvg.setCircleColor(0xff4CAF50);
+      dsAvg.setCircleRadius(4);
+      dsAvg.setDrawValues(false);
+      dsAvg.setColorByColor(0xff4CAF50);
+      dsAvg.setLineWidth(3);
+      dsAvg.setDrawFilled(true);
+      dsAvg.setFillColor(0xff4CAF50);
+      dsAvg.setFillAlpha(50);
+      dataItems.add(dsAvg);
     }
 
-    const yMax = this.maxValue * 1.1;
-    const yMin = Math.max(0, this.minValue * 0.9);
-    const yRange = yMax - yMin === 0 ? 1 : (yMax - yMin);
-
-    this.pointsCoords = [];
-
-    for (let i = 0; i < this.dataPoints.length; i++) {
-      const point = this.dataPoints[i];
-      const x = paddingLeft + (i / (this.dataPoints.length - 1)) * graphWidth;
-      const y = height - paddingBottom - ((point.value - yMin) / yRange) * graphHeight;
-      let coord: PointCoord = { x: x, y: y };
-
-      if (point.maxVal !== undefined) {
-        coord.yMax = height - paddingBottom - ((point.maxVal - yMin) / yRange) * graphHeight;
-      }
-      if (point.minVal !== undefined) {
-        coord.yMin = height - paddingBottom - ((point.minVal - yMin) / yRange) * graphHeight;
-      }
-
-      this.pointsCoords.push(coord);
+    if (this.showMinLine) {
+      let dsMin = new LineDataSet(this.historyEntriesMin, "最低");
+      dsMin.setMode(Mode.CUBIC_BEZIER);
+      dsMin.setDrawCircles(true);
+      dsMin.setCircleColor(0xff2196F3);
+      dsMin.setCircleRadius(3);
+      dsMin.setDrawValues(false);
+      dsMin.setColorByColor(0xff2196F3); // Blue
+      dsMin.setLineWidth(2);
+      dsMin.setDrawFilled(true);
+      dsMin.setFillColor(0xff2196F3);
+      dsMin.setFillAlpha(70);
+      dataItems.add(dsMin);
     }
 
-    if (this.pointsCoords.length === 0) {
-      return;
+    let lineData = new LineData(dataItems);
+    this.historyModel.setData(lineData);
+    
+    let xAxis = this.historyModel.getXAxis();
+    if (xAxis) {
+      xAxis.setAxisMaximum(this.historyLabels.length - 1);
+      xAxis.setAxisMinimum(0);
+      xAxis.setValueFormatter(new XAxisFormatter(this.historyLabels));
     }
 
-    const getVal =
-      (pt: PointCoord, prop: 'y' | 'yMax' | 'yMin') => prop === 'y' ? pt.y : (prop === 'yMax' ? pt.yMax : pt.yMin);
+    this.historyModel.notifyDataSetChanged();
+    this.historyModel.invalidate();
+  }
 
-    // Draw lines & points
-    const drawLine = (prop: 'y' | 'yMax' | 'yMin', color: string) => {
-      this.context.beginPath();
-      let startVal = prop === 'y' ? this.pointsCoords[0].y :
-        (prop === 'yMax' ? this.pointsCoords[0].yMax : this.pointsCoords[0].yMin);
-      this.context.moveTo(this.pointsCoords[0].x, startVal as number);
-      for (let i = 1; i < this.pointsCoords.length; i++) {
-        let val = prop === 'y' ? this.pointsCoords[i].y :
-          (prop === 'yMax' ? this.pointsCoords[i].yMax : this.pointsCoords[i].yMin);
-        this.context.lineTo(this.pointsCoords[i].x, val as number);
+  @Builder CustomTooltip() {
+    if (this.isTooltipVisible) {
+      Row() {
+        Text(this.selectedTooltipText)
+          .fontSize(12)
+          .fontColor(Color.White)
+          .padding(8)
+          .backgroundColor('rgba(0,0,0,0.8)')
+          .borderRadius(8)
       }
-      this.context.strokeStyle = color;
-      this.context.lineWidth = 3;
-      this.context.lineJoin = 'round';
-      this.context.stroke();
-
-      this.context.fillStyle = color;
-      for (let i = 0; i < this.pointsCoords.length; i++) {
-        let val = prop === 'y' ? this.pointsCoords[i].y :
-          (prop === 'yMax' ? this.pointsCoords[i].yMax : this.pointsCoords[i].yMin);
-        this.context.beginPath();
-        this.context.arc(this.pointsCoords[i].x, val as number, 4, 0, Math.PI * 2);
-        this.context.fill();
-      }
-    };
-
-    if (this.timeRange === '24h') {
-      if (this.showAvg) {
-        drawLine('y', '#FFA000');
-      }
-    } else {
-      if (this.showMax) {
-        drawLine('yMax', '#FF5252');
-      }
-      if (this.showAvg) {
-        drawLine('y', '#FFA000');
-      }
-      if (this.showMin) {
-        drawLine('yMin', '#448AFF');
-      }
+      .position({ x: this.tooltipX, y: this.tooltipY })
+      .zIndex(10)
     }
+  }
 
-    // Draw Y axis labels
-    this.context.fillStyle = '#90A4AE';
-    this.context.font = '32px sans-serif';
-    this.context.fillText(yMax.toFixed(0), 5, paddingTop + 5);
-    this.context.fillText(((yMax + yMin) / 2).toFixed(0), 5, paddingTop + graphHeight / 2 + 5);
-    this.context.fillText(yMin.toFixed(0), 5, height - paddingBottom);
 
-    // Draw X axis Date Labels
-    this.context.fillStyle = '#90A4AE';
-    this.context.font = '32px sans-serif';
-    const labelStep = Math.max(1, Math.floor(this.dataPoints.length / 5));
-    for (let i = 0; i < this.dataPoints.length; i++) {
-      if (i % labelStep === 0 || i === this.dataPoints.length - 1) {
-        let label = this.dataPoints[i].time;
-        let lw = this.context.measureText(label).width;
-        let tx = this.pointsCoords[i].x - lw / 2;
-        if (tx < paddingLeft) {
-          tx = paddingLeft;
-        }
-        if (tx + lw > width) {
-          tx = width - lw;
-        }
-        this.context.fillText(label, tx, height - paddingBottom + 25);
-      }
-    }
 
-    // Draw Interactive Tooltip
-    if (this.selectedIdx >= 0 && this.selectedIdx < this.pointsCoords.length) {
-      let p = this.pointsCoords[this.selectedIdx];
-      let dp = this.dataPoints[this.selectedIdx];
-
-      this.context.beginPath();
-      this.context.moveTo(p.x, paddingTop);
-      this.context.lineTo(p.x, height - paddingBottom);
-      this.context.strokeStyle = '#90A4AE';
-      this.context.lineWidth = 1;
-      this.context.setLineDash([4, 4]);
-      this.context.stroke();
-      this.context.setLineDash([]);
-
-      let lines: string[] = [dp.time];
-      if (this.timeRange === '24h') {
-        if (this.showAvg) {
-          lines.push(`数值: ${dp.value.toFixed(1)}`);
-        }
-      } else {
-        if (this.showMax) {
-          lines.push(`最高: ${(dp.maxVal || 0).toFixed(1)}`);
-        }
-        if (this.showAvg) {
-          lines.push(`平均: ${dp.value.toFixed(1)}`);
-        }
-        if (this.showMin) {
-          lines.push(`最低: ${(dp.minVal || 0).toFixed(1)}`);
-        }
-      }
-
-      this.context.font = '24px sans-serif';
-      let boxWidth = 0;
-      lines.forEach(l => {
-        let w = this.context.measureText(l).width + 30;
-        if (w > boxWidth) {
-          boxWidth = w;
-        }
-      });
-      let boxHeight = lines.length * 28 + 10;
-      let byTarget = (p.yMax !== undefined && this.showMax) ? p.yMax : p.y;
-
-      const drawDot = (prop: 'y' | 'yMax' | 'yMin', col: string) => {
-        const val = prop === 'y' ? p.y : (prop === 'yMax' ? p.yMax : p.yMin);
-        if (val !== undefined) {
-          this.context.beginPath();
-          this.context.arc(p.x, val as number, 7, 0, Math.PI * 2);
-          this.context.fillStyle = col;
-          this.context.fill();
-          this.context.lineWidth = 2;
-          this.context.strokeStyle = '#FFFFFF';
-          this.context.stroke();
-        }
-      };
-
-      if (this.timeRange === '24h') {
-        if (this.showAvg) {
-          drawDot('y', '#FFA000');
-        }
-      } else {
-        if (this.showMax) {
-          drawDot('yMax', '#FF5252');
-        }
-        if (this.showAvg) {
-          drawDot('y', '#FFA000');
-        }
-        if (this.showMin) {
-          drawDot('yMin', '#448AFF');
-        }
-      }
-
-      let bx = p.x - boxWidth / 2;
-      let by = byTarget - boxHeight - 15;
-
-      if (bx < 5) {
-        bx = 5;
-      }
-      if (bx + boxWidth > width - 5) {
-        bx = width - boxWidth - 5;
-      }
-      if (by < 5) {
-        by = 5;
-      }
-      if (by + boxHeight > height - 5) {
-        by = height - boxHeight - 5;
-      }
-
-      this.context.fillStyle = '#37474F';
-      const radius = 8;
-      this.context.beginPath();
-      this.context.moveTo(bx + radius, by);
-      this.context.arcTo(bx + boxWidth, by, bx + boxWidth, by + boxHeight, radius);
-      this.context.arcTo(bx + boxWidth, by + boxHeight, bx, by + boxHeight, radius);
-      this.context.arcTo(bx, by + boxHeight, bx, by, radius);
-      this.context.arcTo(bx, by, bx + boxWidth, by, radius);
-      this.context.closePath();
-      this.context.fill();
-
-      this.context.fillStyle = '#FFFFFF';
-      lines.forEach((l, i) => {
-        this.context.fillText(l, bx + 15, by + 28 + i * 28);
-      });
-    }
+  @Builder TimeButton(label: string, range: string) {
+    Button(label, { type: ButtonType.Capsule })
+      .backgroundColor(this.timeRange === range ? '#4CAF50' : '#E8F5E9')
+      .fontColor(this.timeRange === range ? Color.White : '#4CAF50')
+      .fontSize(14)
+      .height(32)
+      .margin({ left: 5, right: 5 })
+      .onClick(() => {
+        this.timeRange = range;
+        this.loadMockHistoryData();
+      })
   }
 
   build() {
@@ -403,213 +457,134 @@ struct SensorDetailPage {
           .onClick(() => {
             router.back();
           })
-        Text(`${this.title}分析`)
-          .fontSize(24)
-          .fontColor('#2C3E50')
-          .fontWeight(FontWeight.Bolder)
+        Text(this.title)
+          .fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder).layoutWeight(1)
+        Text('模拟连接')
+          .fontSize(14)
+          .fontColor(Color.White)
+          .fontWeight(FontWeight.Medium)
+          .backgroundColor('#4CAF50')
+          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+          .borderRadius(20)
       }
       .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 40,
-        bottom: 20
-      })
+      .padding({ left: 20, right: 20, top: 40, bottom: 20 })
       .alignItems(VerticalAlign.Center)
 
-      // Modern Segmented Control
-      Row() {
-        this.SegmentButton('24h', '24小时')
-        this.SegmentButton('7d', '7天')
-        this.SegmentButton('30d', '30天')
-      }
-      .width('90%')
-      .backgroundColor('#E8F5E9')
-      .borderRadius(16)
-      .padding(4)
-      .margin({ bottom: 25 })
+      Tabs({ barPosition: BarPosition.Start }) {
+        TabContent() {
+          Stack({ alignContent: Alignment.Top }) {
+            Column() {
+              Text(`${this.currentValue.toFixed(1)}`)
+                .fontSize(48)
+                .fontWeight(FontWeight.Bolder)
+                .fontColor(this.badgeColor)
+                .margin({ top: 20, bottom: 10 })
+              Text('实时监测数值')
+                .fontSize(14)
+                .fontColor('#78909C')
+                .margin({ bottom: 30 })
 
-      // Data Summary Cards (Horizontal Scroll)
-      Row() {
-        Column() {
-          Text('平均值').fontSize(13).fontColor('#78909C').margin({ bottom: 8 })
-          Text(this.avgValue.toFixed(1)).fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder)
-        }
-        .width('31%')
-        .backgroundColor(Color.White)
-        .padding({ top: 15, bottom: 15 })
-        .borderRadius(16)
-        .alignItems(HorizontalAlign.Center)
-        .shadow({
-          radius: 10,
-          color: 'rgba(76, 175, 80, 0.05)',
-          offsetX: 0,
-          offsetY: 4
-        })
-
-        Column() {
-          Text('最高值').fontSize(13).fontColor('#78909C').margin({ bottom: 8 })
-          Text(this.maxValue.toFixed(1)).fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder)
-        }
-        .width('31%')
-        .backgroundColor(Color.White)
-        .padding({ top: 15, bottom: 15 })
-        .borderRadius(16)
-        .alignItems(HorizontalAlign.Center)
-        .shadow({
-          radius: 10,
-          color: 'rgba(76, 175, 80, 0.05)',
-          offsetX: 0,
-          offsetY: 4
-        })
-
-        Column() {
-          Text('最低值').fontSize(13).fontColor('#78909C').margin({ bottom: 8 })
-          Text(this.minValue.toFixed(1)).fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder)
-        }
-        .width('31%')
-        .backgroundColor(Color.White)
-        .padding({ top: 15, bottom: 15 })
-        .borderRadius(16)
-        .alignItems(HorizontalAlign.Center)
-        .shadow({
-          radius: 10,
-          color: 'rgba(76, 175, 80, 0.05)',
-          offsetX: 0,
-          offsetY: 4
-        })
-      }
-      .width('90%')
-      .justifyContent(FlexAlign.SpaceBetween)
-      .margin({ bottom: 30 })
-
-      // Chart Area
-      Column() {
-        Row() {
-          Text(`历史趋势图`).fontSize(18).fontWeight(FontWeight.Bold).fontColor('#2C3E50')
-          Blank()
-          if (this.timeRange === '24h') {
-            Row() {
-              Circle({ width: 10, height: 10 })
-                .fill(this.showAvg ? '#FFA000' : 'transparent')
-                .stroke('#FFA000')
-                .strokeWidth(2)
-                .margin({ right: 4 })
-              Text('数值').fontSize(14).fontColor(this.showAvg ? '#546E7A' : '#B0BEC5')
-            }.margin({ left: 10 }).onClick(() => {
-              this.showAvg = !this.showAvg;
-              this.drawChart();
-            })
-          } else {
-            Row() {
-              Circle({ width: 10, height: 10 })
-                .fill(this.showMax ? '#FF5252' : 'transparent')
-                .stroke('#FF5252')
-                .strokeWidth(2)
-                .margin({ right: 4 })
-              Text('最高').fontSize(14).fontColor(this.showMax ? '#546E7A' : '#B0BEC5')
-            }.margin({ left: 10 }).onClick(() => {
-              this.showMax = !this.showMax;
-              this.drawChart();
-            })
-
-            Row() {
-              Circle({ width: 10, height: 10 })
-                .fill(this.showAvg ? '#FFA000' : 'transparent')
-                .stroke('#FFA000')
-                .strokeWidth(2)
-                .margin({ right: 4 })
-              Text('平均').fontSize(14).fontColor(this.showAvg ? '#546E7A' : '#B0BEC5')
-            }.margin({ left: 10 }).onClick(() => {
-              this.showAvg = !this.showAvg;
-              this.drawChart();
-            })
-
-            Row() {
-              Circle({ width: 10, height: 10 })
-                .fill(this.showMin ? '#448AFF' : 'transparent')
-                .stroke('#448AFF')
-                .strokeWidth(2)
-                .margin({ right: 4 })
-              Text('最低').fontSize(14).fontColor(this.showMin ? '#546E7A' : '#B0BEC5')
-            }.margin({ left: 10 }).onClick(() => {
-              this.showMin = !this.showMin;
-              this.drawChart();
-            })
+              Stack({ alignContent: Alignment.TopStart }) {
+                LineChart({ model: this.realTimeModel })
+                  .width('100%')
+                  .height(300)
+                this.CustomTooltip()
+              }
+              .width('100%')
+            }
+            .width('100%')
+            .padding(20)
           }
         }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: 10
-        })
+        .tabBar("实时趋势")
 
-        Canvas(this.context)
-          .width('100%')
-          .height(280)
-          .onReady(() => {
-            this.drawChart();
-          })
-          .onTouch((event: TouchEvent) => {
-            if (this.pointsCoords.length > 0) {
-              const x = event.touches[0].x;
-              let minD = 9999;
-              let idx = -1;
-              for (let i = 0; i < this.pointsCoords.length; i++) {
-                let d = Math.abs(this.pointsCoords[i].x - x);
-                if (d < minD) {
-                  minD = d;
-                  idx = i;
+        TabContent() {
+          Scroll() {
+            Column() {
+              Text('提示：点击卡片可显示/隐藏对应曲线')
+                .fontSize(12)
+                .fontColor('#90A4AE')
+                .margin({ top: 10, bottom: 10 })
+                
+              Row() {
+                // 平均值卡片
+                Column() {
+                  Text('平均值 (绿)').fontSize(14).fontColor(this.showAvgLine ? '#78909C' : '#B0BEC5').margin({ bottom: 8 })
+                  Text(this.showAvgLine ? this.avgValue.toFixed(1) : '--').fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.showAvgLine ? '#4CAF50' : '#B0BEC5')
                 }
-              }
-              if (minD < 30) {
-                if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.selectedIdx = -1;
-                } else {
-                  this.selectedIdx = idx;
+                .width('30%')
+                .padding(15)
+                .backgroundColor(Color.White)
+                .borderRadius(12)
+                .border({ width: 2, color: this.showAvgLine ? '#4CAF50' : '#E0E0E0' })
+                .shadow({ radius: 10, color: 'rgba(0,0,0,0.05)', offsetY: 5 })
+                .onClick(() => {
+                  this.toggleHistoryLine('avg');
+                })
+
+                // 最高值卡片
+                Column() {
+                  Text('最高值 (红)').fontSize(14).fontColor(this.showMaxLine ? '#78909C' : '#B0BEC5').margin({ bottom: 8 })
+                  Text(this.showMaxLine ? this.maxValue.toFixed(1) : '--').fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.showMaxLine ? '#FF5252' : '#B0BEC5')
                 }
-              } else {
-                this.selectedIdx = -1;
+                .width('30%')
+                .padding(15)
+                .backgroundColor(Color.White)
+                .borderRadius(12)
+                .border({ width: 2, color: this.showMaxLine ? '#FF5252' : '#E0E0E0' })
+                .shadow({ radius: 10, color: 'rgba(0,0,0,0.05)', offsetY: 5 })
+                .onClick(() => {
+                  this.toggleHistoryLine('max');
+                })
+
+                // 最低值卡片
+                Column() {
+                  Text('最低值 (蓝)').fontSize(14).fontColor(this.showMinLine ? '#78909C' : '#B0BEC5').margin({ bottom: 8 })
+                  Text(this.showMinLine ? this.minValue.toFixed(1) : '--').fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.showMinLine ? '#2196F3' : '#B0BEC5')
+                }
+                .width('30%')
+                .padding(15)
+                .backgroundColor(Color.White)
+                .borderRadius(12)
+                .border({ width: 2, color: this.showMinLine ? '#2196F3' : '#E0E0E0' })
+                .shadow({ radius: 10, color: 'rgba(0,0,0,0.05)', offsetY: 5 })
+                .onClick(() => {
+                  this.toggleHistoryLine('min');
+                })
               }
-              this.drawChart();
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceEvenly)
+              .margin({ bottom: 20 })
+
+              Row() {
+                this.TimeButton('24小时', '24h')
+                this.TimeButton('近7天', '7d')
+                this.TimeButton('近30天', '30d')
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .margin({ bottom: 20 })
+
+              Stack({ alignContent: Alignment.TopStart }) {
+                LineChart({ model: this.historyModel })
+                  .width('100%')
+                  .height(300)
+                this.CustomTooltip()
+              }
+              .width('100%')
+              .backgroundColor(Color.White)
+              .borderRadius(16)
+              .padding(10)
             }
-          })
-      }
-      .width('90%')
-      .backgroundColor(Color.White)
-      .borderRadius(24)
-      .shadow({
-        radius: 20,
-        color: 'rgba(76, 175, 80, 0.08)',
-        offsetX: 0,
-        offsetY: 10
-      })
-
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor('#F2F6F3')
-  }
-
-  @Builder
-  SegmentButton(id: string, label: string) {
-    Text(label)
-      .fontSize(15)
-      .fontWeight(this.timeRange === id ? FontWeight.Bold : FontWeight.Medium)
-      .fontColor(this.timeRange === id ? '#FFFFFF' : '#4CAF50')
-      .backgroundColor(this.timeRange === id ? '#4CAF50' : 'transparent')
-      .textAlign(TextAlign.Center)
-      .layoutWeight(1)
-      .height(36)
-      .borderRadius(12)
-      .animation({ duration: 200 })
-      .onClick(() => {
-        if (this.timeRange !== id) {
-          this.timeRange = id;
-          this.loadData();
+            .width('100%')
+            .padding({ left: 15, right: 15, bottom: 40 })
+          }
         }
-      })
+        .tabBar("历史数据")
+      }
+      .layoutWeight(1)
+    }
+    .width('100%').height('100%').backgroundColor('#F2F6F3')
   }
 }

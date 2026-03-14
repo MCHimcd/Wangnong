@@ -2,6 +2,7 @@
 import { DashboardView } from './DashboardView';
 import { ControlView } from './ControlView';
 import { VideoMonitorView } from './VideoMonitorView';
+import { PestDetectionView } from './PestDetectionView';
 import { promptAction } from '@kit.ArkUI';
 
 @Component
@@ -173,7 +174,7 @@ export struct HomeView {
             } else if (this.currentSidebarIndex === 1) {
               VideoMonitorView({ deviceId: this.device.id })
             } else if (this.currentSidebarIndex === 2) {
-              this.PlaceholderContent('病虫害检测')
+              PestDetectionView()
             } else if (this.currentSidebarIndex === 3) {
               this.PlaceholderContent('农业知识科普')
             } else if (this.currentSidebarIndex === 4) {
