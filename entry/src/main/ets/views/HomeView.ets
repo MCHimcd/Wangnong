@@ -3,6 +3,7 @@ import { DashboardView } from './DashboardView';
 import { ControlView } from './ControlView';
 import { VideoMonitorView } from './VideoMonitorView';
 import { PestDetectionView } from './PestDetectionView';
+import { KnowledgeView } from './KnowledgeView';
 import { promptAction } from '@kit.ArkUI';
 
 @Component
@@ -176,7 +177,7 @@ export struct HomeView {
             } else if (this.currentSidebarIndex === 2) {
               PestDetectionView()
             } else if (this.currentSidebarIndex === 3) {
-              this.PlaceholderContent('农业知识科普')
+              KnowledgeView()
             } else if (this.currentSidebarIndex === 4) {
               ControlView({ deviceId: this.device.id, deviceState: this.device.deviceState })
             } else if (this.currentSidebarIndex === 5) {

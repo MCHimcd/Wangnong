@@ -74,7 +74,7 @@ export struct ProfileView {
           .borderRadius(12)
           .margin({ bottom: 15 })
           .onClick(() => {
-            promptAction.showToast({ message: '设置功能暂未开放' });
+            router.pushUrl({ url: 'pages/SettingsPage' });
           })
           
           Row() {
@@ -114,6 +114,7 @@ export struct ProfileView {
                 let pref = await preferences.getPreferences(context, 'AppPreferences');
                 await pref.put('autoLogin', false);
                 await pref.flush();
+                AppStorage.setOrCreate('isLoggedIn', false);
                 router.replaceUrl({ url: 'pages/LoginPage' });
              } catch (err) {
                 console.error(`Logout failed. Code:${err.code},message:${err.message}`);

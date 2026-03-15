@@ -29,6 +29,7 @@ struct Index {
     if (this.connectionStatus === 'mock') {
       if (this.mockTimer === -1) {
         this.mockTimer = setInterval(() => {
+          if (!AppStorage.get<boolean>('isLoggedIn')) return;
           this.devices.forEach(device => {
             device.sensorData.temperature = 22 + Math.random() * 10;
             device.sensorData.humidity = 40 + Math.random() * 40;
@@ -112,9 +113,12 @@ struct Index {
     }
   }
 
+  @StorageLink('currentTabIndex') currentTabIndex: number = 0;
+  private tabsController: TabsController = new TabsController();
+
   build() {
     Column() {
-      Tabs({ barPosition: BarPosition.End }) {
+      Tabs({ barPosition: BarPosition.End, index: this.currentTabIndex, controller: this.tabsController }) {
         TabContent() {
           HomeView({ 
             device: this.devices[this.currentDeviceIndex],
@@ -143,6 +147,9 @@ struct Index {
       }
       .animationDuration(300)
       .layoutWeight(1)
+      .onChange((index: number) => {
+        this.currentTabIndex = index;
+      })
     }
     .width('100%')
     .height('100%')

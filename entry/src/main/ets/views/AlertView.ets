@@ -10,8 +10,18 @@ export struct AlertView {
   @State order: string = 'desc';
   @State highlightedAlertId: string = '';
 
+  private onDataChange = () => {
+    this.alerts = AlertSyncService.getInstance().getAllAlerts();
+    this.sortAlertsLocally();
+  }
+
   aboutToAppear() {
     this.fetchAlerts();
+    AlertSyncService.getInstance().subscribeDataChange(this.onDataChange);
+  }
+
+  aboutToDisappear() {
+    AlertSyncService.getInstance().unsubscribeDataChange(this.onDataChange);
   }
 
   fetchAlerts() {
@@ -19,31 +29,8 @@ export struct AlertView {
     setTimeout(() => {
       this.alerts = AlertSyncService.getInstance().getAllAlerts();
       this.sortAlertsLocally();
-      const newAlerts = AlertSyncService.getInstance().consumeNewAlertsForDialog();
-      if (newAlerts.length > 0) {
-        this.showNewAlertDialog(newAlerts);
-      }
       this.isLoading = false;
     }, 500);
-  }
-
-  private showNewAlertDialog(newAlerts: AlertData[]) {
-    const latest = newAlerts.sort((a, b) => b.timestamp - a.timestamp)[0];
-    promptAction.showDialog({
-      title: '新告警提示',
-      message: `检测到 ${newAlerts.length} 条新告警（最新：${latest.type_name}），是否立即查看？`,
-      buttons: [
-        { text: '稍后处理', color: '#90A4AE' },
-        { text: '立即查看', color: '#D84315' }
-      ]
-    }).then((res) => {
-      if (res.index === 1) {
-        this.sortBy = 'timestamp';
-        this.order = 'desc';
-        this.sortAlertsLocally();
-        this.highlightedAlertId = latest.alert_id;
-      }
-    });
   }
 
   sortAlertsLocally() {

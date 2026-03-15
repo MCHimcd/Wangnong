@@ -3,6 +3,11 @@
     "pages/LoginPage",
     "pages/Index",
     "pages/SensorDetailPage",
-    "pages/DeviceDetailPage"
+    "pages/DeviceDetailPage",
+    "pages/ArticleDetailPage",
+    "pages/SettingsPage",
+    "pages/EditProfilePage",
+    "pages/ChangePasswordPage",
+    "pages/AgreementPage"
   ]
 }

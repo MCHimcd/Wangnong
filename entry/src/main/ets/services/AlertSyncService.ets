@@ -1,5 +1,7 @@
 
 import { AlertData } from '../models/AlertData';
+import { promptAction } from '@kit.ArkUI';
+import router from '@ohos.router';
 
 interface TemplateData {
   typeName: string;
@@ -13,6 +15,8 @@ export class AlertSyncService {
   private initialized: boolean = false;
   private newAlertIds: string[] = [];
   private videoEnterCount: number = 0;
+  private isDialogShowing: boolean = false;
+  private dataChangeListeners: (() => void)[] = [];
 
   public static getInstance(): AlertSyncService {
     if (!AlertSyncService.instance) {
@@ -96,6 +100,44 @@ export class AlertSyncService {
     return [...this.alerts];
   }
 
+  public subscribeDataChange(listener: () => void) {
+    if (this.dataChangeListeners.indexOf(listener) === -1) {
+      this.dataChangeListeners.push(listener);
+    }
+  }
+
+  public unsubscribeDataChange(listener: () => void) {
+    this.dataChangeListeners = this.dataChangeListeners.filter(l => l !== listener);
+  }
+
+  private notifyDataChange() {
+    this.dataChangeListeners.forEach(listener => listener());
+  }
+
+  private showGlobalAlert(alert: AlertData) {
+    if (this.isDialogShowing) return;
+    const isLoggedIn = AppStorage.get<boolean>('isLoggedIn');
+    if (!isLoggedIn) return;
+    
+    this.isDialogShowing = true;
+    promptAction.showDialog({
+      title: '新告警提示',
+      message: `检测到新告警（最新：${alert.type_name}），是否立即查看？`,
+      buttons: [
+        { text: '稍后处理', color: '#90A4AE' },
+        { text: '立即查看', color: '#D84315' }
+      ]
+    }).then((res) => {
+      this.isDialogShowing = false;
+      if (res.index === 1) {
+        AppStorage.setOrCreate('currentTabIndex', 1);
+        router.pushUrl({ url: 'pages/Index' });
+      }
+    }).catch(() => {
+      this.isDialogShowing = false;
+    });
+  }
+
   public addRuntimeAlert(alert: AlertData) {
     this.ensureInitialized();
     const exists = this.alerts.some((item: AlertData) => item.alert_id === alert.alert_id);
@@ -105,9 +147,12 @@ export class AlertSyncService {
 
     this.alerts = [alert, ...this.alerts];
     this.newAlertIds = [alert.alert_id, ...this.newAlertIds];
+    this.notifyDataChange();
+    this.showGlobalAlert(alert);
   }
 
   public simulateVideoAnomaliesOnEnter(deviceId: string) {
+    if (!AppStorage.get<boolean>('isLoggedIn')) return;
     this.ensureInitialized();
     this.videoEnterCount += 1;
 
@@ -167,6 +212,7 @@ export class AlertSyncService {
       target.is_handled = true;
       target.handle_time = new Date().getTime();
       this.alerts = [...this.alerts];
+      this.notifyDataChange();
     }
   }
 }

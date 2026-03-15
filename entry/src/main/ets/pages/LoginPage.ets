@@ -5,11 +5,19 @@ import { common } from '@kit.AbilityKit';
 @Entry
 @Component
 struct LoginPage {
+  @State currentMode: 'login' | 'register' | 'forgot' = 'login';
   @State username: string = '';
   @State password: string = '';
   @State rememberPassword: boolean = false;
   @State autoLogin: boolean = false;
   @State isAutoLoggingIn: boolean = true;
+  @State agreedToTerms: boolean = false;
+
+  // 注册/找回专用
+  @State phone: string = '';
+  @State verifyCode: string = '';
+  @State newPassword: string = '';
+
   private readonly PREF_NAME: string = 'AppPreferences';
 
   async aboutToAppear() {
@@ -27,6 +35,7 @@ struct LoginPage {
 
       if (savedAutoLogin && savedUsername === 'admin' && savedPassword === '123456') {
         // Validation passes
+        AppStorage.setOrCreate('isLoggedIn', true);
         router.replaceUrl({ url: 'pages/Index' });
         return;
       }
@@ -48,7 +57,13 @@ struct LoginPage {
   }
 
   async onLoginClick() {
-    if (this.username === 'admin' && this.password === '123456') {
+    if (!this.agreedToTerms) {
+      promptAction.showToast({ message: '请先阅读并同意用户协议与隐私政策' });
+      return;
+    }
+    
+    // Simulate register login check
+    if (this.username === 'admin' && this.password === '123456' || (this.username && this.password.length >= 6)) {
       try {
         let context = getContext(this) as common.UIAbilityContext;
         let dataPreferences = await preferences.getPreferences(context, this.PREF_NAME);
@@ -69,10 +84,268 @@ struct LoginPage {
       }
       
       promptAction.showToast({ message: '登录成功' });
+      AppStorage.setOrCreate('isLoggedIn', true);
       router.replaceUrl({ url: 'pages/Index' });
     } else {
       promptAction.showToast({ message: '用户名或密码错误' });
     }
+  }
+
+  @Builder TermsCheckbox() {
+    Row() {
+      Checkbox({ name: 'terms', group: 'terms' })
+        .select(this.agreedToTerms)
+        .shape(CheckBoxShape.CIRCLE)
+        .onChange((value: boolean) => {
+          this.agreedToTerms = value;
+        })
+      Text('已阅读并同意')
+        .fontSize(12)
+        .fontColor('#999')
+      Text('《用户协议》')
+        .fontSize(12)
+        .fontColor('#4CAF50')
+        .onClick(() => router.pushUrl({ url: 'pages/AgreementPage', params: { type: 'user' } }))
+      Text('与')
+        .fontSize(12)
+        .fontColor('#999')
+      Text('《隐私政策》')
+        .fontSize(12)
+        .fontColor('#4CAF50')
+        .onClick(() => router.pushUrl({ url: 'pages/AgreementPage', params: { type: 'privacy' } }))
+    }
+    .width('80%')
+    .margin({ top: 10, bottom: 20 })
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder LoginView() {
+    Column() {
+      // Logo
+      Image($r('app.media.app_icon'))
+        .width(120)
+        .height(120)
+        .borderRadius(20)
+        .margin({ top: 40, bottom: 30 })
+
+      Text('鸿蒙慧田')
+        .fontSize(28)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 40 })
+
+      TextInput({ placeholder: '请输入用户名或手机号', text: this.username })
+        .type(InputType.Normal)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 20 })
+        .onChange((value: string) => {
+          this.username = value;
+        })
+
+      TextInput({ placeholder: '请输入密码', text: this.password })
+        .type(InputType.Password)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 20 })
+        .onChange((value: string) => {
+          this.password = value;
+        })
+
+      Row() {
+        Row() {
+          Checkbox({ name: 'rememberPassword', group: 'login' })
+            .select(this.rememberPassword)
+            .onChange((value: boolean) => {
+              this.rememberPassword = value;
+              if (!value) this.autoLogin = false;
+            })
+          Text('记住密码').fontSize(14).fontColor('#666')
+        }.margin({ right: 10 })
+
+        Row() {
+          Checkbox({ name: 'autoLogin', group: 'login' })
+            .select(this.autoLogin)
+            .onChange((value: boolean) => {
+              this.autoLogin = value;
+              if (value) this.rememberPassword = true;
+            })
+          Text('自动登录').fontSize(14).fontColor('#666')
+        }
+      }
+      .width('80%')
+      .margin({ bottom: 20 })
+      .justifyContent(FlexAlign.Start)
+
+      Button('登录')
+        .width('80%')
+        .height(50)
+        .backgroundColor('#4CAF50')
+        .onClick(() => {
+          this.onLoginClick();
+        })
+
+      Row() {
+        Text('新用户注册')
+          .fontSize(14)
+          .fontColor('#4CAF50')
+          .onClick(() => this.currentMode = 'register')
+        Text('忘记密码?')
+          .fontSize(14)
+          .fontColor('#999')
+          .onClick(() => this.currentMode = 'forgot')
+      }
+      .width('80%')
+      .margin({ top: 20 })
+      .justifyContent(FlexAlign.SpaceBetween)
+
+      Blank()
+      this.TermsCheckbox()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder RegisterView() {
+    Column() {
+      // 头部返回
+      Row() {
+        Text('< 返回登录')
+          .fontSize(16)
+          .fontColor('#666')
+          .onClick(() => this.currentMode = 'login')
+        Blank()
+      }
+      .width('90%')
+      .margin({ top: 20, bottom: 40 })
+
+      Text('新用户注册')
+        .fontSize(28)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 40 })
+        .width('80%')
+        .textAlign(TextAlign.Start)
+
+      TextInput({ placeholder: '请输入手机号', text: this.phone })
+        .type(InputType.PhoneNumber)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 20 })
+        .onChange((value: string) => this.phone = value)
+
+      Row() {
+        TextInput({ placeholder: '请输入验证码', text: this.verifyCode })
+          .type(InputType.Number)
+          .width('60%')
+          .height(50)
+          .onChange((value: string) => this.verifyCode = value)
+        Button('获取')
+          .width('35%')
+          .height(50)
+          .backgroundColor('#4CAF50')
+          .onClick(() => promptAction.showToast({ message: '验证码已发送' }))
+      }
+      .width('80%')
+      .margin({ bottom: 20 })
+      .justifyContent(FlexAlign.SpaceBetween)
+
+      TextInput({ placeholder: '请设置密码', text: this.newPassword })
+        .type(InputType.Password)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 40 })
+        .onChange((value: string) => this.newPassword = value)
+
+      Button('注册并登录')
+        .width('80%')
+        .height(50)
+        .backgroundColor('#4CAF50')
+        .onClick(() => {
+          if (!this.agreedToTerms) {
+            promptAction.showToast({ message: '请先同意用户协议与隐私政策' });
+            return;
+          }
+          if (!this.phone || !this.verifyCode || !this.newPassword) {
+            promptAction.showToast({ message: '请填写完整信息' });
+            return;
+          }
+          promptAction.showToast({ message: '注册成功' });
+          this.username = this.phone;
+          this.password = this.newPassword;
+          this.currentMode = 'login';
+        })
+
+      Blank()
+      this.TermsCheckbox()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder ForgotView() {
+    Column() {
+      // 头部返回
+      Row() {
+        Text('< 返回登录')
+          .fontSize(16)
+          .fontColor('#666')
+          .onClick(() => this.currentMode = 'login')
+        Blank()
+      }
+      .width('90%')
+      .margin({ top: 20, bottom: 40 })
+
+      Text('找回密码')
+        .fontSize(28)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 40 })
+        .width('80%')
+        .textAlign(TextAlign.Start)
+
+      TextInput({ placeholder: '请输入手机号', text: this.phone })
+        .type(InputType.PhoneNumber)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 20 })
+        .onChange((value: string) => this.phone = value)
+
+      Row() {
+        TextInput({ placeholder: '请输入验证码', text: this.verifyCode })
+          .type(InputType.Number)
+          .width('60%')
+          .height(50)
+          .onChange((value: string) => this.verifyCode = value)
+        Button('获取')
+          .width('35%')
+          .height(50)
+          .backgroundColor('#4CAF50')
+          .onClick(() => promptAction.showToast({ message: '验证码已发送' }))
+      }
+      .width('80%')
+      .margin({ bottom: 20 })
+      .justifyContent(FlexAlign.SpaceBetween)
+
+      TextInput({ placeholder: '请输入新密码', text: this.newPassword })
+        .type(InputType.Password)
+        .width('80%')
+        .height(50)
+        .margin({ bottom: 40 })
+        .onChange((value: string) => this.newPassword = value)
+
+      Button('确认修改')
+        .width('80%')
+        .height(50)
+        .backgroundColor('#4CAF50')
+        .onClick(() => {
+          if (!this.phone || !this.verifyCode || !this.newPassword) {
+            promptAction.showToast({ message: '请填写完整信息' });
+            return;
+          }
+          promptAction.showToast({ message: '密码修改成功，请重新登录' });
+          this.currentMode = 'login';
+        })
+    }
+    .width('100%')
+    .height('100%')
   }
 
   build() {
@@ -82,69 +355,13 @@ struct LoginPage {
           .width(80)
           .height(80)
       } else {
-        Text('系统登录')
-          .fontSize(30)
-          .fontWeight(FontWeight.Bold)
-          .margin({ top: 100, bottom: 50 })
-
-        TextInput({ placeholder: '请输入用户名 (默认 admin)', text: this.username })
-          .type(InputType.Normal)
-          .width('80%')
-          .height(50)
-          .margin({ bottom: 20 })
-          .onChange((value: string) => {
-            this.username = value;
-          })
-
-        TextInput({ placeholder: '请输入密码 (默认 123456)', text: this.password })
-          .type(InputType.Password)
-          .width('80%')
-          .height(50)
-          .margin({ bottom: 20 })
-          .onChange((value: string) => {
-            this.password = value;
-          })
-
-        Row() {
-          Row() {
-            Checkbox({ name: 'rememberPassword', group: 'login' })
-              .select(this.rememberPassword)
-              .onChange((value: boolean) => {
-                this.rememberPassword = value;
-                if (!value) {
-                  this.autoLogin = false; // 如果取消记住密码，自动登录也必须取消
-                }
-              })
-            Text('记住密码')
-              .fontSize(16)
-              .fontColor('#666')
-          }.margin({ right: 20 })
-
-          Row() {
-            Checkbox({ name: 'autoLogin', group: 'login' })
-              .select(this.autoLogin)
-              .onChange((value: boolean) => {
-                this.autoLogin = value;
-                if (value) {
-                  this.rememberPassword = true; // 如果开启自动登录，必须记住密码
-                }
-              })
-            Text('自动登录')
-              .fontSize(16)
-              .fontColor('#666')
-          }
+        if (this.currentMode === 'login') {
+          this.LoginView()
+        } else if (this.currentMode === 'register') {
+          this.RegisterView()
+        } else if (this.currentMode === 'forgot') {
+          this.ForgotView()
         }
-        .width('80%')
-        .margin({ bottom: 30 })
-        .justifyContent(FlexAlign.SpaceBetween)
-
-        Button('登录')
-          .width('80%')
-          .height(50)
-          .backgroundColor('#4CAF50')
-          .onClick(() => {
-            this.onLoginClick();
-          })
       }
     }
     .width('100%')
