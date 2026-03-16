@@ -8,6 +8,7 @@
     "pages/SettingsPage",
     "pages/EditProfilePage",
     "pages/ChangePasswordPage",
-    "pages/AgreementPage"
+    "pages/AgreementPage",
+    "pages/TraceabilityScanPage"
   ]
 }

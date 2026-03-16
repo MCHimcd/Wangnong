@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+import os
 import time
 import random
 import threading
@@ -16,6 +17,11 @@ except ImportError:
 
 app = Flask(__name__)
 CORS(app)  # Allow CORS for easy testing with App
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Temporary avatar strategy: use a fixed local file beside server.py.
+# This may be replaced by upload/object storage/CDN in later versions.
+FIXED_AVATAR_FILENAME = 'avatar_fixed.svg'
 
 # ================= 增加全局 HTTP 调试日志 =================
 @app.before_request
@@ -529,6 +535,45 @@ def update_profile():
         "message": "success",
         "data": None
     })
+
+
+@app.route('/avatar_fixed.svg', methods=['GET'])
+def get_fixed_avatar_file():
+    return send_from_directory(BASE_DIR, FIXED_AVATAR_FILENAME, mimetype='image/svg+xml')
+
+
+@app.route('/api/v1/auth/avatar/use-fixed', methods=['POST'])
+def use_fixed_avatar():
+    _, user = get_current_user_from_token()
+    if not user:
+        user = USERS_DB.get('admin')
+
+    avatar_url = f"{request.host_url.rstrip('/')}/{FIXED_AVATAR_FILENAME}"
+
+    if user:
+        user['avatarSrc'] = avatar_url
+
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": {
+            "userId": user.get('userId', ''),
+            "userName": user.get('userName', ''),
+            "gender": user.get('gender', ''),
+            "birthDate": user.get('birthDate', ''),
+            "avatarSrc": user.get('avatarSrc', avatar_url)
+        }
+    })
+
+
+@app.route('/api/v1/traceability/scan', methods=['POST'])
+def traceability_scan():
+    req_data = request.get_json(silent=True) or {}
+    trace_code = str(req_data.get('code') or '').strip()
+    print(f"[Traceability] Received code: {trace_code}")
+
+    fixed_text = "溯源码识别结果（测试固定文本）：作物番茄，地块A03，当前状态正常。"
+    return fixed_text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 @app.route('/api/v1/articles', methods=['GET'])
 def get_articles():

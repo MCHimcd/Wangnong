@@ -18,6 +18,8 @@ struct EditProfilePage {
       this.userName = profile.userName;
       this.gender = profile.gender || '保密';
       this.birthDate = profile.birthDate || '1990-01-01';
+      AppStorage.setOrCreate('profileUserName', this.userName);
+      AppStorage.setOrCreate('profileAvatarSrc', profile.avatarSrc || '');
     }
   }
 
@@ -148,6 +150,8 @@ struct EditProfilePage {
              };
              let success = await HttpService.getInstance().updateUserProfile(newProfile);
              if (success) {
+               AppStorage.setOrCreate('profileUserName', this.userName);
+               AppStorage.setOrCreate('profileAvatarSrc', newProfile.avatarSrc || '');
                promptAction.showToast({ message: '资料已保存' });
                router.back();
              } else {

@@ -115,6 +115,29 @@
 - **Header**: `Authorization: Bearer <token>`
 - **Response**: `{ "code": 200, "message": "success", "data": null }`
 
+**8. 使用临时固定头像（已实现，临时方案）**
+
+- **Method & Path**: `POST /api/v1/auth/avatar/use-fixed`
+- **Header**: `Authorization: Bearer <token>`
+- **Request**: 无（前端不需要提供文件名字）
+- **Response**:
+
+  ```json
+  {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "userId": "WangNong_001",
+      "userName": "农场主",
+      "gender": "男",
+      "birthDate": "1990-01-01",
+      "avatarSrc": "http://<host>:8080/avatar_fixed.svg"
+    }
+  }
+  ```
+
+- **说明**: `avatar_fixed.svg` 当前暂存于后端 `server.py` 同目录并通过 `GET /avatar_fixed.svg` 暴露；后续可能替换为其他头像存储/分发方式。
+
 ---
 
 ### 2.2 设备与控制模块 (Device)
@@ -504,6 +527,30 @@
 
 ---
 
+### 2.8 溯源码模块 (Traceability)
+
+**1. 扫码结果上传并获取作物信息（已实现，测试阶段固定文本）**
+
+- **Method & Path**: `POST /api/v1/traceability/scan`
+- **Header**: `Authorization: Bearer <token>`
+- **Request**:
+
+  ```json
+  {
+    "code": "TRACE_1710000000000"
+  }
+  ```
+
+- **Response(Content-Type: text/plain)**:
+
+  ```text
+  溯源码识别结果（测试固定文本）：作物番茄，地块A03，当前状态正常。
+  ```
+
+- **说明**: 当前测试阶段后端不区分二维码内容，任意 `code` 都返回同一段固定纯文本。
+
+---
+
 ## 3. MQTT 实时协议规范 (控制与流数据)
 
 ### 3.1 设备传感器流实时上报 (Device -> Cloud/App)
@@ -613,6 +660,7 @@
 - `POST /api/v1/auth/forgot-password`
 - `PUT /api/v1/auth/password`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/avatar/use-fixed`
 - `GET /api/v1/auth/profile`
 - `PUT /api/v1/auth/profile`
 - `GET /api/v1/devices`
@@ -627,6 +675,7 @@
 - `GET /api/v1/cameras/{device_id}/playback`
 - `GET /api/v1/cameras/{device_id}/keyframes`
 - `POST /api/v1/pest-detection/analyze`
+- `POST /api/v1/traceability/scan`
 
 ### 5.2 文档存在但当前代码未落地的接口
 
@@ -637,3 +686,4 @@
 
 - `GET /api/v1/devices/{id}` 的 `deviceState` 已补充 `smartMode` 字段，用于控制页首次进入主动状态拉取。
 - MQTT telemetry 的 `data` 已补充 `mode` 字段（`smart` / `manual`），用于前端实时同步智能模式开关。
+- 头像临时方案：`POST /api/v1/auth/avatar/use-fixed` 由后端返回固定头像地址，前端不传文件名；当前固定资源地址为 `GET /avatar_fixed.svg`（与 `server.py` 同目录文件）。

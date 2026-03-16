@@ -31,6 +31,10 @@ export class ChangePasswordRequest {
 export class LogoutRequest {
 }
 
+export class TraceabilityScanRequest {
+  code: string = "";
+}
+
 export class ApiQueryPayload {
   sensor_type?: string;
   device_type?: string;
@@ -278,6 +282,50 @@ export class HttpService {
       profile
     );
     return res !== null;
+  }
+
+  public async useFixedAvatar(): Promise<UserProfile | null> {
+    let res = await this.request<BaseResponse<UserProfile>>(
+      '/api/v1/auth/avatar/use-fixed',
+      http.RequestMethod.POST
+    );
+    return res ? res.data : null;
+  }
+
+  public async uploadTraceCode(traceCode: string): Promise<string | null> {
+    let httpRequest = http.createHttp();
+    let url = `${BASE_URL}/api/v1/traceability/scan`;
+
+    let header: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (this.token) {
+      header['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    let payload = new TraceabilityScanRequest();
+    payload.code = traceCode;
+
+    try {
+      let options: http.HttpRequestOptions = {
+        method: http.RequestMethod.POST,
+        header: header,
+        extraData: JSON.stringify(payload),
+        connectTimeout: 2000,
+        readTimeout: 2000
+      };
+
+      let response = await httpRequest.request(url, options);
+      if (response.responseCode === 200) {
+        return String(response.result);
+      }
+      throw new Error(`HTTP ${response.responseCode}`);
+    } catch (e) {
+      console.warn(`[HttpService] Traceability scan upload failed. Cause: ${e}`);
+      return null;
+    } finally {
+      httpRequest.destroy();
+    }
   }
 
   public async getSensorHistory(deviceId: string, range: string, metric: string): Promise<SensorHistoryData | null> {

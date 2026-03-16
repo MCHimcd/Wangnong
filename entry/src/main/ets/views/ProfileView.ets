@@ -7,15 +7,29 @@ import { HttpService } from '../services/HttpService';
 export struct ProfileView {
   @State avatarSrc: ResourceStr = $r('app.media.startIcon');
   @State userId: string = 'WangNong_001';
-  @State userName: string = '王农';
+  @StorageLink('profileUserName') userName: string = '王农';
+  @StorageLink('profileAvatarSrc') profileAvatarSrc: string = '';
 
-  async aboutToAppear() {
+  private getCurrentAvatar(): ResourceStr {
+    if (this.profileAvatarSrc && this.profileAvatarSrc.length > 0) {
+      return this.profileAvatarSrc;
+    }
+    return this.avatarSrc;
+  }
+
+  private async refreshProfile() {
     let profile = await HttpService.getInstance().getUserProfile();
     if (profile) {
       if (profile.userId) this.userId = profile.userId;
       if (profile.userName) this.userName = profile.userName;
-      // 真实情况下可能需要处理远程URL图片
+      this.profileAvatarSrc = profile.avatarSrc || '';
+      AppStorage.setOrCreate('profileUserName', this.userName);
+      AppStorage.setOrCreate('profileAvatarSrc', this.profileAvatarSrc);
     }
+  }
+
+  async aboutToAppear() {
+    await this.refreshProfile();
   }
 
   build() {
@@ -30,23 +44,43 @@ export struct ProfileView {
           .textAlign(TextAlign.Center)
           
         Column() {
-          Image(this.avatarSrc)
+          Image(this.getCurrentAvatar())
             .width(100)
             .height(100)
             .borderRadius(50)
             .backgroundColor('#E0E0E0')
             .margin({ top: 20, bottom: 10 })
-            .onClick(() => {
-              // 提交新头像
-              promptAction.showActionMenu({
-                title: '修改头像',
-                buttons: [
-                  { text: '拍照', color: '#4CAF50' },
-                  { text: '从相册选择', color: '#4CAF50' }
-                ]
-              }).then(data => {
-                promptAction.showToast({ message: '操作已提交' });
-              });
+            .onClick(async () => {
+              try {
+                let menuResult = await promptAction.showActionMenu({
+                  title: '修改头像',
+                  buttons: [
+                    { text: '拍照', color: '#4CAF50' },
+                    { text: '从相册选择', color: '#4CAF50' }
+                  ]
+                });
+
+                if (menuResult.index < 0) {
+                  return;
+                }
+
+                let profile = await HttpService.getInstance().useFixedAvatar();
+                if (!profile) {
+                  promptAction.showToast({ message: '头像更新失败，请检查后端连接' });
+                  return;
+                }
+
+                this.profileAvatarSrc = profile.avatarSrc || '';
+                if (profile.userName) {
+                  this.userName = profile.userName;
+                }
+                AppStorage.setOrCreate('profileAvatarSrc', this.profileAvatarSrc);
+                AppStorage.setOrCreate('profileUserName', this.userName);
+                promptAction.showToast({ message: '头像已更新' });
+              } catch (err) {
+                console.error(`Update avatar failed. Code:${err.code},message:${err.message}`);
+                promptAction.showToast({ message: '头像更新失败' });
+              }
             })
           
           Text(`名称: ${this.userName}`)
@@ -74,7 +108,7 @@ export struct ProfileView {
           .borderRadius(12)
           .margin({ bottom: 15 })
           .onClick(() => {
-            promptAction.showToast({ message: '此功能暂未开放' });
+            router.pushUrl({ url: 'pages/TraceabilityScanPage' });
           })
 
           Row() {
@@ -133,6 +167,8 @@ export struct ProfileView {
                 await pref.put('autoLogin', false);
                 await pref.flush();
                 AppStorage.setOrCreate('isLoggedIn', false);
+               AppStorage.setOrCreate('profileUserName', '');
+               AppStorage.setOrCreate('profileAvatarSrc', '');
                HttpService.getInstance().setToken('');
                if (!remoteLogoutOk) {
                 promptAction.showToast({ message: '服务器退出失败，已本地退出' });
