@@ -1,12 +1,36 @@
-import { MOCK_ARTICLES, ArticleData } from '../models/ArticleData';
+import { ArticleData } from '../models/ArticleData';
 import router from '@ohos.router';
+import { HttpService } from '../services/HttpService';
 
 @Component
 export struct KnowledgeView {
+  @State articles: ArticleData[] = [];
+
+  aboutToAppear() {
+    this.loadData();
+  }
+
+  async loadData() {
+    let res = await HttpService.getInstance().getArticles(1, 10);
+    if (res && res.data && res.data['items']) {
+      let items = res.data['items'] as Record<string, string>[];
+      this.articles = items.map(item => new ArticleData(
+        item['id'] as string,
+        item['title'] as string,
+        item['date'] as string,
+        item['thumbnail'] || $r('app.media.layered_image'),
+        item['content'] as string || '',
+        []
+      ));
+    } else {
+      this.articles = [];
+    }
+  }
+
   build() {
     Column() {
       List({ space: 16 }) {
-        ForEach(MOCK_ARTICLES, (item: ArticleData) => {
+        ForEach(this.articles, (item: ArticleData) => {
           ListItem() {
             Row() {
               // 标题与日期

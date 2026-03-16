@@ -1,5 +1,6 @@
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
+import { HttpService } from '../services/HttpService';
 
 @Entry
 @Component
@@ -56,7 +57,7 @@ struct ChangePasswordPage {
           .width('90%')
           .height(50)
           .backgroundColor('#4CAF50')
-          .onClick(() => {
+          .onClick(async () => {
             if (!this.oldPass || !this.newPass || !this.confirmPass) {
               promptAction.showToast({ message: '请填写完整信息' });
               return;
@@ -65,6 +66,13 @@ struct ChangePasswordPage {
               promptAction.showToast({ message: '两次新密码输入不一致' });
               return;
             }
+
+            let success = await HttpService.getInstance().changePassword(this.oldPass, this.newPass);
+            if (!success) {
+              promptAction.showToast({ message: '密码修改失败，请检查原密码或网络' });
+              return;
+            }
+
             promptAction.showToast({ message: '密码修改成功' });
             router.back();
           })

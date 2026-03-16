@@ -1,12 +1,25 @@
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
+import { HttpService } from '../services/HttpService';
+import { UserProfile } from '../models/UserData';
 
 @Entry
 @Component
 struct EditProfilePage {
-  @State userName: string = 'WangNong_001';
+  @State userName: string = '';
   @State gender: string = '保密';
   @State birthDate: string = '1990-01-01';
+  private originalProfile: UserProfile | null = null;
+
+  async aboutToAppear() {
+    let profile = await HttpService.getInstance().getUserProfile();
+    if (profile) {
+      this.originalProfile = profile;
+      this.userName = profile.userName;
+      this.gender = profile.gender || '保密';
+      this.birthDate = profile.birthDate || '1990-01-01';
+    }
+  }
 
   build() {
     Column() {
@@ -125,9 +138,21 @@ struct EditProfilePage {
           .height(50)
           .backgroundColor('#4CAF50')
           .margin({ top: 40 })
-          .onClick(() => {
-             promptAction.showToast({ message: '资料已保存' });
-             router.back();
+          .onClick(async () => {
+             let newProfile: UserProfile = {
+               userId: this.originalProfile ? this.originalProfile.userId : '',
+               userName: this.userName,
+               gender: this.gender,
+               birthDate: this.birthDate,
+               avatarSrc: this.originalProfile ? this.originalProfile.avatarSrc : ''
+             };
+             let success = await HttpService.getInstance().updateUserProfile(newProfile);
+             if (success) {
+               promptAction.showToast({ message: '资料已保存' });
+               router.back();
+             } else {
+               promptAction.showToast({ message: '保存失败' });
+             }
           })
       }
       .width('100%')

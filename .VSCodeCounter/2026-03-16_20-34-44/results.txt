@@ -1,0 +1,109 @@
+Date : 2026-03-16 20:34:44
+Directory : d:\IdeaProjects\Wangnong
+Total : 51 files,  6444 codes, 78 comments, 785 blanks, all 7307 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| arkts          |         35 |      4,412 |          0 |        513 |      4,925 |
+| Python         |          1 |        745 |         19 |        117 |        881 |
+| Markdown       |          3 |        655 |          0 |         98 |        753 |
+| JavaScript JSX |          1 |        546 |         59 |         53 |        658 |
+| JSON           |          9 |         76 |          0 |          2 |         78 |
+| TypeScript     |          2 |         10 |          0 |          2 |         12 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                  | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                     |         51 |      6,444 |         78 |        785 |      7,307 |
+| . (Files)                                                                             |          5 |      1,405 |         19 |        216 |      1,640 |
+| 111                                                                                   |          1 |        546 |         59 |         53 |        658 |
+| AppScope                                                                              |          2 |         14 |          0 |          1 |         15 |
+| AppScope\resources                                                                    |          2 |         14 |          0 |          1 |         15 |
+| AppScope\resources\base                                                               |          2 |         14 |          0 |          1 |         15 |
+| AppScope\resources\base\element                                                       |          1 |          8 |          0 |          1 |          9 |
+| AppScope\resources\base\media                                                         |          1 |          6 |          0 |          0 |          6 |
+| entry                                                                                 |         43 |      4,479 |          0 |        515 |      4,994 |
+| entry (Files)                                                                         |          1 |          5 |          0 |          1 |          6 |
+| entry\src                                                                             |         42 |      4,474 |          0 |        514 |      4,988 |
+| entry\src\main                                                                        |         38 |      4,400 |          0 |        510 |      4,910 |
+| entry\src\main\ets                                                                    |         31 |      4,338 |          0 |        509 |      4,847 |
+| entry\src\main\ets\entryability                                                       |          1 |         35 |          0 |          9 |         44 |
+| entry\src\main\ets\entrybackupability                                                 |          1 |         13 |          0 |          3 |         16 |
+| entry\src\main\ets\models                                                             |          7 |        108 |          0 |         15 |        123 |
+| entry\src\main\ets\pages                                                              |         10 |      1,748 |          0 |        199 |      1,947 |
+| entry\src\main\ets\services                                                           |          4 |        810 |          0 |        135 |        945 |
+| entry\src\main\ets\views                                                              |          8 |      1,624 |          0 |        148 |      1,772 |
+| entry\src\main\resources                                                              |          7 |         62 |          0 |          1 |         63 |
+| entry\src\main\resources\base                                                         |          6 |         54 |          0 |          1 |         55 |
+| entry\src\main\resources\base\element                                                 |          3 |         32 |          0 |          1 |         33 |
+| entry\src\main\resources\base\media                                                   |          1 |          6 |          0 |          0 |          6 |
+| entry\src\main\resources\base\profile                                                 |          2 |         16 |          0 |          0 |         16 |
+| entry\src\main\resources\dark                                                         |          1 |          8 |          0 |          0 |          8 |
+| entry\src\main\resources\dark\element                                                 |          1 |          8 |          0 |          0 |          8 |
+| entry\src\ohosTest                                                                    |          2 |         38 |          0 |          2 |         40 |
+| entry\src\ohosTest\ets                                                                |          2 |         38 |          0 |          2 |         40 |
+| entry\src\ohosTest\ets\test                                                           |          2 |         38 |          0 |          2 |         40 |
+| entry\src\test                                                                        |          2 |         36 |          0 |          2 |         38 |
++---------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                              | language       | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| d:\IdeaProjects\Wangnong\111\main_debug.js                                            | JavaScript JSX |        546 |         59 |         53 |        658 |
+| d:\IdeaProjects\Wangnong\AppScope\resources\base\element\string.json                  | JSON           |          8 |          0 |          1 |          9 |
+| d:\IdeaProjects\Wangnong\AppScope\resources\base\media\layered_image.json             | JSON           |          6 |          0 |          0 |          6 |
+| d:\IdeaProjects\Wangnong\api.md                                                       | Markdown       |        524 |          0 |         66 |        590 |
+| d:\IdeaProjects\Wangnong\arkui_manual.md                                              | Markdown       |        115 |          0 |         32 |        147 |
+| d:\IdeaProjects\Wangnong\design.md                                                    | Markdown       |         16 |          0 |          0 |         16 |
+| d:\IdeaProjects\Wangnong\entry\hvigorfile.ts                                          | TypeScript     |          5 |          0 |          1 |          6 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\entryability\EntryAbility.ets             | arkts          |         35 |          0 |          9 |         44 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\entrybackupability\EntryBackupAbility.ets | arkts          |         13 |          0 |          3 |         16 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\AlertData.ets                      | arkts          |         12 |          0 |          1 |         13 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\ArticleData.ets                    | arkts          |         16 |          0 |          2 |         18 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\Device.ets                         | arkts          |         15 |          0 |          3 |         18 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\DeviceState.ets                    | arkts          |         10 |          0 |          1 |         11 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\SensorData.ets                     | arkts          |         10 |          0 |          1 |         11 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\UserData.ets                       | arkts          |         16 |          0 |          3 |         19 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\models\VideoMonitorData.ets               | arkts          |         29 |          0 |          4 |         33 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\AgreementPage.ets                   | arkts          |         54 |          0 |          5 |         59 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\ArticleDetailPage.ets               | arkts          |         99 |          0 |          8 |        107 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\ChangePasswordPage.ets              | arkts          |         73 |          0 |          6 |         79 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\DeviceDetailPage.ets                | arkts          |        192 |          0 |         22 |        214 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\EditProfilePage.ets                 | arkts          |        157 |          0 |          9 |        166 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\Index.ets                           | arkts          |        114 |          0 |         10 |        124 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\LoginPage.ets                       | arkts          |        367 |          0 |         46 |        413 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\SensorDetailPage.ets                | arkts          |        559 |          0 |         82 |        641 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\SettingsPage.ets                    | arkts          |        123 |          0 |          9 |        132 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\pages\TestTabs.ets                        | arkts          |         10 |          0 |          2 |         12 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\services\AlertSyncService.ets             | arkts          |        182 |          0 |         30 |        212 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\services\HttpService.ets                  | arkts          |        299 |          0 |         56 |        355 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\services\MqttClientService.ets            | arkts          |        297 |          0 |         43 |        340 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\services\VideoMonitorService.ets          | arkts          |         32 |          0 |          6 |         38 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\AlertView.ets                       | arkts          |        178 |          0 |         19 |        197 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\ControlView.ets                     | arkts          |        213 |          0 |         20 |        233 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\DashboardView.ets                   | arkts          |        228 |          0 |         15 |        243 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\HomeView.ets                        | arkts          |        230 |          0 |         18 |        248 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\KnowledgeView.ets                   | arkts          |         83 |          0 |          7 |         90 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\PestDetectionView.ets               | arkts          |        207 |          0 |         17 |        224 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\ProfileView.ets                     | arkts          |        145 |          0 |         12 |        157 |
+| d:\IdeaProjects\Wangnong\entry\src\main\ets\views\VideoMonitorView.ets                | arkts          |        340 |          0 |         40 |        380 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\element\color.json             | JSON           |          8 |          0 |          0 |          8 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\element\float.json             | JSON           |          8 |          0 |          1 |          9 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\element\string.json            | JSON           |         16 |          0 |          0 |         16 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\media\layered_image.json       | JSON           |          6 |          0 |          0 |          6 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\profile\backup_config.json     | JSON           |          3 |          0 |          0 |          3 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\base\profile\main_pages.json        | JSON           |         13 |          0 |          0 |         13 |
+| d:\IdeaProjects\Wangnong\entry\src\main\resources\dark\element\color.json             | JSON           |          8 |          0 |          0 |          8 |
+| d:\IdeaProjects\Wangnong\entry\src\ohosTest\ets\test\Ability.test.ets                 | arkts          |         34 |          0 |          1 |         35 |
+| d:\IdeaProjects\Wangnong\entry\src\ohosTest\ets\test\List.test.ets                    | arkts          |          4 |          0 |          1 |          5 |
+| d:\IdeaProjects\Wangnong\entry\src\test\List.test.ets                                 | arkts          |          4 |          0 |          1 |          5 |
+| d:\IdeaProjects\Wangnong\entry\src\test\LocalUnit.test.ets                            | arkts          |         32 |          0 |          1 |         33 |
+| d:\IdeaProjects\Wangnong\hvigorfile.ts                                                | TypeScript     |          5 |          0 |          1 |          6 |
+| d:\IdeaProjects\Wangnong\server.py                                                    | Python         |        745 |         19 |        117 |        881 |
+| Total                                                                                 |                |      6,444 |         78 |        785 |      7,307 |
++---------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

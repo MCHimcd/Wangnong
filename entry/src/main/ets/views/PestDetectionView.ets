@@ -1,5 +1,6 @@
 import picker from '@ohos.file.picker';
 import promptAction from '@ohos.promptAction';
+import { HttpService } from '../services/HttpService';
 
 interface DetectionResult {
   name: string;
@@ -52,7 +53,7 @@ export struct PestDetectionView {
     }
   }
 
-  startDetection() {
+  async startDetection() {
     if (!this.selectedImageUri) {
       promptAction.showToast({ message: '请先选择要检测的图片' });
       return;
@@ -62,16 +63,20 @@ export struct PestDetectionView {
     this.hasResult = false;
     this.detectionResults = [];
 
-    // 模拟网络请求和分析延时
-    setTimeout(() => {
-      this.isAnalyzing = false;
+    // 网络请求
+    let res = await HttpService.getInstance().analyzePest(this.selectedImageUri);
+
+    this.isAnalyzing = false;
+    if (res && res.data) {
       this.hasResult = true;
       this.detectionResults = [
-        { name: '番茄早疫病 (Early Blight)', confidence: '94.2%', color: '#FF7043' },
-        { name: '番茄晚疫病 (Late Blight)', confidence: '4.8%', color: '#8D6E63' },
-        { name: '健康叶片 (Healthy)', confidence: '1.0%', color: '#66BB6A' }
+        { name: res.data['pestName'] as string, confidence: res.data['confidence'] as string, color: res.data['color'] as string }
       ];
-    }, 2000);
+    } else {
+      this.hasResult = false;
+      this.detectionResults = [];
+      promptAction.showToast({ message: '检测失败，请检查后端连接' });
+    }
   }
 
   build() {

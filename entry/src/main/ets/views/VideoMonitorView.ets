@@ -1,11 +1,11 @@
 import { promptAction } from '@kit.ArkUI';
 import { KeyframeImageItem, LiveStreamInfo, PlaybackItem } from '../models/VideoMonitorData';
-import { AlertSyncService } from '../services/AlertSyncService';
 import { VideoMonitorService } from '../services/VideoMonitorService';
 
 @Component
 export struct VideoMonitorView {
   @Prop deviceId: string = '';
+  private videoController: VideoController = new VideoController();
 
   onRefreshLive: (() => void) | null = null;
   onOpenPlayback: ((item: PlaybackItem) => void) | null = null;
@@ -17,26 +17,44 @@ export struct VideoMonitorView {
     status: 'offline',
     streamTag: '--',
     resolution: '--',
-    lastHeartbeat: '--'
+    lastHeartbeat: '--',
+    streamUrl: ''
   };
   @State playbackItems: PlaybackItem[] = [];
   @State keyframes: KeyframeImageItem[] = [];
   @State abnormalFrames: KeyframeImageItem[] = [];
   @State selectedDate: string = '';
+  @State isLoading: boolean = false;
+  @State loadError: string = '';
 
   aboutToAppear() {
-    AlertSyncService.getInstance().simulateVideoAnomaliesOnEnter(this.deviceId);
-    this.loadMockData();
+    void this.loadData();
   }
 
-  private async loadMockData() {
-    const service = VideoMonitorService.getInstance();
-    this.liveInfo = await service.getLiveStreamInfo(this.deviceId);
-    this.playbackItems = await service.getDailyPlaybackList(this.deviceId);
+  private async loadData() {
+    this.isLoading = true;
+    this.loadError = '';
+    try {
+      const service = VideoMonitorService.getInstance();
+      this.liveInfo = await service.getLiveStreamInfo(this.deviceId);
+      this.playbackItems = await service.getDailyPlaybackList(this.deviceId);
 
-    if (this.playbackItems.length > 0) {
-      this.selectedDate = this.playbackItems[0].date;
-      this.applyKeyframes(await service.getKeyframesByDate(this.deviceId, this.selectedDate));
+      if (this.playbackItems.length > 0) {
+        this.selectedDate = this.playbackItems[0].date;
+        this.applyKeyframes(await service.getKeyframesByDate(this.deviceId, this.selectedDate));
+      } else {
+        this.selectedDate = '';
+        this.applyKeyframes([]);
+      }
+    } catch (error) {
+      this.loadError = '视频数据加载失败，请检查后端服务和网络';
+      this.playbackItems = [];
+      this.selectedDate = '';
+      this.applyKeyframes([]);
+      promptAction.showToast({ message: this.loadError, duration: 1800 });
+      console.error('[VideoMonitorView] loadData failed', error);
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -45,18 +63,19 @@ export struct VideoMonitorView {
     this.abnormalFrames = frames.filter((item: KeyframeImageItem) => item.isAbnormal);
   }
 
-  private showReservedHint(message: string) {
-    promptAction.showToast({ message, duration: 1800 });
-  }
-
   private async onSelectPlayback(item: PlaybackItem) {
-    this.selectedDate = item.date;
-    this.applyKeyframes(await VideoMonitorService.getInstance().getKeyframesByDate(this.deviceId, item.date));
+    try {
+      this.selectedDate = item.date;
+      this.applyKeyframes(await VideoMonitorService.getInstance().getKeyframesByDate(this.deviceId, item.date));
+    } catch (error) {
+      this.loadError = '关键帧加载失败，请检查后端服务';
+      promptAction.showToast({ message: this.loadError, duration: 1800 });
+      console.error('[VideoMonitorView] onSelectPlayback failed', error);
+      return;
+    }
 
     if (this.onOpenPlayback) {
       this.onOpenPlayback(item);
-    } else {
-      this.showReservedHint('回放接口已预留，待后端接入');
     }
   }
 
@@ -64,8 +83,20 @@ export struct VideoMonitorView {
     if (this.onPreviewKeyframe) {
       this.onPreviewKeyframe(item);
     } else {
-      this.showReservedHint('关键帧预览接口已预留，待后端接入');
+      promptAction.showToast({ message: `${item.label} ${item.captureTime}`, duration: 1800 });
     }
+  }
+
+  private statusText(): string {
+    return this.liveInfo.status === 'online' ? '在线' : '离线';
+  }
+
+  private statusFontColor(): string {
+    return this.liveInfo.status === 'online' ? '#2E7D32' : '#C62828';
+  }
+
+  private statusBackgroundColor(): string {
+    return this.liveInfo.status === 'online' ? '#E8F5E9' : '#FFEBEE';
   }
 
   @Builder
@@ -79,41 +110,42 @@ export struct VideoMonitorView {
 
         Blank()
 
-        Text(this.liveInfo.status === 'online' ? '在线' : '离线')
+        Text(this.statusText())
           .fontSize(12)
-          .fontColor(this.liveInfo.status === 'online' ? '#2E7D32' : '#C62828')
-          .backgroundColor(this.liveInfo.status === 'online' ? '#E8F5E9' : '#FFEBEE')
+          .fontColor(this.statusFontColor())
+          .backgroundColor(this.statusBackgroundColor())
           .padding({ left: 10, right: 10, top: 4, bottom: 4 })
           .borderRadius(10)
       }
       .width('100%')
       .margin({ bottom: 12 })
 
-      Text('实时预览（占位）')
-        .fontSize(12)
-        .fontColor('#90A4AE')
-        .width('100%')
-        .margin({ bottom: 10 })
-
-      Stack({ alignContent: Alignment.Center }) {
-        Row() {}
+      if (this.liveInfo.status === 'online' && this.liveInfo.streamUrl.length > 0) {
+        Video({ src: this.liveInfo.streamUrl, controller: this.videoController })
           .width('100%')
           .height(198)
           .borderRadius(18)
-          .backgroundColor('#1F2A37')
+          .controls(true)
+      } else {
+        Stack({ alignContent: Alignment.Center }) {
+          Row() {}
+            .width('100%')
+            .height(198)
+            .borderRadius(18)
+            .backgroundColor('#1F2A37')
 
-        Column() {
-          Text('🎥')
-            .fontSize(34)
-            .margin({ bottom: 10 })
-          Text('实时画面占位区')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#FFFFFF')
-          Text('后续接入真实视频流')
-            .fontSize(13)
-            .fontColor('#B0BEC5')
-            .margin({ top: 6 })
+          Column() {
+            Text('视频流不可用')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#FFFFFF')
+            if (this.loadError.length > 0) {
+              Text(this.loadError)
+                .fontSize(12)
+                .fontColor('#FFCDD2')
+                .margin({ top: 8 })
+            }
+          }
         }
       }
 
@@ -131,6 +163,12 @@ export struct VideoMonitorView {
             .fontSize(12)
             .fontColor('#90A4AE')
             .margin({ top: 4 })
+          Text(`流地址：${this.liveInfo.streamUrl.length > 0 ? this.liveInfo.streamUrl : '--'}`)
+            .fontSize(12)
+            .fontColor('#607D8B')
+            .margin({ top: 4 })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
 
         Blank()
@@ -143,7 +181,7 @@ export struct VideoMonitorView {
             if (this.onRefreshLive) {
               this.onRefreshLive();
             } else {
-              this.showReservedHint('实时刷新接口已预留，待后端接入');
+              void this.loadData();
             }
           })
       }
@@ -168,7 +206,7 @@ export struct VideoMonitorView {
         .margin({ bottom: 12 })
 
       if (this.playbackItems.length === 0) {
-        Text('暂无回放记录')
+        Text(this.isLoading ? '加载中...' : '暂无回放记录')
           .fontSize(14)
           .fontColor('#90A4AE')
           .margin({ top: 8, bottom: 8 })

@@ -3,6 +3,7 @@ import router from '@ohos.router';
 
 @Component
 export struct DashboardView {
+  @Prop deviceId: string = '';
   @ObjectLink sensorData: SensorData;
 
   build() {
@@ -18,7 +19,9 @@ export struct DashboardView {
       Grid() {
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'temperature',
+            metricKey: 'temperature',
             title: '空气温度',
             value: `${this.sensorData.temperature.toFixed(1)}`,
             unit: '°C',
@@ -30,7 +33,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'humidity',
+            metricKey: 'humidity',
             title: '空气湿度',
             value: `${this.sensorData.humidity.toFixed(1)}`,
             unit: '%',
@@ -42,7 +47,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'light',
+            metricKey: 'light',
             title: '光照',
             value: `${this.sensorData.light.toFixed(0)}`,
             unit: 'Lux',
@@ -54,7 +61,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'co2',
+            metricKey: 'co2',
             title: '二氧化碳',
             value: `${this.sensorData.co2.toFixed(0)}`,
             unit: 'ppm',
@@ -66,7 +75,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'soil_temperature',
+            metricKey: 'soilTemp',
             title: '土壤温度',
             value: `${this.sensorData.soilTemp.toFixed(1)}`,
             unit: '°C',
@@ -78,7 +89,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'soil_humidity',
+            metricKey: 'soilHumidity',
             title: '土壤湿度',
             value: `${this.sensorData.soilHumidity.toFixed(1)}`,
             unit: '%',
@@ -90,7 +103,9 @@ export struct DashboardView {
 
         GridItem() {
           DataCardComp({
+            deviceId: this.deviceId,
             type: 'soil_ph',
+            metricKey: 'soilPh',
             title: '土壤pH值',
             value: `${this.sensorData.soilPh.toFixed(2)}`,
             unit: '',
@@ -115,7 +130,9 @@ export struct DashboardView {
 
 @Component
 struct DataCardComp {
+  @Prop deviceId: string = '';
   @Prop type: string = '';
+  @Prop metricKey: string = '';
   @Prop title: string = '';
   @Prop value: string = '';
   @Prop unit: string = '';
@@ -123,6 +140,15 @@ struct DataCardComp {
   @Prop bgColor: string = '#FFFFFF';
   @Prop currentValue: number = 0;
   @State isTouched: boolean = false;
+
+  private isWarning(): boolean {
+    if (this.type === 'temperature' && (this.currentValue > 35 || this.currentValue < 5)) return true;
+    if (this.type === 'humidity' && (this.currentValue > 90 || this.currentValue < 20)) return true;
+    if (this.type === 'co2' && this.currentValue > 1000) return true;
+    if (this.type === 'soil_temperature' && (this.currentValue > 30 || this.currentValue < 5)) return true;
+    if (this.type === 'soil_humidity' && this.currentValue < 10) return true;
+    return false;
+  }
 
   private getIcon(type: string): string {
     if (type === 'temperature') {
@@ -164,12 +190,15 @@ struct DataCardComp {
       .margin({ bottom: 20 })
 
       Row() {
-        Text(this.value).fontSize(36).fontWeight(FontWeight.Bolder).fontColor('#263238')
+        Text(this.value)
+          .fontSize(36)
+          .fontWeight(FontWeight.Bolder)
+          .fontColor(this.isWarning() ? '#D32F2F' : '#263238')
         if (this.unit.length > 0) {
           Text(this.unit)
             .fontSize(16)
             .fontWeight(FontWeight.Normal)
-            .fontColor('#78909C')
+            .fontColor(this.isWarning() ? '#E57373' : '#78909C')
             .margin({ left: 4, bottom: 6 })
         }
       }.alignItems(VerticalAlign.Bottom)
@@ -200,7 +229,9 @@ struct DataCardComp {
       router.pushUrl({
         url: 'pages/SensorDetailPage',
         params: {
+          deviceId: this.deviceId,
           type: this.type,
+          metricKey: this.metricKey,
           title: this.title,
           currentValue: this.currentValue,
           badgeColor: this.badgeColor

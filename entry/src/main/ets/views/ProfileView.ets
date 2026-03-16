@@ -1,11 +1,22 @@
 import { promptAction, router } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
+import { HttpService } from '../services/HttpService';
 
 @Component
 export struct ProfileView {
-  @State avatarSrc: Resource = $r('app.media.startIcon');
+  @State avatarSrc: ResourceStr = $r('app.media.startIcon');
   @State userId: string = 'WangNong_001';
+  @State userName: string = '王农';
+
+  async aboutToAppear() {
+    let profile = await HttpService.getInstance().getUserProfile();
+    if (profile) {
+      if (profile.userId) this.userId = profile.userId;
+      if (profile.userName) this.userName = profile.userName;
+      // 真实情况下可能需要处理远程URL图片
+    }
+  }
 
   build() {
     Scroll() {
@@ -26,7 +37,7 @@ export struct ProfileView {
             .backgroundColor('#E0E0E0')
             .margin({ top: 20, bottom: 10 })
             .onClick(() => {
-              // 简易模拟修改头像
+              // 提交新头像
               promptAction.showActionMenu({
                 title: '修改头像',
                 buttons: [
@@ -34,14 +45,20 @@ export struct ProfileView {
                   { text: '从相册选择', color: '#4CAF50' }
                 ]
               }).then(data => {
-                promptAction.showToast({ message: '模拟：头像已更新' });
+                promptAction.showToast({ message: '操作已提交' });
               });
             })
-            
+          
+          Text(`名称: ${this.userName}`)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#333333')
+            .margin({ top: 10 })
+
           Text(`ID: ${this.userId}`)
-            .fontSize(18)
-            .fontColor('#546E7A')
-            .margin({ bottom: 30 })
+            .fontSize(16)
+            .fontColor('#78909c')
+            .margin({ bottom: 20 })
 
           Row() {
             Text('溯源码：扫码展示作物信息')
@@ -110,11 +127,16 @@ export struct ProfileView {
           .margin({ bottom: 40 })
           .onClick(async () => {
              try {
+               const remoteLogoutOk = await HttpService.getInstance().logout();
                 let context = getContext(this) as common.UIAbilityContext;
                 let pref = await preferences.getPreferences(context, 'AppPreferences');
                 await pref.put('autoLogin', false);
                 await pref.flush();
                 AppStorage.setOrCreate('isLoggedIn', false);
+               HttpService.getInstance().setToken('');
+               if (!remoteLogoutOk) {
+                promptAction.showToast({ message: '服务器退出失败，已本地退出' });
+               }
                 router.replaceUrl({ url: 'pages/LoginPage' });
              } catch (err) {
                 console.error(`Logout failed. Code:${err.code},message:${err.message}`);

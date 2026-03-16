@@ -16,6 +16,10 @@ import {
   AxisBase
 } from '@ohos/mpchart';
 
+import { HttpService, SensorHistoryData } from '../services/HttpService';
+
+import { CachedTrendPoint, MqttClientService } from '../services/MqttClientService';
+
 export interface HistoricalDatapoint {
   time: string;
   value: number;
@@ -50,10 +54,14 @@ class XAxisFormatter implements IAxisValueFormatter {
   }
 }
 
+const MAX_REALTIME_POINTS: number = 60;
+
 @Entry
 @Component
 struct SensorDetailPage {
+  @State deviceId: string = 'A03_Node_01';
   @State type: string = '';
+  @State metricKey: string = '';
   @State title: string = '';
   @State currentValue: number = 0;
   @State badgeColor: string = '#4CAF50';
@@ -84,15 +92,81 @@ struct SensorDetailPage {
   private historyEntriesMin: JArrayList<EntryOhos> = new JArrayList<EntryOhos>();
   private historyLabels: string[] = [];
   private historyFullTimeLabels: string[] = [];
+  
+  private telemetryListener = (deviceId: string, msgStr: string) => {
+    try {
+      if (deviceId !== this.deviceId) {
+        return;
+      }
+      const payload = JSON.parse(msgStr) as Record<string, Object>;
+      if (payload['data']) {
+        const data = payload['data'] as Record<string, Object>;
+        if (data['environment']) {
+          const env = data['environment'] as Record<string, number>;
+
+          const metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
+          let val = env[metric];
+          if (val !== undefined) {
+             this.currentValue = val;
+             this.realTimeEntries.add(new EntryOhos(this.realTimePoints, val));
+             this.realTimeLabels.push(this.getTimeString(new Date()));
+             this.realTimePoints++;
+             
+             if (this.realTimeEntries.size() > MAX_REALTIME_POINTS) {
+               this.realTimeEntries.removeIndex(0);
+               this.realTimeLabels.shift();
+               for (let i = 0; i < this.realTimeEntries.size(); i++) {
+                 let e = this.realTimeEntries.get(i);
+                 e.setX(this.realTimePoints - this.realTimeEntries.size() + i);
+               }
+             }
+
+             let xAxis = this.realTimeModel.getXAxis();
+             if (xAxis) {
+               xAxis.setAxisMaximum(this.realTimePoints - 1);
+               xAxis.setAxisMinimum(Math.max(0, this.realTimePoints - MAX_REALTIME_POINTS));
+             }
+
+             this.updateRealTimeDataset();
+             this.realTimeModel.notifyDataSetChanged();
+             this.realTimeModel.invalidate();
+          }
+        }
+      }
+    } catch(e) {}
+  };
+
+  getMetricKey(): string {
+    let t = (this.type + this.title).toLowerCase();
+    // 优先匹配土壤相关的关键字，否则 "soilTemp" 会被 "temp" 拦截，"土壤温度" 会被 "温度" 拦截
+    if (t.includes('soiltemp') || t.includes('土壤温度') || t.includes('土温')) return 'soilTemp';
+    if (t.includes('soilhumidity') || t.includes('土壤湿度') || t.includes('土湿')) return 'soilHumidity';
+    if (t.includes('soilph') || t.includes('土壤ph') || t.includes('ph')) return 'soilPh';
+    
+    if (t.includes('空气温度') || t.includes('气温') || t.includes('temp') || t.includes('温度')) return 'temperature';
+    if (t.includes('空气湿度') || t.includes('气湿') || t.includes('humidity') || t.includes('湿度')) return 'humidity';
+    if (t.includes('二氧化碳') || t.includes('co2')) return 'co2';
+    if (t.includes('光照') || t.includes('light')) return 'light';
+    
+    return 'temperature';
+  }
 
   aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
     if (params) {
+      this.deviceId = (params['deviceId'] as string) || 'A03_Node_01';
       this.type = params['type'] as string;
+      this.metricKey = (params['metricKey'] as string) || '';
       this.title = params['title'] as string;
       this.currentValue = params['currentValue'] as number;
       this.badgeColor = params['badgeColor'] as string;
     }
+
+    if (this.metricKey.length === 0) {
+      this.metricKey = this.getMetricKey();
+    }
+
+    this.restoreRealTimeCache();
     
     this.initChartModel(this.realTimeModel);
     this.initChartModel(this.historyModel);
@@ -126,23 +200,26 @@ struct SensorDetailPage {
       }
     }));
 
-    this.startRealTimeMock();
-    this.loadMockHistoryData();
+    this.startRealtimeStream();
+    this.loadHistoryData();
   }
 
   aboutToDisappear() {
+    MqttClientService.getInstance().removeTelemetryListener(this.telemetryListener);
     if (this.realTimer !== -1) {
       clearInterval(this.realTimer);
     }
   }
 
   getUnit(): string {
+    const metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
+    if (metric === 'temperature' || metric === 'soilTemp') return '℃';
+    if (metric === 'humidity' || metric === 'soilHumidity') return '%';
+    if (metric === 'soilPh') return '';
+    if (metric === 'light') return 'Lux';
+    if (metric === 'co2') return 'ppm';
+
     let t = (this.type + this.title).toLowerCase();
-    if (t.includes('temp') || t.includes('温度')) return '℃';
-    if (t.includes('humidity') || t.includes('湿度')) return '%';
-    if (t.includes('ph')) return 'pH';
-    if (t.includes('light') || t.includes('照度') || t.includes('光照')) return 'Lux';
-    if (t.includes('co2') || t.includes('二氧化碳')) return 'ppm';
     if (t.includes('speed') || t.includes('风速') || t.includes('fan')) return 'm/s';
     if (t.includes('ec') || t.includes('电导率')) return 'µS/cm';
     if (t.includes('n') || t.includes('氮') || t.includes('p') || t.includes('磷') || t.includes('k') || t.includes('钾')) return 'mg/kg';
@@ -234,40 +311,32 @@ struct SensorDetailPage {
     return `${h}:${m}:${s}`;
   }
 
-  startRealTimeMock() {
-    for (let i = 0; i < 60; i++) {
-       let val = this.currentValue + (Math.random() * 4 - 2);
-       this.realTimeEntries.add(new EntryOhos(this.realTimePoints, val));
-       let d = new Date();
-       d.setSeconds(d.getSeconds() - (60 - i) * 2);
-       this.realTimeLabels.push(this.getTimeString(d));
-       this.realTimePoints++;
+  private getCacheKey(): string {
+    return `${this.deviceId}_${this.metricKey}`;
+  }
+
+  private restoreRealTimeCache(): void {
+    this.realTimeEntries.clear();
+    this.realTimeLabels = [];
+    this.realTimePoints = 0;
+
+    const cachedPoints = MqttClientService.getInstance().getCachedTrend(this.deviceId, this.metricKey);
+    if (cachedPoints.length === 0) {
+      return;
     }
+
+    cachedPoints.forEach((point: CachedTrendPoint, index: number) => {
+      this.realTimeEntries.add(new EntryOhos(index, point.value));
+      this.realTimeLabels.push(point.time);
+    });
+
+    this.realTimePoints = cachedPoints.length;
+    this.currentValue = cachedPoints[cachedPoints.length - 1].value;
+  }
+
+  startRealtimeStream() {
     this.updateRealTimeDataset();
-
-    this.realTimer = setInterval(() => {
-       // Update @State to make UI text refresh
-       this.currentValue = this.currentValue + (Math.random() * 4 - 2);
-       
-       this.realTimeEntries.add(new EntryOhos(this.realTimePoints, this.currentValue));
-       this.realTimeLabels.push(this.getTimeString(new Date()));
-       this.realTimePoints++;
-
-       if (this.realTimeEntries.size() > 60) {
-         this.realTimeEntries.removeIndex(0);
-         this.realTimeLabels.shift();
-       }
-       
-       let xAxis = this.realTimeModel.getXAxis();
-       if (xAxis) {
-         xAxis.setAxisMinimum(this.realTimePoints - 60);
-         xAxis.setAxisMaximum(this.realTimePoints);
-       }
-
-       this.updateRealTimeDataset();
-       this.realTimeModel.notifyDataSetChanged();
-       this.realTimeModel.invalidate();
-    }, 2000);
+    MqttClientService.getInstance().addTelemetryListener(this.telemetryListener);
   }
 
   updateRealTimeDataset() {
@@ -291,6 +360,8 @@ struct SensorDetailPage {
 
     let xAxis = this.realTimeModel.getXAxis();
     if (xAxis) {
+      xAxis.setAxisMaximum(Math.max(0, this.realTimePoints - 1));
+      xAxis.setAxisMinimum(Math.max(0, this.realTimePoints - MAX_REALTIME_POINTS));
       xAxis.setValueFormatter(new XAxisFormatter(this.realTimeLabels));
     }
   }
@@ -299,56 +370,42 @@ struct SensorDetailPage {
     return 0xff4CAF50;
   }
 
-  loadMockHistoryData() {
-    let points = 0;
-    let baseValue = this.currentValue;
-    let variance = 10;
+  async loadHistoryData() {
+    let metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
 
-    if (this.timeRange === '24h') points = 24;
-    else if (this.timeRange === '7d') points = 7;
-    else if (this.timeRange === '30d') points = 30;
-
-    let sum = 0;
-    let minT = Number.MAX_VALUE;
-    let maxT = Number.MIN_VALUE;
-
+    let res = await HttpService.getInstance().getSensorHistory(this.deviceId, this.timeRange, metric);
+    
     this.historyEntriesAvg.clear();
     this.historyEntriesMax.clear();
     this.historyEntriesMin.clear();
     this.historyLabels = [];
     this.historyFullTimeLabels = [];
 
-    let targetBase = baseValue;
-    for (let i = 0; i < points; i++) {
-       targetBase = targetBase + (Math.random() * variance * 0.8 - variance * 0.4);
-       if (targetBase < 0) targetBase = 0;
-       
-       let pMax = targetBase + (Math.random() * 5);
-       let pMin = targetBase - (Math.random() * 5);
-       if (pMin < 0) pMin = 0;
+    if (res && res.points) {
+      this.maxValue = res.summary.max;
+      this.minValue = res.summary.min;
+      this.avgValue = res.summary.avg;
 
-       sum += targetBase;
-       if (pMin < minT) minT = pMin;
-       if (pMax > maxT) maxT = pMax;
+      for (let i = 0; i < res.points.length; i++) {
+        let p = res.points[i];
+        
+        let diff = Math.abs(p.value) * 0.05 + 0.5; // 生成平滑的包络线而非随机跳动点
+        let pMax = p.value + diff;
+        let pMin = p.value - diff;
 
-       this.historyEntriesAvg.add(new EntryOhos(i, targetBase));
-       this.historyEntriesMax.add(new EntryOhos(i, pMax));
-       this.historyEntriesMin.add(new EntryOhos(i, pMin));
-       
-       let d = new Date();
-       if (this.timeRange === '24h') {
-         d.setHours(d.getHours() - (points - 1 - i));
-         this.historyLabels.push(`${d.getHours()}:00`);
-       } else {
-         d.setDate(d.getDate() - (points - 1 - i));
-         this.historyLabels.push(`${d.getMonth() + 1}-${d.getDate()}`);
-       }
-       this.historyFullTimeLabels.push(this.getFullTimeString(d));
+        this.historyEntriesAvg.add(new EntryOhos(i, p.value));
+        this.historyEntriesMax.add(new EntryOhos(i, pMax));
+        this.historyEntriesMin.add(new EntryOhos(i, pMin));
+
+        this.historyLabels.push(p.timeLabel || '');
+        this.historyFullTimeLabels.push(p.timeLabel || '');
+      }
+    } else {
+      // Fallback
+      this.maxValue = 0;
+      this.minValue = 0;
+      this.avgValue = 0;
     }
-
-    this.maxValue = maxT;
-    this.minValue = minT;
-    this.avgValue = sum / points;
 
     this.updateHistoryDataset();
   }
@@ -441,7 +498,7 @@ struct SensorDetailPage {
       .margin({ left: 5, right: 5 })
       .onClick(() => {
         this.timeRange = range;
-        this.loadMockHistoryData();
+        this.loadHistoryData();
       })
   }
 
@@ -459,13 +516,6 @@ struct SensorDetailPage {
           })
         Text(this.title)
           .fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder).layoutWeight(1)
-        Text('模拟连接')
-          .fontSize(14)
-          .fontColor(Color.White)
-          .fontWeight(FontWeight.Medium)
-          .backgroundColor('#4CAF50')
-          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-          .borderRadius(20)
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 40, bottom: 20 })

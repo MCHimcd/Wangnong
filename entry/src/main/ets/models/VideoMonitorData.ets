@@ -8,6 +8,7 @@ export interface LiveStreamInfo {
   streamTag: string;
   resolution: string;
   lastHeartbeat: string;
+  streamUrl: string;
 }
 
 export interface PlaybackItem {

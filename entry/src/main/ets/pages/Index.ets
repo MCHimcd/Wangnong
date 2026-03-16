@@ -2,8 +2,7 @@
 import { HomeView } from '../views/HomeView';
 import { AlertView } from '../views/AlertView';
 import { ProfileView } from '../views/ProfileView';
-import { promptAction } from '@kit.ArkUI';
-import { HttpService } from '../services/HttpService';
+import { DeviceListItem, HttpService } from '../services/HttpService';
 import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
 
@@ -20,97 +19,79 @@ struct Index {
   @Provide autoIrrigation: boolean = false;
   @Provide autoCooling: boolean = false;
   
-  @Provide @Watch('onConnectionStatusChange') connectionStatus: 'connected' | 'mock' | 'disconnected' = 'mock';
-  
-  private lastAlertTime: number = 0;
-  private mockTimer: number = -1;
+  @Provide connectionStatus: 'connected' | 'disconnected' = 'disconnected';
 
-  onConnectionStatusChange() {
-    if (this.connectionStatus === 'mock') {
-      if (this.mockTimer === -1) {
-        this.mockTimer = setInterval(() => {
-          if (!AppStorage.get<boolean>('isLoggedIn')) return;
-          this.devices.forEach(device => {
-            device.sensorData.temperature = 22 + Math.random() * 10;
-            device.sensorData.humidity = 40 + Math.random() * 40;
-            device.sensorData.light = 1000 + Math.random() * 2000;
-            device.sensorData.co2 = 380 + Math.random() * 100;
-            device.sensorData.soilTemp = 16 + Math.random() * 12;
-            device.sensorData.soilHumidity = 30 + Math.random() * 45;
-            device.sensorData.soilPh = 5.5 + Math.random() * 1.5;
+  private async loadDevicesFromServer() {
+    const remoteDevices = await HttpService.getInstance().getDevices();
+    if (!remoteDevices || remoteDevices.length === 0) {
+      return;
+    }
 
-            let currentTime = new Date().getTime();
-            if (currentTime - this.lastAlertTime > 10000 &&
-              this.currentDeviceIndex === this.devices.indexOf(device)) {
-              if (device.sensorData.humidity < this.humidThreshold && !device.deviceState.waterPumpOn) {
-                promptAction.showToast({ message: '模拟：湿度过低！', duration: 2000 });
-                AlertSyncService.getInstance().addRuntimeAlert({
-                  alert_id: `RT_HUM_${device.id}_${currentTime}`,
-                  type: 'humidity_low_runtime',
-                  type_name: '空气湿度过低（实时）',
-                  level: 'warning',
-                  timestamp: currentTime,
-                  message: `设备 ${device.name} 空气湿度降至 ${device.sensorData.humidity.toFixed(1)}%，建议及时补水。`,
-                  source: 'environment',
-                  source_name: '环境监测',
-                  is_handled: false,
-                  handle_time: null
-                });
-                if (this.autoIrrigation) {
-                  device.deviceState.waterPumpOn = true;
-                  promptAction.showToast({ message: '模拟：已自动开启水泵', duration: 2000 });
-                }
-                this.lastAlertTime = currentTime;
-              } else if (device.sensorData.temperature > this.tempThreshold) {
-                AlertSyncService.getInstance().addRuntimeAlert({
-                  alert_id: `RT_TMP_${device.id}_${currentTime}`,
-                  type: 'temp_high_runtime',
-                  type_name: '高温异常（实时）',
-                  level: 'critical',
-                  timestamp: currentTime,
-                  message: `设备 ${device.name} 温度达到 ${device.sensorData.temperature.toFixed(1)}°C，请及时降温。`,
-                  source: 'environment',
-                  source_name: '环境监测',
-                  is_handled: false,
-                  handle_time: null
-                });
-                if (this.autoCooling && !device.deviceState.fanOn) {
-                  device.deviceState.fanOn = true;
-                  promptAction.showToast({ message: '模拟：高温！已自动开启排风', duration: 2000 });
-                }
-                this.lastAlertTime = currentTime;
-              }
-            }
-          });
-        }, 3000);
+    this.devices = remoteDevices.map((item: DeviceListItem) => {
+      return new Device(item.id, item.name);
+    });
 
-        this.devices.forEach(device => {
-          device.sensorData.temperature = 25;
-          device.sensorData.humidity = 50;
-          device.sensorData.light = 1500;
-          device.sensorData.co2 = 400;
-          device.sensorData.soilTemp = 22;
-          device.sensorData.soilHumidity = 55;
-          device.sensorData.soilPh = 6.5;
-        });
-      }
-    } else {
-      if (this.mockTimer !== -1) {
-        clearInterval(this.mockTimer);
-        this.mockTimer = -1;
-      }
+    if (this.currentDeviceIndex >= this.devices.length) {
+      this.currentDeviceIndex = 0;
     }
   }
 
-  aboutToAppear() {
-    HttpService.getInstance().setDeviceId(this.devices[0].id);
-    this.onConnectionStatusChange();
+  async aboutToAppear() {
+    await this.loadDevicesFromServer();
+    HttpService.getInstance().setDeviceId(this.devices[this.currentDeviceIndex].id);
+
+    MqttClientService.getInstance().connect(
+      'tcp://broker.emqx.io:1883',
+      'app_client_' + new Date().getTime(),
+      (deviceId, msgStr) => {
+        try {
+          const payload = JSON.parse(msgStr) as Record<string, Object | string | number | boolean>;
+          if (payload['data']) {
+            const data = payload['data'] as Record<string, Object | string | number | boolean>;
+            this.devices.forEach(device => {
+              if (device.id === deviceId) {
+                if (data['environment']) {
+                  const env = data['environment'] as Record<string, number>;
+                  if (env['temperature'] !== undefined) device.sensorData.temperature = env['temperature'];
+                  if (env['humidity'] !== undefined) device.sensorData.humidity = env['humidity'];
+                  if (env['light'] !== undefined) device.sensorData.light = env['light'];
+                  if (env['co2'] !== undefined) device.sensorData.co2 = env['co2'];
+                  if (env['soilTemp'] !== undefined) device.sensorData.soilTemp = env['soilTemp'];
+                  if (env['soilHumidity'] !== undefined) device.sensorData.soilHumidity = env['soilHumidity'];
+                  if (env['soilPh'] !== undefined) device.sensorData.soilPh = env['soilPh'];
+                }
+                if (data['equipment']) {
+                  const equip = data['equipment'] as Record<string, boolean | number>;
+                  if (equip['water_pump'] !== undefined) device.deviceState.waterPumpOn = Boolean(equip['water_pump']);
+                  if (equip['led_light'] !== undefined) device.deviceState.ledOn = Boolean(equip['led_light']);
+                  if (equip['fan'] !== undefined) device.deviceState.fanOn = Boolean(equip['fan']);
+                }
+                if (data['mode'] !== undefined) {
+                  const mode = data['mode'];
+                  if (typeof mode === 'string') {
+                    device.deviceState.smartMode = mode.toLowerCase() === 'smart';
+                  } else if (typeof mode === 'boolean') {
+                    device.deviceState.smartMode = mode;
+                  }
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.error('[Index] Failed to parse MQTT message', e);
+        }
+      },
+      (status, debugInfo) => {
+        this.connectionStatus = status;
+        console.info(`[Index] MQTT status changed: ${status}, info: ${debugInfo || ''}`);
+      }
+    );
+    AlertSyncService.getInstance().startRealtimeSync();
   }
 
   aboutToDisappear() {
-    if (this.mockTimer !== -1) {
-      clearInterval(this.mockTimer);
-    }
+    AlertSyncService.getInstance().stopRealtimeSync();
+    MqttClientService.getInstance().disconnect();
   }
 
   @StorageLink('currentTabIndex') currentTabIndex: number = 0;
@@ -129,7 +110,7 @@ struct Index {
               HttpService.getInstance().setDeviceId(this.devices[idx].id);
             },
             onAddDevice: (name: string) => {
-              this.devices.push(new Device('mock_id_' + Date.now(), name));
+              this.devices.push(new Device('dev_' + Date.now(), name));
             }
           })
         }

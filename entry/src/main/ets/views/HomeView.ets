@@ -171,7 +171,7 @@ export struct HomeView {
         Scroll() {
           Column() {
             if (this.currentSidebarIndex === 0) {
-              DashboardView({ sensorData: this.device.sensorData })
+              DashboardView({ deviceId: this.device.id, sensorData: this.device.sensorData })
             } else if (this.currentSidebarIndex === 1) {
               VideoMonitorView({ deviceId: this.device.id })
             } else if (this.currentSidebarIndex === 2) {

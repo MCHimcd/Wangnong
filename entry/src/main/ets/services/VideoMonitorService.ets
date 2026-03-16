@@ -1,5 +1,5 @@
-import { MockVideoProvider } from '../mock/MockVideoProvider';
 import { KeyframeImageItem, LiveStreamInfo, PlaybackItem } from '../models/VideoMonitorData';
+import { HttpService } from './HttpService';
 
 export class VideoMonitorService {
   private static instance: VideoMonitorService;
@@ -12,17 +12,26 @@ export class VideoMonitorService {
   }
 
   async getLiveStreamInfo(deviceId: string): Promise<LiveStreamInfo> {
-    // 预留：后续替换为真实接口调用
-    return MockVideoProvider.getLiveStreamInfo(deviceId);
+    let res = await HttpService.getInstance().getCameraLive(deviceId);
+    if (res && res.data) {
+      return res.data;
+    }
+    throw new Error('直播流信息获取失败，请检查后端连接');
   }
 
-  async getDailyPlaybackList(_deviceId: string): Promise<PlaybackItem[]> {
-    // 预留：后续按设备和日期过滤
-    return MockVideoProvider.getDailyPlaybackList();
+  async getDailyPlaybackList(deviceId: string): Promise<PlaybackItem[]> {
+    let res = await HttpService.getInstance().getCameraPlayback(deviceId, '2026-03-16');
+    if (res && res.data) {
+      return res.data;
+    }
+    throw new Error('回放列表获取失败，请检查后端连接');
   }
 
-  async getKeyframesByDate(_deviceId: string, date: string): Promise<KeyframeImageItem[]> {
-    // 预留：后续按设备和日期查询关键帧
-    return MockVideoProvider.getKeyframesByDate(date);
+  async getKeyframesByDate(deviceId: string, date: string): Promise<KeyframeImageItem[]> {
+    let res = await HttpService.getInstance().getCameraKeyframes(deviceId, date);
+    if (res && res.data) {
+      return res.data;
+    }
+    throw new Error('关键帧获取失败，请检查后端连接');
   }
 }

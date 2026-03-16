@@ -1,10 +1,5 @@
 import router from '@ohos.router';
-import { HttpService } from '../services/HttpService';
-
-export interface DeviceDataPoint {
-  timeLabel: string;
-  value: number;
-}
+import { HttpService, DeviceDataPoint, EquipmentStatsData } from '../services/HttpService';
 
 @Entry
 @Component
@@ -30,52 +25,20 @@ struct DeviceDetailPage {
 
   async loadData() {
     let res = await HttpService.getInstance().getEquipmentStats(this.type, '7d');
-    if (res && res['code'] === 200 && res['data']) {
-      let dataObj = res['data'] as Record<string, Object>;
-      let summaryObj = dataObj['summary'] as Record<string, number | string>;
-      let pointsArr = dataObj['points'] as DeviceDataPoint[];
+    if (res && res.code === 200 && res.data) {
+      let dataObj: EquipmentStatsData = res.data;
+      let summaryObj = dataObj.summary;
+      let pointsArr: DeviceDataPoint[] = dataObj.points;
 
-      this.summaryTotal = (summaryObj['total_value'] as number) || 0;
-      this.yAxisLabel = (summaryObj['unit'] as string) || '';
+      this.summaryTotal = summaryObj.total_value || 0;
+      this.yAxisLabel = summaryObj.unit || '';
       this.dataPoints = pointsArr || [];
       this.drawBarChart();
     } else {
-      this.loadMockDeviceData();
+      this.summaryTotal = 0;
+      this.dataPoints = [];
+      this.drawBarChart();
     }
-  }
-
-  loadMockDeviceData() {
-    let points = 7;
-    const newData: DeviceDataPoint[] = [];
-    let sum = 0;
-
-    for (let i = points; i > 0; i--) {
-      let val = 0;
-      let d = new Date();
-      d.setDate(d.getDate() - i + 1);
-      let label = `${d.getMonth() + 1}-${d.getDate()}`;
-
-      if (this.type === 'water_pump') {
-        this.yAxisLabel = '灌溉量(升)';
-        val = Math.floor(Math.random() * 20) + 5;
-      } else if (this.type === 'led_light') {
-        this.yAxisLabel = '补光时长(H)';
-        val = Math.floor(Math.random() * 6) + 2;
-      } else if (this.type === 'ai_camera') {
-        this.yAxisLabel = '识别病虫(次)';
-        val = Math.floor(Math.random() * 6);
-      } else if (this.type === 'fan') {
-        this.yAxisLabel = '排风时长(H)';
-        val = Math.floor(Math.random() * 8) + 1;
-      }
-
-      newData.push({ timeLabel: label, value: val });
-      sum += val;
-    }
-
-    this.dataPoints = newData;
-    this.summaryTotal = sum;
-    this.drawBarChart();
   }
 
   drawBarChart() {

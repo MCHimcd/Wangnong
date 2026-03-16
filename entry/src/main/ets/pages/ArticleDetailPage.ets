@@ -1,18 +1,27 @@
 import router from '@ohos.router';
-import { MOCK_ARTICLES, ArticleData } from '../models/ArticleData';
+import { ArticleData } from '../models/ArticleData';
+import { HttpService } from '../services/HttpService';
 
 @Entry
 @Component
 struct ArticleDetailPage {
   @State article: ArticleData | null = null;
 
-  aboutToAppear() {
-    const params = router.getParams() as Record<string, Object>;
+  async aboutToAppear() {
+    const params = router.getParams() as Record<string, string>;
     if (params && params['articleId']) {
       const id = params['articleId'] as string;
-      const found = MOCK_ARTICLES.find(a => a.id === id);
-      if (found) {
-        this.article = found;
+      const res = await HttpService.getInstance().getArticleDetail(id);
+      if (res && res.data) {
+        let articleData = res.data as ArticleData;
+        this.article = new ArticleData(
+          articleData.id,
+          articleData.title,
+          articleData.date,
+          articleData.thumbnail ? articleData.thumbnail : $r('app.media.layered_image'),
+          articleData.content,
+          articleData.images || []
+        );
       }
     }
   }

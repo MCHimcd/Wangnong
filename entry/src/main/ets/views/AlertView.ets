@@ -5,7 +5,6 @@ import { AlertSyncService } from '../services/AlertSyncService';
 @Component
 export struct AlertView {
   @State alerts: AlertData[] = [];
-  @State isLoading: boolean = false;
   @State sortBy: string = 'timestamp';
   @State order: string = 'desc';
   @State highlightedAlertId: string = '';
@@ -16,21 +15,14 @@ export struct AlertView {
   }
 
   aboutToAppear() {
-    this.fetchAlerts();
     AlertSyncService.getInstance().subscribeDataChange(this.onDataChange);
+    AlertSyncService.getInstance().startRealtimeSync();
+    this.alerts = AlertSyncService.getInstance().getAllAlerts();
+    this.sortAlertsLocally();
   }
 
   aboutToDisappear() {
     AlertSyncService.getInstance().unsubscribeDataChange(this.onDataChange);
-  }
-
-  fetchAlerts() {
-    this.isLoading = true;
-    setTimeout(() => {
-      this.alerts = AlertSyncService.getInstance().getAllAlerts();
-      this.sortAlertsLocally();
-      this.isLoading = false;
-    }, 500);
   }
 
   sortAlertsLocally() {
@@ -45,15 +37,13 @@ export struct AlertView {
     });
   }
 
-  markAsHandled(alertId: string) {
-    promptAction.showToast({ message: '模拟：标记成功' });
-    let target = this.alerts.find(a => a.alert_id === alertId);
-    if (target) {
-      target.is_handled = true;
-      target.handle_time = new Date().getTime();
-      AlertSyncService.getInstance().markHandled(alertId);
+  async markAsHandled(alertId: string) {
+    const success = await AlertSyncService.getInstance().markHandled(alertId);
+    if (success) {
+      promptAction.showToast({ message: '标记成功' });
+    } else {
+      promptAction.showToast({ message: '标记失败，请检查后端连接' });
     }
-    this.alerts = [...this.alerts];
   }
 
   formatDate(timestamp: number): string {
@@ -93,7 +83,7 @@ export struct AlertView {
           .value(this.sortBy === 'timestamp' ? '时间' : '类型')
           .onSelect((index: number) => {
             this.sortBy = index === 0 ? 'timestamp' : 'type';
-            this.fetchAlerts();
+            this.sortAlertsLocally();
           })
           .height(30)
           .margin({ left: 8 })
@@ -103,110 +93,101 @@ export struct AlertView {
           .value(this.order === 'desc' ? '降序' : '升序')
           .onSelect((index: number) => {
             this.order = index === 0 ? 'desc' : 'asc';
-            this.fetchAlerts();
+            this.sortAlertsLocally();
           })
           .height(30)
           .margin({ left: 8 })
 
         Blank()
 
-        Button('刷新')
+        Text('实时更新中')
           .fontSize(14)
-          .height(30)
-          .onClick(() => {
-            this.fetchAlerts();
-          })
+          .fontColor('#2E7D32')
       }
       .width('100%')
       .padding(15)
       .backgroundColor('#FFFFFF')
       .shadow({ radius: 5, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
 
-      if (this.isLoading) {
-        Column() {
-          Text('加载中...').fontSize(16).fontColor('#999')
-        }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
-      } else {
-        List({ space: 10 }) {
-          ForEach(this.alerts, (alert: AlertData) => {
-            ListItem() {
-              Column() {
-                Row() {
-                  Circle({ width: 10, height: 10 }).fill(this.getLevelColor(alert.level)).margin({ right: 8 })
-                  Text(alert.type_name)
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor('#333')
-                  Text(alert.source_name)
-                    .fontSize(11)
-                    .fontColor('#546E7A')
-                    .backgroundColor('#ECEFF1')
-                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                    .borderRadius(8)
-                    .margin({ left: 8 })
-                  Blank()
-                  Text(this.formatDate(alert.timestamp))
+      List({ space: 10 }) {
+        ForEach(this.alerts, (alert: AlertData) => {
+          ListItem() {
+            Column() {
+              Row() {
+                Circle({ width: 10, height: 10 }).fill(this.getLevelColor(alert.level)).margin({ right: 8 })
+                Text(alert.type_name)
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor('#333')
+                Text(alert.source_name)
+                  .fontSize(11)
+                  .fontColor('#546E7A')
+                  .backgroundColor('#ECEFF1')
+                  .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                  .borderRadius(8)
+                  .margin({ left: 8 })
+                Blank()
+                Text(this.formatDate(alert.timestamp))
+                  .fontSize(12)
+                  .fontColor('#999')
+              }.width('100%')
+
+              Text(alert.message)
+                .fontSize(14)
+                .fontColor('#666')
+                .margin({ top: 10, bottom: 10 })
+                .lineHeight(20)
+
+              Row() {
+                Text(alert.is_handled ? '已处理' : '待处理')
+                  .fontSize(12)
+                  .fontColor(alert.is_handled ? '#4CAF50' : '#F44336')
+                  .padding({
+                    left: 6,
+                    right: 6,
+                    top: 2,
+                    bottom: 2
+                  })
+                  .backgroundColor(alert.is_handled ? '#E8F5E9' : '#FFEBEE')
+                  .borderRadius(4)
+
+                Blank()
+
+                if (!alert.is_handled) {
+                  Button('标记处理')
+                    .height(28)
+                    .fontSize(12)
+                    .backgroundColor('#4CAF50')
+                    .onClick(() => {
+                      this.markAsHandled(alert.alert_id);
+                    })
+                } else if (alert.handle_time) {
+                  Text(`处理时间: ${this.formatDate(alert.handle_time)}`)
                     .fontSize(12)
                     .fontColor('#999')
-                }.width('100%')
-
-                Text(alert.message)
-                  .fontSize(14)
-                  .fontColor('#666')
-                  .margin({ top: 10, bottom: 10 })
-                  .lineHeight(20)
-
-                Row() {
-                  Text(alert.is_handled ? '已处理' : '待处理')
-                    .fontSize(12)
-                    .fontColor(alert.is_handled ? '#4CAF50' : '#F44336')
-                    .padding({
-                      left: 6,
-                      right: 6,
-                      top: 2,
-                      bottom: 2
-                    })
-                    .backgroundColor(alert.is_handled ? '#E8F5E9' : '#FFEBEE')
-                    .borderRadius(4)
-
-                  Blank()
-
-                  if (!alert.is_handled) {
-                    Button('标记处理')
-                      .height(28)
-                      .fontSize(12)
-                      .backgroundColor('#4CAF50')
-                      .onClick(() => {
-                        this.markAsHandled(alert.alert_id);
-                      })
-                  } else if (alert.handle_time) {
-                    Text(`处理时间: ${this.formatDate(alert.handle_time)}`)
-                      .fontSize(12)
-                      .fontColor('#999')
-                  }
-                }.width('100%').alignItems(VerticalAlign.Center)
-              }
-              .padding(15)
-              .backgroundColor(alert.alert_id === this.highlightedAlertId ? '#FFF8E1' : '#FFF')
-              .borderRadius(8)
-              .shadow({
-                radius: alert.alert_id === this.highlightedAlertId ? 8 : 4,
-                color: alert.alert_id === this.highlightedAlertId ? 'rgba(255,193,7,0.35)' : 'rgba(0,0,0,0.05)',
-                offsetY: 2
-              })
-              .width('100%')
+                }
+              }.width('100%').alignItems(VerticalAlign.Center)
             }
-          })
-        }
-        .padding({
-          left: 15,
-          right: 15,
-          top: 15,
-          bottom: 15
+            .padding(15)
+            .backgroundColor(alert.alert_id === this.highlightedAlertId ? '#FFF8E1' : '#FFF')
+            .borderRadius(8)
+            .shadow({
+              radius: alert.alert_id === this.highlightedAlertId ? 8 : 4,
+              color: alert.alert_id === this.highlightedAlertId ? 'rgba(255,193,7,0.35)' : 'rgba(0,0,0,0.05)',
+              offsetY: 2
+            })
+            .width('100%')
+          }
         })
-        .layoutWeight(1)
-        .width('100%')
       }
+      .padding({
+        left: 15,
+        right: 15,
+        top: 15,
+        bottom: 15
+      })
+      .layoutWeight(1)
+      .width('100%')
     }
     .width('100%')
     .height('100%')

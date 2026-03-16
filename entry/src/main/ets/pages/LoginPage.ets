@@ -1,6 +1,7 @@
 import { router, promptAction } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
+import { HttpService } from '../services/HttpService';
 
 @Entry
 @Component
@@ -33,11 +34,14 @@ struct LoginPage {
       let savedRememberPassword = await dataPreferences.get('rememberPassword', false) as boolean;
       let savedAutoLogin = await dataPreferences.get('autoLogin', false) as boolean;
 
-      if (savedAutoLogin && savedUsername === 'admin' && savedPassword === '123456') {
-        // Validation passes
-        AppStorage.setOrCreate('isLoggedIn', true);
-        router.replaceUrl({ url: 'pages/Index' });
-        return;
+      if (savedAutoLogin && savedUsername && savedPassword) {
+        let res = await HttpService.getInstance().login(savedUsername, savedPassword);
+        if (res && res.token) {
+          HttpService.getInstance().setToken(res.token);
+          AppStorage.setOrCreate('isLoggedIn', true);
+          router.replaceUrl({ url: 'pages/Index' });
+          return;
+        }
       }
       
       // Setup default text from pref
@@ -62,8 +66,9 @@ struct LoginPage {
       return;
     }
     
-    // Simulate register login check
-    if (this.username === 'admin' && this.password === '123456' || (this.username && this.password.length >= 6)) {
+    let res = await HttpService.getInstance().login(this.username, this.password);
+    if (res && res.token) {
+      HttpService.getInstance().setToken(res.token);
       try {
         let context = getContext(this) as common.UIAbilityContext;
         let dataPreferences = await preferences.getPreferences(context, this.PREF_NAME);
@@ -89,6 +94,56 @@ struct LoginPage {
     } else {
       promptAction.showToast({ message: '用户名或密码错误' });
     }
+  }
+
+  async onRegisterClick() {
+    if (!this.agreedToTerms) {
+      promptAction.showToast({ message: '请先同意用户协议与隐私政策' });
+      return;
+    }
+    if (!this.phone || !this.verifyCode || !this.newPassword) {
+      promptAction.showToast({ message: '请填写完整信息' });
+      return;
+    }
+
+    const registerSuccess = await HttpService.getInstance().register(this.phone, this.verifyCode, this.newPassword);
+    if (!registerSuccess) {
+      promptAction.showToast({ message: '注册失败，请稍后重试' });
+      return;
+    }
+
+    let loginRes = await HttpService.getInstance().login(this.phone, this.newPassword);
+    if (loginRes && loginRes.token) {
+      HttpService.getInstance().setToken(loginRes.token);
+      AppStorage.setOrCreate('isLoggedIn', true);
+      promptAction.showToast({ message: '注册并登录成功' });
+      router.replaceUrl({ url: 'pages/Index' });
+      return;
+    }
+
+    // 如果自动登录失败，回到登录态并回填账号密码
+    promptAction.showToast({ message: '注册成功，请登录' });
+    this.username = this.phone;
+    this.password = this.newPassword;
+    this.currentMode = 'login';
+  }
+
+  async onForgotPasswordClick() {
+    if (!this.phone || !this.verifyCode || !this.newPassword) {
+      promptAction.showToast({ message: '请填写完整信息' });
+      return;
+    }
+
+    const success = await HttpService.getInstance().forgotPassword(this.phone, this.verifyCode, this.newPassword);
+    if (!success) {
+      promptAction.showToast({ message: '密码修改失败，请稍后重试' });
+      return;
+    }
+
+    promptAction.showToast({ message: '密码修改成功，请重新登录' });
+    this.username = this.phone;
+    this.password = this.newPassword;
+    this.currentMode = 'login';
   }
 
   @Builder TermsCheckbox() {
@@ -260,18 +315,7 @@ struct LoginPage {
         .height(50)
         .backgroundColor('#4CAF50')
         .onClick(() => {
-          if (!this.agreedToTerms) {
-            promptAction.showToast({ message: '请先同意用户协议与隐私政策' });
-            return;
-          }
-          if (!this.phone || !this.verifyCode || !this.newPassword) {
-            promptAction.showToast({ message: '请填写完整信息' });
-            return;
-          }
-          promptAction.showToast({ message: '注册成功' });
-          this.username = this.phone;
-          this.password = this.newPassword;
-          this.currentMode = 'login';
+          this.onRegisterClick();
         })
 
       Blank()
@@ -336,12 +380,7 @@ struct LoginPage {
         .height(50)
         .backgroundColor('#4CAF50')
         .onClick(() => {
-          if (!this.phone || !this.verifyCode || !this.newPassword) {
-            promptAction.showToast({ message: '请填写完整信息' });
-            return;
-          }
-          promptAction.showToast({ message: '密码修改成功，请重新登录' });
-          this.currentMode = 'login';
+          this.onForgotPasswordClick();
         })
     }
     .width('100%')
