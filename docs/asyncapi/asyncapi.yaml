@@ -1,4 +1,5 @@
 asyncapi: 2.6.0
+id: 'urn:wangnong:api:2026'
 
 info:
   title: 鸿蒙慧田 (Wangnong) Event & API Spec
@@ -12,8 +13,15 @@ info:
   contact:
     name: Wangnong Team
     url: https://github.com/MCHimcd/Wangnong
+    email: support@wangnong.example.com
   license:
     name: MIT
+
+tags:
+  - name: HTTP
+    description: HTTP 业务 API 接口
+  - name: MQTT
+    description: MQTT 实时消息协议
 
 servers:
   http-backend:
@@ -230,6 +238,7 @@ components:
 
     # ---------- HTTP Messages ----------
     LoginRequest:
+      messageId: LoginRequest
       name: LoginRequest
       title: 登录请求体
       contentType: application/json
@@ -246,6 +255,7 @@ components:
             example: "secret123"
 
     LoginResponse:
+      messageId: LoginResponse
       name: LoginResponse
       title: 登录响应体
       contentType: application/json
@@ -261,6 +271,7 @@ components:
               expires_in: 3600
 
     UpdateProfileRequest:
+      messageId: UpdateProfileRequest
       name: UpdateProfileRequest
       title: 更新用户资料请求体
       contentType: application/json
@@ -284,6 +295,7 @@ components:
             example: https://example.com/avatar.jpg
 
     ProfileResponse:
+      messageId: ProfileResponse
       name: ProfileResponse
       title: 用户资料响应
       contentType: application/json
@@ -302,6 +314,7 @@ components:
               avatarSrc: https://example.com/avatar.jpg
 
     DeviceListResponse:
+      messageId: DeviceListResponse
       name: DeviceListResponse
       title: 设备列表响应
       contentType: application/json
@@ -319,6 +332,7 @@ components:
                 online: true
 
     DeviceDetailResponse:
+      messageId: DeviceDetailResponse
       name: DeviceDetailResponse
       title: 设备详情响应
       contentType: application/json
@@ -337,6 +351,7 @@ components:
               online: true
 
     AlertListRequest:
+      messageId: AlertListRequest
       name: AlertListRequest
       title: 查询告警列表请求体
       contentType: application/json
@@ -361,6 +376,7 @@ components:
                 example: 20
 
     AlertListResponse:
+      messageId: AlertListResponse
       name: AlertListResponse
       title: 告警列表响应
       contentType: application/json
@@ -382,6 +398,7 @@ components:
                   is_handled: false
 
     HandleAlertRequest:
+      messageId: HandleAlertRequest
       name: HandleAlertRequest
       title: 处理告警请求体
       contentType: application/json
@@ -403,6 +420,7 @@ components:
                 example: handle
 
     HandleAlertResponse:
+      messageId: HandleAlertResponse
       name: HandleAlertResponse
       title: 处理告警响应
       contentType: application/json
@@ -410,6 +428,7 @@ components:
         $ref: '#/components/schemas/ApiResponse'
 
     SensorHistoryResponse:
+      messageId: SensorHistoryResponse
       name: SensorHistoryResponse
       title: 传感器历史数据响应
       contentType: application/json
@@ -429,6 +448,7 @@ components:
 
     # ---------- MQTT Messages ----------
     TelemetryMessage:
+      messageId: TelemetryMessage
       name: TelemetryMessage
       title: 传感器遥测数据包
       summary: 设备每 3–5 秒上报一次环境传感器与设备状态
@@ -458,6 +478,7 @@ components:
               mode: smart
 
     AlertMessage:
+      messageId: AlertMessage
       name: AlertMessage
       title: 告警推送消息
       summary: 后端或边侧节点检测到异常时推送
@@ -483,6 +504,7 @@ components:
               handle_time: null
 
     CommandMessage:
+      messageId: CommandMessage
       name: CommandMessage
       title: 设备控制指令
       summary: App 或云端向设备下发控制动作

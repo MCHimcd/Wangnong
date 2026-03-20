@@ -33,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # 安装 AsyncAPI CLI（仅用于生成，不写入 package.json）
       - name: Install AsyncAPI CLI
@@ -48,7 +48,7 @@ jobs:
         run: |
           asyncapi generate fromTemplate \
             docs/asyncapi/asyncapi.yaml \
-            @asyncapi/html-template \
+            @asyncapi/html-template@2.3.14 \
             --output dist \
             --force-write
 
