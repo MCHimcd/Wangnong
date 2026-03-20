@@ -1,0 +1,687 @@
+asyncapi: 2.6.0
+
+info:
+  title: 鸿蒙慧田 (Wangnong) Event & API Spec
+  version: 1.0.0
+  description: |
+    本文档描述 Wangnong 系统的 **HTTP 业务 API** 与 **MQTT 实时协议** 规范。
+
+    系统采用 HTTP + MQTT 混合通信架构：
+    - **HTTP**：用于基础业务数据访问（登录、设备信息、告警管理等）。
+    - **MQTT**：专用于双向实时通信（传感器秒级上报、控制指令下发、突发告警推送）。
+  contact:
+    name: Wangnong Team
+    url: https://github.com/MCHimcd/Wangnong
+  license:
+    name: MIT
+
+servers:
+  http-backend:
+    url: http://localhost:8080
+    protocol: http
+    description: 测试后端 HTTP 服务（Flask，端口 8080）
+  mqtt-broker:
+    url: broker.emqx.io:1883
+    protocol: mqtt
+    description: MQTT Broker（公共测试节点，生产环境请替换为自建 Broker）
+    security:
+      - {}
+
+defaultContentType: application/json
+
+# ============================================================
+# HTTP Channels（使用 HTTP binding，每个 channel 对应一个 REST 端点）
+# ============================================================
+channels:
+
+  # ---------- 用户认证 ----------
+  /api/v1/auth/login:
+    description: 用户账号密码登录，返回 JWT Token
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: userLogin
+      summary: 用户登录
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/LoginRequest'
+    subscribe:
+      operationId: userLoginResponse
+      summary: 登录响应
+      message:
+        $ref: '#/components/messages/LoginResponse'
+
+  /api/v1/auth/profile:
+    description: 获取或更新当前登录用户的个人资料
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: updateProfile
+      summary: 更新用户资料 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/UpdateProfileRequest'
+    subscribe:
+      operationId: getProfile
+      summary: 获取用户资料 (GET)
+      message:
+        $ref: '#/components/messages/ProfileResponse'
+
+  /api/v1/devices:
+    description: 获取当前账号下的设备列表
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: listDevices
+      summary: 查询设备列表 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/DeviceListResponse'
+
+  /api/v1/devices/{device_id}:
+    description: 获取指定设备的详细信息
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getDevice
+      summary: 查询设备详情 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/DeviceDetailResponse'
+
+  /api/v1/alerts/list:
+    description: 分页查询告警记录列表
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: queryAlerts
+      summary: 查询告警列表 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/AlertListRequest'
+    subscribe:
+      operationId: alertListResponse
+      summary: 告警列表响应
+      message:
+        $ref: '#/components/messages/AlertListResponse'
+
+  /api/v1/alerts/handle:
+    description: 处理（确认/忽略）指定告警
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: handleAlert
+      summary: 处理告警 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/HandleAlertRequest'
+    subscribe:
+      operationId: handleAlertResponse
+      summary: 处理告警响应
+      message:
+        $ref: '#/components/messages/HandleAlertResponse'
+
+  /api/v1/sensors/{device_id}/history:
+    description: 查询传感器历史数据（时序图表用）
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getSensorHistory
+      summary: 查询传感器历史 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/SensorHistoryResponse'
+
+  # ============================================================
+  # MQTT Channels
+  # ============================================================
+
+  /wangnong_2026/device/{device_id}/telemetry:
+    description: |
+      **设备传感器数据实时上报**（Device → Cloud/App）。
+      设备每 3–5 秒发布一次，包含环境传感器读数与设备状态。
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      mqtt:
+        qos: 1
+        retain: false
+    subscribe:
+      operationId: receiveTelemetry
+      summary: 接收传感器实时遥测数据
+      message:
+        $ref: '#/components/messages/TelemetryMessage'
+
+  /wangnong_2026/device/{device_id}/alert:
+    description: |
+      **突发告警推送**（Cloud/Edge → App）。
+      当检测到异常（高温、低湿等）时由后端或边侧计算节点发布。
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      mqtt:
+        qos: 1
+        retain: false
+    subscribe:
+      operationId: receiveAlert
+      summary: 接收设备告警推送
+      message:
+        $ref: '#/components/messages/AlertMessage'
+
+  /wangnong_2026/device/{device_id}/command:
+    description: |
+      **控制指令下发**（App/Cloud → Device）。
+      用于远程切换设备模式或控制执行器（水泵、LED 灯、风扇等）。
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      mqtt:
+        qos: 1
+        retain: false
+    publish:
+      operationId: sendCommand
+      summary: 向设备下发控制指令
+      message:
+        $ref: '#/components/messages/CommandMessage'
+
+# ============================================================
+# Components
+# ============================================================
+components:
+
+  parameters:
+    deviceId:
+      description: 设备唯一标识符，例如 `A03_Node_01`
+      schema:
+        type: string
+        example: A03_Node_01
+
+  messages:
+
+    # ---------- HTTP Messages ----------
+    LoginRequest:
+      name: LoginRequest
+      title: 登录请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [username, password]
+        properties:
+          username:
+            type: string
+            example: admin
+          password:
+            type: string
+            format: password
+            example: "secret123"
+
+    LoginResponse:
+      name: LoginResponse
+      title: 登录响应体
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              token: eyJhbGciOiJIUzI1NiIs...
+              expires_in: 3600
+
+    UpdateProfileRequest:
+      name: UpdateProfileRequest
+      title: 更新用户资料请求体
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          userName:
+            type: string
+            example: 农场主
+          gender:
+            type: string
+            enum: [男, 女, 其他]
+            example: 男
+          birthDate:
+            type: string
+            format: date
+            example: "1990-01-01"
+          avatarSrc:
+            type: string
+            format: uri
+            example: https://example.com/avatar.jpg
+
+    ProfileResponse:
+      name: ProfileResponse
+      title: 用户资料响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              userId: WangNong_001
+              userName: 农场主
+              gender: 男
+              birthDate: "1990-01-01"
+              avatarSrc: https://example.com/avatar.jpg
+
+    DeviceListResponse:
+      name: DeviceListResponse
+      title: 设备列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - deviceId: A03_Node_01
+                deviceName: 3号大棚-节点01
+                deviceType: sensor_node
+                online: true
+
+    DeviceDetailResponse:
+      name: DeviceDetailResponse
+      title: 设备详情响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              deviceId: A03_Node_01
+              deviceName: 3号大棚-节点01
+              deviceState:
+                smartMode: false
+              online: true
+
+    AlertListRequest:
+      name: AlertListRequest
+      title: 查询告警列表请求体
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          query:
+            type: object
+            properties:
+              scene:
+                type: string
+                description: "startup 时返回全部未处理+最近10条已处理告警"
+                example: startup
+              page:
+                type: integer
+                minimum: 1
+                example: 1
+              pageSize:
+                type: integer
+                minimum: 1
+                maximum: 100
+                example: 20
+
+    AlertListResponse:
+      name: AlertListResponse
+      title: 告警列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              total: 1
+              list:
+                - alert_id: A10992
+                  type: high_temp
+                  type_name: 高温告警
+                  level: critical
+                  message: 当前温度38°C，超出安全阈值
+                  is_handled: false
+
+    HandleAlertRequest:
+      name: HandleAlertRequest
+      title: 处理告警请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [data]
+        properties:
+          data:
+            type: object
+            required: [alert_id]
+            properties:
+              alert_id:
+                type: string
+                example: A10992
+              action:
+                type: string
+                enum: [handle, ignore]
+                default: handle
+                example: handle
+
+    HandleAlertResponse:
+      name: HandleAlertResponse
+      title: 处理告警响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+
+    SensorHistoryResponse:
+      name: SensorHistoryResponse
+      title: 传感器历史数据响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              device_id: A03_Node_01
+              records:
+                - timestamp: 1773993600000
+                  temperature: 25.4
+                  humidity: 60.1
+
+    # ---------- MQTT Messages ----------
+    TelemetryMessage:
+      name: TelemetryMessage
+      title: 传感器遥测数据包
+      summary: 设备每 3–5 秒上报一次环境传感器与设备状态
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TelemetryPayload'
+      examples:
+        - name: normal
+          payload:
+            msg_type: telemetry
+            device_id: A03_Node_01
+            timestamp: 1773993600000
+            data:
+              environment:
+                temperature: 25.4
+                humidity: 60.1
+                soilTemp: 22.0
+                soilHumidity: 45.2
+                light: 15000
+                co2: 450
+                soilPh: 6.8
+              equipment:
+                water_pump: false
+                led_light: true
+                fan: false
+                camera: false
+              mode: smart
+
+    AlertMessage:
+      name: AlertMessage
+      title: 告警推送消息
+      summary: 后端或边侧节点检测到异常时推送
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AlertPayload'
+      examples:
+        - name: high_temp
+          payload:
+            msg_type: alert
+            device_id: A03_Node_01
+            timestamp: 1773993650000
+            data:
+              alert_id: A10992
+              type: high_temp
+              type_name: 高温告警
+              level: critical
+              timestamp: 1773993650000
+              message: 当前温度38°C，超出安全阈值
+              source: environment
+              source_name: 环境监测
+              is_handled: false
+              handle_time: null
+
+    CommandMessage:
+      name: CommandMessage
+      title: 设备控制指令
+      summary: App 或云端向设备下发控制动作
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/CommandPayload'
+      examples:
+        - name: turn_on_pump
+          payload:
+            action:
+              target_device: water_pump
+              command: turn_on
+        - name: set_smart_mode
+          payload:
+            action:
+              target_device: mode
+              command: smart
+
+  schemas:
+
+    ApiResponse:
+      type: object
+      description: 所有 HTTP 接口的统一响应结构
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 业务状态码，200 为成功
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          description: 业务数据，失败时可为 null
+
+    TelemetryPayload:
+      type: object
+      required: [msg_type, device_id, timestamp, data]
+      properties:
+        msg_type:
+          type: string
+          const: telemetry
+        device_id:
+          type: string
+          example: A03_Node_01
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix 毫秒时间戳
+          example: 1773993600000
+        data:
+          type: object
+          properties:
+            environment:
+              $ref: '#/components/schemas/EnvironmentData'
+            equipment:
+              $ref: '#/components/schemas/EquipmentState'
+            mode:
+              type: string
+              enum: [smart, manual]
+              example: smart
+
+    AlertPayload:
+      type: object
+      required: [msg_type, device_id, timestamp, data]
+      properties:
+        msg_type:
+          type: string
+          const: alert
+        device_id:
+          type: string
+          example: A03_Node_01
+        timestamp:
+          type: integer
+          format: int64
+          example: 1773993650000
+        data:
+          type: object
+          required: [alert_id, type, level, message]
+          properties:
+            alert_id:
+              type: string
+              example: A10992
+            type:
+              type: string
+              description: 告警类型标识
+              example: high_temp
+            type_name:
+              type: string
+              description: 告警类型中文名称
+              example: 高温告警
+            level:
+              type: string
+              enum: [info, warning, critical]
+              example: critical
+            timestamp:
+              type: integer
+              format: int64
+              example: 1773993650000
+            message:
+              type: string
+              example: 当前温度38°C，超出安全阈值
+            source:
+              type: string
+              example: environment
+            source_name:
+              type: string
+              example: 环境监测
+            is_handled:
+              type: boolean
+              example: false
+            handle_time:
+              type: integer
+              format: int64
+              nullable: true
+              example: null
+
+    CommandPayload:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: object
+          required: [target_device, command]
+          properties:
+            target_device:
+              type: string
+              description: |
+                执行器标识符。可选值：
+                - `water_pump` – 水泵
+                - `led_light` – LED 补光灯
+                - `fan` – 风扇
+                - `camera` – 摄像头
+                - `mode` – 运行模式
+              example: water_pump
+            command:
+              type: string
+              description: |
+                控制指令。执行器使用 `turn_on` / `turn_off`；
+                模式使用 `smart` / `manual`。
+              example: turn_on
+
+    EnvironmentData:
+      type: object
+      description: 环境传感器读数
+      properties:
+        temperature:
+          type: number
+          format: float
+          description: 空气温度（°C）
+          example: 25.4
+        humidity:
+          type: number
+          format: float
+          description: 空气湿度（%RH）
+          example: 60.1
+        soilTemp:
+          type: number
+          format: float
+          description: 土壤温度（°C）
+          example: 22.0
+        soilHumidity:
+          type: number
+          format: float
+          description: 土壤湿度（%）
+          example: 45.2
+        light:
+          type: number
+          format: float
+          description: 光照强度（Lux）
+          example: 15000
+        co2:
+          type: number
+          format: float
+          description: CO₂ 浓度（ppm）
+          example: 450
+        soilPh:
+          type: number
+          format: float
+          description: 土壤 pH 值
+          example: 6.8
+
+    EquipmentState:
+      type: object
+      description: 执行器（设备）当前开关状态
+      properties:
+        water_pump:
+          type: boolean
+          description: 水泵是否开启
+          example: false
+        led_light:
+          type: boolean
+          description: LED 补光灯是否开启
+          example: true
+        fan:
+          type: boolean
+          description: 风扇是否开启
+          example: false
+        camera:
+          type: boolean
+          description: 摄像头是否开启
+          example: false
