@@ -1,0 +1,68 @@
+name: AsyncAPI - Generate & Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/asyncapi/**'
+      - '.github/workflows/asyncapi-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一次部署；正在进行的部署不会被取消
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  generate-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 安装 AsyncAPI CLI（仅用于生成，不写入 package.json）
+      - name: Install AsyncAPI CLI
+        run: npm install -g @asyncapi/cli@3
+
+      # 校验 AsyncAPI 规范文件格式是否正确
+      - name: Validate AsyncAPI spec
+        run: asyncapi validate docs/asyncapi/asyncapi.yaml
+
+      # 生成静态 HTML 文档到 dist/ 目录
+      - name: Generate HTML documentation
+        run: |
+          asyncapi generate fromTemplate \
+            docs/asyncapi/asyncapi.yaml \
+            @asyncapi/html-template \
+            --output dist \
+            --force-write
+
+      # 配置 GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # 上传生成的静态文件作为 Pages artifact
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      # 部署到 GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
