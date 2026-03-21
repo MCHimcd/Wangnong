@@ -1,10 +1,12 @@
-﻿import http from '@ohos.net.http';
+import http from '@ohos.net.http';
 import { LoginResponse, UserProfile, BaseResponse } from '../models/UserData';
-import { ArticleData } from '../models/ArticleData';
+import { SensorMetaItem } from '../models/SensorMeta';
+import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { LiveStreamInfo, PlaybackItem, KeyframeImageItem } from '../models/VideoMonitorData';
+import { AppConfig } from '../common/AppConfig';
 
-const BASE_URL = 'http://192.168.1.100:8080';
-const APP_ID = 'WN_APP_001';
+const BASE_URL = AppConfig.BASE_URL;
+const APP_ID = AppConfig.APP_ID;
 
 export class LoginRequest {
   username: string = "";
@@ -21,6 +23,10 @@ export class ForgotPasswordRequest {
   phone: string = "";
   verificationCode: string = "";
   newPassword: string = "";
+}
+
+export class SendVerificationCodeRequest {
+  phone: string = "";
 }
 
 export class ChangePasswordRequest {
@@ -114,14 +120,7 @@ export interface AlertListData {
   items: AlertListItem[];
 }
 
-export interface DeviceDetailStateData {
-  waterValveOn?: boolean;
-  waterPumpOn?: boolean;
-  ledOn?: boolean;
-  fanOn?: boolean;
-  extensionOn?: boolean;
-  smartMode?: boolean;
-}
+export type DeviceDetailStateData = Record<string, boolean | undefined>;
 
 export interface DeviceDetailData {
   id: string;
@@ -159,7 +158,8 @@ export class HttpService {
     this.currentDeviceId = id;
   }
 
-  private async request<T>(path: string, method: http.RequestMethod, extraData?: Object): Promise<T | null> {
+  private async request<T>(path: string, method: http.RequestMethod, extraData?: Object,
+    connectTimeoutMs: number = 2000, readTimeoutMs: number = 2000): Promise<T | null> {
     let httpRequest = http.createHttp();
     let url = `${BASE_URL}${path}`;
 
@@ -177,8 +177,8 @@ export class HttpService {
       let options: http.HttpRequestOptions = {
         method: method,
         header: header,
-        connectTimeout: 2000,
-        readTimeout: 2000
+        connectTimeout: connectTimeoutMs,
+        readTimeout: readTimeoutMs
       };
       
       if (extraData) {
@@ -240,6 +240,18 @@ export class HttpService {
     return res !== null;
   }
 
+  public async sendVerificationCode(phone: string): Promise<boolean> {
+    let req = new SendVerificationCodeRequest();
+    req.phone = phone;
+
+    let res = await this.request<BaseResponse<Object>>(
+      '/api/v1/auth/send-verification-code',
+      http.RequestMethod.POST,
+      req
+    );
+    return res !== null;
+  }
+
   public async changePassword(oldPassword: string, newPassword: string): Promise<boolean> {
     let payload = new ChangePasswordRequest();
     payload.oldPassword = oldPassword;
@@ -293,39 +305,14 @@ export class HttpService {
   }
 
   public async uploadTraceCode(traceCode: string): Promise<string | null> {
-    let httpRequest = http.createHttp();
-    let url = `${BASE_URL}/api/v1/traceability/scan`;
-
-    let header: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    if (this.token) {
-      header['Authorization'] = `Bearer ${this.token}`;
-    }
-
     let payload = new TraceabilityScanRequest();
     payload.code = traceCode;
-
-    try {
-      let options: http.HttpRequestOptions = {
-        method: http.RequestMethod.POST,
-        header: header,
-        extraData: JSON.stringify(payload),
-        connectTimeout: 2000,
-        readTimeout: 2000
-      };
-
-      let response = await httpRequest.request(url, options);
-      if (response.responseCode === 200) {
-        return String(response.result);
-      }
-      throw new Error(`HTTP ${response.responseCode}`);
-    } catch (e) {
-      console.warn(`[HttpService] Traceability scan upload failed. Cause: ${e}`);
-      return null;
-    } finally {
-      httpRequest.destroy();
-    }
+    let res = await this.request<BaseResponse<string>>(
+      '/api/v1/traceability/scan',
+      http.RequestMethod.POST,
+      payload
+    );
+    return res ? res.data : null;
   }
 
   public async getSensorHistory(deviceId: string, range: string, metric: string): Promise<SensorHistoryData | null> {
@@ -390,13 +377,40 @@ export class HttpService {
     return res !== null;
   }
 
-  // ==== 知识库文章 ====
-  public async getArticles(page: number = 1, size: number = 10): Promise<BaseResponse<Record<string, Object>> | null> {
-    return await this.request<BaseResponse<Record<string, Object>>>(`/api/v1/articles?page=${page}&size=${size}`, http.RequestMethod.GET);
+  // ==== 传感器 / 设备元数据 ====
+  public async getSensorMeta(deviceId: string): Promise<SensorMetaItem[] | null> {
+    let res = await this.request<BaseResponse<SensorMetaItem[]>>(
+      `/api/v1/devices/${deviceId}/sensor-meta`,
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
   }
 
-  public async getArticleDetail(id: string): Promise<BaseResponse<ArticleData> | null> {
-    return await this.request<BaseResponse<ArticleData>>(`/api/v1/articles/${id}`, http.RequestMethod.GET);
+  public async getEquipmentMeta(deviceId: string): Promise<EquipmentMetaItem[] | null> {
+    let res = await this.request<BaseResponse<EquipmentMetaItem[]>>(
+      `/api/v1/devices/${deviceId}/equipment-meta`,
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
+  }
+
+  // ==== 农业知识问答 ====
+  public async sendAgriQA(message: string, imageUri?: string): Promise<string | null> {
+    let body: Record<string, string> = { "message": message };
+    if (imageUri) {
+      body['image_uri'] = imageUri;
+    }
+    let res = await this.request<BaseResponse<Record<string, string>>>(
+      '/api/v1/agri-qa/chat',
+      http.RequestMethod.POST,
+      body,
+      5000,   // connectTimeout: 5s
+      60000   // readTimeout: 60s (AI responses can be slow)
+    );
+    if (res && res.data) {
+      return (res.data as Record<string, string>)['reply'] ?? null;
+    }
+    return null;
   }
 
   // ==== 视频流及抓拍 ====
@@ -412,14 +426,5 @@ export class HttpService {
     return await this.request<BaseResponse<KeyframeImageItem[]>>(`/api/v1/cameras/${deviceId}/keyframes?date=${date}`, http.RequestMethod.GET);
   }
 
-  // ==== 虫害检测 ====
-  public async analyzePest(imageUri: string): Promise<BaseResponse<Record<string, string>> | null> {
-    let payload = new AppApiPayload();
-    let dataPayload = new ApiDataPayload();
-    dataPayload.notes = `image_uri: ${imageUri}`;
-    payload.data = dataPayload;
-    return await this.request<BaseResponse<Record<string, string>>>('/api/v1/pest-detection/analyze', http.RequestMethod.POST, payload);
-  }
 }
-
 

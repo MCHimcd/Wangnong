@@ -4,7 +4,7 @@
     "pages/Index",
     "pages/SensorDetailPage",
     "pages/DeviceDetailPage",
-    "pages/ArticleDetailPage",
+    "pages/VideoDetailPage",
     "pages/SettingsPage",
     "pages/EditProfilePage",
     "pages/ChangePasswordPage",

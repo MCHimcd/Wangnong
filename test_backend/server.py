@@ -186,7 +186,7 @@ ALERT_TEMPLATES = [
 
 
 USERS_DB = {
-    "admin": {
+    "12345": {
         "userId": "WangNong_001",
         "userName": "农场主",
         "phone": "13800000000",
@@ -201,6 +201,44 @@ DEVICES_DB = [
     {"id": "A03_Node_01", "name": "温室节点 1", "status": "online"},
     {"id": "A03_Node_02", "name": "温室节点 2", "status": "online"}
 ]
+
+# ================= 传感器/设备元数据 (sensor-meta / equipment-meta) =================
+
+SENSOR_META_DB = {
+    "A03_Node_01": [
+        {"key": "temperature", "name": "空气温度", "unit": "℃", "icon": "🌡️", "badgeColor": "#FF7043", "bgColor": "#FFF3E0", "warningMin": 10, "warningMax": 35},
+        {"key": "humidity", "name": "空气湿度", "unit": "%", "icon": "💧", "badgeColor": "#42A5F5", "bgColor": "#E3F2FD", "warningMin": 30, "warningMax": 85},
+        {"key": "light", "name": "光照强度", "unit": "Lux", "icon": "☀️", "badgeColor": "#FDD835", "bgColor": "#FFFDE7"},
+        {"key": "co2", "name": "CO₂浓度", "unit": "ppm", "icon": "🫧", "badgeColor": "#78909C", "bgColor": "#ECEFF1", "warningMax": 1500},
+        {"key": "soilTemp", "name": "土壤温度", "unit": "℃", "icon": "🌱", "badgeColor": "#8D6E63", "bgColor": "#EFEBE9", "warningMin": 5, "warningMax": 35},
+        {"key": "soilHumidity", "name": "土壤湿度", "unit": "%", "icon": "🪴", "badgeColor": "#66BB6A", "bgColor": "#E8F5E9", "warningMin": 20, "warningMax": 80},
+        {"key": "soilPh", "name": "土壤pH", "unit": "", "icon": "⚗️", "badgeColor": "#AB47BC", "bgColor": "#F3E5F5", "warningMin": 5.5, "warningMax": 7.5}
+    ],
+    "A03_Node_02": [
+        {"key": "temperature", "name": "空气温度", "unit": "℃", "icon": "🌡️", "badgeColor": "#FF7043", "bgColor": "#FFF3E0", "warningMin": 10, "warningMax": 35},
+        {"key": "humidity", "name": "空气湿度", "unit": "%", "icon": "💧", "badgeColor": "#42A5F5", "bgColor": "#E3F2FD", "warningMin": 30, "warningMax": 85},
+        {"key": "light", "name": "光照强度", "unit": "Lux", "icon": "☀️", "badgeColor": "#FDD835", "bgColor": "#FFFDE7"},
+        {"key": "co2", "name": "CO₂浓度", "unit": "ppm", "icon": "🫧", "badgeColor": "#78909C", "bgColor": "#ECEFF1", "warningMax": 1500},
+        {"key": "soilTemp", "name": "土壤温度", "unit": "℃", "icon": "🌱", "badgeColor": "#8D6E63", "bgColor": "#EFEBE9"},
+        {"key": "soilHumidity", "name": "土壤湿度", "unit": "%", "icon": "🪴", "badgeColor": "#66BB6A", "bgColor": "#E8F5E9"},
+        {"key": "soilPh", "name": "土壤pH", "unit": "", "icon": "⚗️", "badgeColor": "#AB47BC", "bgColor": "#F3E5F5"}
+    ]
+}
+
+EQUIPMENT_META_DB = {
+    "A03_Node_01": [
+        {"key": "water_pump", "name": "水泵", "icon": "💦", "controllable": True},
+        {"key": "led_light", "name": "补光灯", "icon": "💡", "controllable": True},
+        {"key": "fan", "name": "风扇", "icon": "🌀", "controllable": True},
+        {"key": "camera", "name": "摄像头", "icon": "📷", "controllable": False}
+    ],
+    "A03_Node_02": [
+        {"key": "water_pump", "name": "水泵", "icon": "💦", "controllable": True},
+        {"key": "led_light", "name": "补光灯", "icon": "💡", "controllable": True},
+        {"key": "fan", "name": "风扇", "icon": "🌀", "controllable": True},
+        {"key": "camera", "name": "摄像头", "icon": "📷", "controllable": False}
+    ]
+}
 
 TOKENS_DB = {}
 
@@ -380,6 +418,29 @@ def login():
     })
 
 
+@app.route('/api/v1/auth/send-verification-code', methods=['POST'])
+def send_verification_code():
+    req_data = request.get_json(silent=True) or {}
+    phone = str(req_data.get('phone') or '').strip()
+
+    if not phone:
+        return jsonify({
+            "code": 400,
+            "message": "phone is required",
+            "data": None
+        }), 400
+
+    # 测试后端固定验证码，便于前后端联调。
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": {
+            "expires_in": 300,
+            "test_code": "1234"
+        }
+    })
+
+
 @app.route('/api/v1/auth/register', methods=['POST'])
 def register():
     req_data = request.get_json(silent=True) or {}
@@ -391,6 +452,13 @@ def register():
         return jsonify({
             "code": 400,
             "message": "phone, verificationCode and password are required",
+            "data": None
+        }), 400
+
+    if verification_code != '1234':
+        return jsonify({
+            "code": 400,
+            "message": "invalid verification code",
             "data": None
         }), 400
 
@@ -431,6 +499,13 @@ def forgot_password():
         return jsonify({
             "code": 400,
             "message": "phone, verificationCode and newPassword are required",
+            "data": None
+        }), 400
+
+    if verification_code != '1234':
+        return jsonify({
+            "code": 400,
+            "message": "invalid verification code",
             "data": None
         }), 400
 
@@ -502,7 +577,7 @@ def logout():
 def get_profile():
     _, user = get_current_user_from_token()
     if not user:
-        user = USERS_DB.get('admin')
+        user = USERS_DB.get('12345')
 
     return jsonify({
         "code": 200,
@@ -521,7 +596,7 @@ def update_profile():
     req_data = request.get_json(silent=True) or {}
     _, user = get_current_user_from_token()
     if not user:
-        user = USERS_DB.get('admin')
+        user = USERS_DB.get('12345')
 
     if user:
         user['userName'] = str(req_data.get('userName') or user.get('userName', ''))
@@ -546,7 +621,7 @@ def get_fixed_avatar_file():
 def use_fixed_avatar():
     _, user = get_current_user_from_token()
     if not user:
-        user = USERS_DB.get('admin')
+        user = USERS_DB.get('12345')
 
     avatar_url = f"{request.host_url.rstrip('/')}/{FIXED_AVATAR_FILENAME}"
 
@@ -575,45 +650,64 @@ def traceability_scan():
     fixed_text = "溯源码识别结果（测试固定文本）：作物番茄，地块A03，当前状态正常。"
     return fixed_text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
-@app.route('/api/v1/articles', methods=['GET'])
-def get_articles():
-    # 模拟知识库文章列表
+@app.route('/api/v1/devices/<device_id>/sensor-meta', methods=['GET'])
+def get_sensor_meta(device_id):
+    meta = SENSOR_META_DB.get(device_id, SENSOR_META_DB.get("A03_Node_01", []))
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": meta
+    })
+
+
+@app.route('/api/v1/devices/<device_id>/equipment-meta', methods=['GET'])
+def get_equipment_meta(device_id):
+    meta = EQUIPMENT_META_DB.get(device_id, EQUIPMENT_META_DB.get("A03_Node_01", []))
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": meta
+    })
+
+
+@app.route('/api/v1/agri-qa/chat', methods=['POST'])
+def agri_qa_chat():
+    req_data = request.get_json(silent=True) or {}
+    message = str(req_data.get('message', '')).strip()
+    image_uri = str(req_data.get('image_uri', '')).strip()
+
+    print(f"[AgriQA] Question: {message}, Image: {image_uri}")
+
+    # 简单关键词匹配模拟回复
+    reply = "您好，我是旺农智能问答助手。"
+    lower_msg = message.lower()
+    if '温度' in lower_msg or 'temperature' in lower_msg:
+        reply = "温室最佳温度通常为 20-30℃。白天宜保持 25-28℃，夜间 15-18℃。当气温超过 35℃ 时，应开启风扇通风降温，并适当遮阴。"
+    elif '湿度' in lower_msg or 'humidity' in lower_msg:
+        reply = "大多数蔬菜适宜空气湿度 60%-80%。湿度过高易引发灰霉病；湿度过低时可通过微喷灌增湿。土壤湿度建议维持在 40%-60%。"
+    elif '病虫害' in lower_msg or '病害' in lower_msg or '虫害' in lower_msg:
+        reply = "常见温室病害包括灰霉病、白粉病、早疫病等。建议定期巡查，发现病株及时隔离，可使用百菌清或代森锰锌喷洒防治。虫害方面注意蚜虫、白粉虱的黄板诱杀。"
+    elif '浇水' in lower_msg or '灌溉' in lower_msg or '水泵' in lower_msg:
+        reply = "科学灌溉应遵循\"见干见湿\"原则。滴灌是温室推荐方式，每次灌溉至土壤含水率 60% 左右即可。夏季高温时建议清晨或傍晚灌溉，避免高温蒸发。"
+    elif '光照' in lower_msg or 'light' in lower_msg:
+        reply = "番茄、辣椒等果蔬类每日需光照 12-16 小时。冬季光照不足时建议使用 LED 补光灯，光照强度维持在 8000-15000 Lux。"
+    elif 'ph' in lower_msg or '酸碱' in lower_msg:
+        reply = "大多数蔬菜适宜的土壤 pH 为 6.0-7.0。pH 低于 5.5 时可施用石灰调节；pH 高于 7.5 时可施用硫酸亚铁或硫磺粉降低。"
+    elif 'co2' in lower_msg or '二氧化碳' in lower_msg:
+        reply = "适当增加 CO₂ 浓度（800-1200ppm）可促进光合作用，提高产量。可通过 CO₂ 发生器或有机肥发酵产生 CO₂。注意浓度不宜超过 1500ppm。"
+    elif image_uri:
+        reply = "已收到您上传的图片。根据图像初步分析，建议您关注叶片颜色变化和斑点分布情况。如有异常，建议及时采样送检，并加强通风管理。"
+    elif len(message) > 0:
+        reply = f"关于\"{message}\"的问题，建议您结合当前环境监测数据综合判断。如需更详细的指导，可以尝试描述具体的作物品种和症状。"
+
     return jsonify({
         "code": 200,
         "message": "success",
         "data": {
-            "total": 4,
-            "items": [
-                {
-                    "id": "1",
-                    "title": "云端种梦智能温室系统介绍(来自服务器)",
-                    "date": "2024-04-10 15:48:31",
-                    "thumbnail": "https://example.com/thumbnails/1.jpg"
-                },
-                {
-                    "id": "2",
-                    "title": "智能农业中的物联网技术应用",
-                    "date": "2024-05-12 10:20:00",
-                    "thumbnail": "https://example.com/thumbnails/2.jpg"
-                }
-            ]
+            "reply": reply
         }
     })
 
-@app.route('/api/v1/articles/<article_id>', methods=['GET'])
-def get_article_detail(article_id):
-    return jsonify({
-        "code": 200,
-        "message": "success",
-        "data": {
-            "id": article_id,
-            "title": f"文章详情 {article_id} (从服务器加载)",
-            "date": "2024-04-10 15:48:31",
-            "thumbnail": "https://example.com/thumbnails/1.jpg",
-            "content": f"这是从 Python 服务器返回的动态文章内容，当前加载的 ID 是 {article_id}。云端种梦智能温室系统是一款融合了物联网、人工智能和大数据技术的现代农业解决方案。通过部署于温室内的多维度传感器（温湿度、光照、土壤环境等），系统能实时采集并分析农作物生长数据。",
-            "images": []
-        }
-    })
 
 @app.route('/api/v1/cameras/<device_id>/live', methods=['GET'])
 def get_camera_live(device_id):
@@ -633,6 +727,7 @@ def get_camera_live(device_id):
             "streamUrl": stream_url
         }
     })
+
 
 @app.route('/api/v1/cameras/<device_id>/playback', methods=['GET'])
 def get_camera_playback(device_id):
@@ -660,6 +755,7 @@ def get_camera_playback(device_id):
         ]
     })
 
+
 @app.route('/api/v1/cameras/<device_id>/keyframes', methods=['GET'])
 def get_camera_keyframes(device_id):
     date_str = request.args.get('date', datetime.now().strftime("%Y-%m-%d"))
@@ -680,21 +776,6 @@ def get_camera_keyframes(device_id):
         ]
     })
 
-@app.route('/api/v1/pest-detection/analyze', methods=['POST'])
-def analyze_pest():
-    # 模拟接受 FormData (因为测试阶段我们可能只是接收请求)
-    # 直接返回AI识别结果
-    return jsonify({
-        "code": 200,
-        "message": "success",
-        "data": {
-            "pestName": "番茄早疫病(网络AI模型识别)",
-            "confidence": f"{round(random.uniform(85, 99), 1)}%",
-            "severity": "High",
-            "color": "#e74c3c",
-            "suggestion": "建议喷洒百菌清或代森锰锌类杀菌剂，加强通风降低湿度。"
-        }
-    })
 
 @app.route('/api/v1/equipment/stats', methods=['POST'])
 def get_equipment_stats():
@@ -760,6 +841,11 @@ def get_device_detail(device_id):
     equip = runtime_state.get("equipment", {})
     is_smart_mode = str(runtime_state.get("mode", "manual")).lower() == "smart"
 
+    # 动态构建 sensorData 和 deviceState
+    sensor_data = {k: float(v) for k, v in env.items()}
+    device_state_resp = {k: bool(v) for k, v in equip.items()}
+    device_state_resp["smartMode"] = is_smart_mode
+
     return jsonify({
         "code": 200,
         "message": "success",
@@ -767,23 +853,8 @@ def get_device_detail(device_id):
             "id": device_id,
             "name": device_name,
             "status": device_status,
-            "sensorData": {
-                "temperature": float(env.get("temperature", 0.0)),
-                "humidity": float(env.get("humidity", 0.0)),
-                "light": float(env.get("light", 0.0)),
-                "co2": float(env.get("co2", 0.0)),
-                "soilTemp": float(env.get("soilTemp", 0.0)),
-                "soilHumidity": float(env.get("soilHumidity", 0.0)),
-                "soilPh": float(env.get("soilPh", 0.0))
-            },
-            "deviceState": {
-                "waterValveOn": False,
-                "waterPumpOn": bool(equip.get("water_pump", False)),
-                "ledOn": bool(equip.get("led_light", False)),
-                "fanOn": bool(equip.get("fan", False)),
-                "extensionOn": bool(equip.get("camera", False)),
-                "smartMode": is_smart_mode
-            }
+            "sensorData": sensor_data,
+            "deviceState": device_state_resp
         }
     })
 

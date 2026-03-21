@@ -65,6 +65,9 @@ struct SensorDetailPage {
   @State title: string = '';
   @State currentValue: number = 0;
   @State badgeColor: string = '#4CAF50';
+  @State unitFromParam: string = '';
+  @State warningMin: number = -Infinity;
+  @State warningMax: number = Infinity;
   @State timeRange: string = '24h'; // '24h', '7d', '30d'
   @State maxValue: number = 0;
   @State minValue: number = 0;
@@ -160,6 +163,15 @@ struct SensorDetailPage {
       this.title = params['title'] as string;
       this.currentValue = params['currentValue'] as number;
       this.badgeColor = params['badgeColor'] as string;
+      if (params['unit'] !== undefined) {
+        this.unitFromParam = params['unit'] as string;
+      }
+      if (params['warningMin'] !== undefined) {
+        this.warningMin = params['warningMin'] as number;
+      }
+      if (params['warningMax'] !== undefined) {
+        this.warningMax = params['warningMax'] as number;
+      }
     }
 
     if (this.metricKey.length === 0) {
@@ -212,6 +224,10 @@ struct SensorDetailPage {
   }
 
   getUnit(): string {
+    // 优先使用路由参数传入的单位
+    if (this.unitFromParam.length > 0) {
+      return this.unitFromParam;
+    }
     const metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
     if (metric === 'temperature' || metric === 'soilTemp') return '℃';
     if (metric === 'humidity' || metric === 'soilHumidity') return '%';

@@ -1,7 +1,5 @@
 
 import { AlertData } from '../models/AlertData';
-import { promptAction } from '@kit.ArkUI';
-import router from '@ohos.router';
 import { AlertListItem, HttpService } from './HttpService';
 import { MqttClientService } from './MqttClientService';
 
@@ -166,30 +164,26 @@ export class AlertSyncService {
     return alert;
   }
 
+  private alertDialogCallback: ((alert: AlertData) => void) | null = null;
+
+  public setAlertDialogCallback(cb: (alert: AlertData) => void) {
+    this.alertDialogCallback = cb;
+  }
+
   private showGlobalAlert(alert: AlertData) {
     if (this.isDialogShowing) return;
     const isLoggedIn = AppStorage.get<boolean>('isLoggedIn');
     if (!isLoggedIn) return;
     const currentTabIndex = AppStorage.get<number>('currentTabIndex');
     if (currentTabIndex === 1) return;
-    
+
     this.isDialogShowing = true;
-    promptAction.showDialog({
-      title: '新告警提示',
-      message: `检测到新告警（最新：${alert.type_name}），是否立即查看？`,
-      buttons: [
-        { text: '稍后处理', color: '#90A4AE' },
-        { text: '立即查看', color: '#D84315' }
-      ]
-    }).then((res) => {
+    if (this.alertDialogCallback) {
+      this.alertDialogCallback(alert);
       this.isDialogShowing = false;
-      if (res.index === 1) {
-        AppStorage.setOrCreate('currentTabIndex', 1);
-        router.pushUrl({ url: 'pages/Index' });
-      }
-    }).catch(() => {
+    } else {
       this.isDialogShowing = false;
-    });
+    }
   }
 
   public async markHandled(alertId: string): Promise<boolean> {

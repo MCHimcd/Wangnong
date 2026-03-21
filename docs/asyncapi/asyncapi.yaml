@@ -3,7 +3,7 @@ id: 'urn:wangnong:api:2026'
 
 info:
   title: 鸿蒙慧田 (Wangnong) Event & API Spec
-  version: 1.0.0
+  version: 2.0.0
   description: |
     本文档描述 Wangnong 系统的 **HTTP 业务 API** 与 **MQTT 实时协议** 规范。
 
@@ -27,7 +27,7 @@ servers:
   http-backend:
     url: http://localhost:8080
     protocol: http
-    description: 测试后端 HTTP 服务（Flask，端口 8080）
+    description: Spring Boot 后端 HTTP 服务（端口 8080，context-path /api）
   mqtt-broker:
     url: broker.emqx.io:1883
     protocol: mqtt
@@ -62,6 +62,63 @@ channels:
       message:
         $ref: '#/components/messages/LoginResponse'
 
+  /api/v1/auth/send-verification-code:
+    description: 发送手机验证码（测试环境固定验证码为 1234）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: sendVerificationCode
+      summary: 发送验证码
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/SendVerificationCodeRequest'
+    subscribe:
+      operationId: sendVerificationCodeResponse
+      summary: 发送验证码响应
+      message:
+        $ref: '#/components/messages/SendVerificationCodeResponse'
+
+  /api/v1/auth/register:
+    description: 新用户注册（手机号 + 验证码 + 密码）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: userRegister
+      summary: 用户注册
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/RegisterRequest'
+    subscribe:
+      operationId: userRegisterResponse
+      summary: 注册响应
+      message:
+        $ref: '#/components/messages/RegisterResponse'
+
+  /api/v1/auth/forgot-password:
+    description: 找回密码（手机号 + 验证码 + 新密码）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: forgotPassword
+      summary: 找回密码
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/ForgotPasswordRequest'
+    subscribe:
+      operationId: forgotPasswordResponse
+      summary: 找回密码响应
+      message:
+        $ref: '#/components/messages/ForgotPasswordResponse'
+
   /api/v1/auth/profile:
     description: 获取或更新当前登录用户的个人资料
     bindings:
@@ -80,6 +137,67 @@ channels:
       summary: 获取用户资料 (GET)
       message:
         $ref: '#/components/messages/ProfileResponse'
+
+  /api/v1/auth/password:
+    description: 修改当前用户密码
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: changePassword
+      summary: 修改密码 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/ChangePasswordRequest'
+    subscribe:
+      operationId: changePasswordResponse
+      summary: 修改密码响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  /api/v1/auth/avatar/use-fixed:
+    description: 使用系统内置头像
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: useFixedAvatar
+      summary: 使用固定头像 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        name: EmptyBody
+        payload:
+          type: object
+    subscribe:
+      operationId: useFixedAvatarResponse
+      summary: 使用固定头像响应
+      message:
+        $ref: '#/components/messages/ProfileResponse'
+
+  /api/v1/auth/logout:
+    description: 注销当前登录会话
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: logout
+      summary: 用户注销 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        name: EmptyBody
+        payload:
+          type: object
+    subscribe:
+      operationId: logoutResponse
+      summary: 注销响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
 
   /api/v1/devices:
     description: 获取当前账号下的设备列表
@@ -166,6 +284,148 @@ channels:
           method: GET
       message:
         $ref: '#/components/messages/SensorHistoryResponse'
+
+  /api/v1/devices/{device_id}/sensor-meta:
+    description: 获取指定设备支持的传感器元数据（类型、单位、图标、阈值等）
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getSensorMeta
+      summary: 查询传感器元数据 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/SensorMetaResponse'
+
+  /api/v1/devices/{device_id}/equipment-meta:
+    description: 获取指定设备支持的执行器元数据（名称、图标、是否可控等）
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getEquipmentMeta
+      summary: 查询设备/执行器元数据 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/EquipmentMetaResponse'
+
+  /api/v1/agri-qa/chat:
+    description: 农业知识问答聊天接口（文字+可选图片）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: sendAgriQA
+      summary: 发送农业知识问题 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/AgriQARequest'
+    subscribe:
+      operationId: agriQAResponse
+      summary: 农业知识问答回复
+      message:
+        $ref: '#/components/messages/AgriQAResponse'
+
+  /api/v1/equipment/stats:
+    description: 查询执行器运行统计（时段汇总+趋势图）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: getEquipmentStats
+      summary: 查询执行器统计 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/EquipmentStatsRequest'
+    subscribe:
+      operationId: equipmentStatsResponse
+      summary: 执行器统计响应
+      message:
+        $ref: '#/components/messages/EquipmentStatsResponse'
+
+  /api/v1/traceability/scan:
+    description: 溯源码扫码记录
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: uploadTraceCode
+      summary: 上传溯源码 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/TraceabilityScanRequest'
+    subscribe:
+      operationId: traceabilityScanResponse
+      summary: 溯源码扫码响应
+      message:
+        $ref: '#/components/messages/TraceabilityScanResponse'
+
+  /api/v1/cameras/{device_id}/live:
+    description: 获取指定设备摄像头的实时直播流信息
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getCameraLive
+      summary: 查询直播流 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/CameraLiveResponse'
+
+  /api/v1/cameras/{device_id}/playback:
+    description: 获取指定设备摄像头的回放记录列表
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getCameraPlayback
+      summary: 查询回放列表 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/CameraPlaybackResponse'
+
+  /api/v1/cameras/{device_id}/keyframes:
+    description: 获取指定设备摄像头的关键帧抓拍列表
+    parameters:
+      device_id:
+        $ref: '#/components/parameters/deviceId'
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: getCameraKeyframes
+      summary: 查询关键帧 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/CameraKeyframesResponse'
 
   # ============================================================
   # MQTT Channels
@@ -270,6 +530,113 @@ components:
               token: eyJhbGciOiJIUzI1NiIs...
               expires_in: 3600
 
+    SendVerificationCodeRequest:
+      messageId: SendVerificationCodeRequest
+      name: SendVerificationCodeRequest
+      title: 发送验证码请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [phone]
+        properties:
+          phone:
+            type: string
+            example: "13800138000"
+
+    SendVerificationCodeResponse:
+      messageId: SendVerificationCodeResponse
+      name: SendVerificationCodeResponse
+      title: 发送验证码响应体
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              expires_in: 300
+              test_code: "1234"
+
+    RegisterRequest:
+      messageId: RegisterRequest
+      name: RegisterRequest
+      title: 注册请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [phone, verificationCode, password]
+        properties:
+          phone:
+            type: string
+            example: "13800138000"
+          verificationCode:
+            type: string
+            example: "1234"
+          password:
+            type: string
+            format: password
+            example: "newPass123"
+
+    RegisterResponse:
+      messageId: RegisterResponse
+      name: RegisterResponse
+      title: 注册响应体
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data: null
+        - name: conflict
+          payload:
+            code: 409
+            message: phone already registered
+            data: null
+
+    ForgotPasswordRequest:
+      messageId: ForgotPasswordRequest
+      name: ForgotPasswordRequest
+      title: 找回密码请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [phone, verificationCode, newPassword]
+        properties:
+          phone:
+            type: string
+            example: "13800138000"
+          verificationCode:
+            type: string
+            example: "1234"
+          newPassword:
+            type: string
+            format: password
+            example: "newSecret456"
+
+    ForgotPasswordResponse:
+      messageId: ForgotPasswordResponse
+      name: ForgotPasswordResponse
+      title: 找回密码响应体
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data: null
+        - name: not_found
+          payload:
+            code: 404
+            message: user not found
+            data: null
+
     UpdateProfileRequest:
       messageId: UpdateProfileRequest
       name: UpdateProfileRequest
@@ -309,6 +676,7 @@ components:
             data:
               userId: WangNong_001
               userName: 农场主
+              phone: "13800000000"
               gender: 男
               birthDate: "1990-01-01"
               avatarSrc: https://example.com/avatar.jpg
@@ -326,10 +694,9 @@ components:
             code: 200
             message: success
             data:
-              - deviceId: A03_Node_01
-                deviceName: 3号大棚-节点01
-                deviceType: sensor_node
-                online: true
+              - id: A03_Node_01
+                name: 3号大棚-节点01
+                status: online
 
     DeviceDetailResponse:
       messageId: DeviceDetailResponse
@@ -344,11 +711,11 @@ components:
             code: 200
             message: success
             data:
-              deviceId: A03_Node_01
-              deviceName: 3号大棚-节点01
+              id: A03_Node_01
+              name: 3号大棚-节点01
+              status: online
               deviceState:
                 smartMode: false
-              online: true
 
     AlertListRequest:
       messageId: AlertListRequest
@@ -369,11 +736,24 @@ components:
                 type: integer
                 minimum: 1
                 example: 1
-              pageSize:
+              size:
                 type: integer
                 minimum: 1
                 maximum: 100
                 example: 20
+              sort_by:
+                type: string
+                example: timestamp
+              order:
+                type: string
+                enum: [asc, desc]
+                example: desc
+              filter_type:
+                type: string
+                example: ""
+              filter_status:
+                type: string
+                example: ""
 
     AlertListResponse:
       messageId: AlertListResponse
@@ -389,13 +769,20 @@ components:
             message: success
             data:
               total: 1
-              list:
+              unhandled_count: 1
+              handled_recent_count: 0
+              items:
                 - alert_id: A10992
+                  device_id: A03_Node_01
                   type: high_temp
                   type_name: 高温告警
                   level: critical
+                  timestamp: 1773993650000
                   message: 当前温度38°C，超出安全阈值
+                  source: environment
+                  source_name: 环境监测
                   is_handled: false
+                  handle_time: null
 
     HandleAlertRequest:
       messageId: HandleAlertRequest
@@ -440,11 +827,269 @@ components:
             code: 200
             message: success
             data:
-              device_id: A03_Node_01
-              records:
-                - timestamp: 1773993600000
-                  temperature: 25.4
-                  humidity: 60.1
+              metric: temperature
+              summary:
+                max: 32.5
+                min: 18.2
+                avg: 25.4
+              points:
+                - timeLabel: "08:00"
+                  value: 22.1
+                - timeLabel: "09:00"
+                  value: 25.4
+                - timeLabel: "10:00"
+                  value: 28.3
+
+    SensorMetaResponse:
+      messageId: SensorMetaResponse
+      name: SensorMetaResponse
+      title: 传感器元数据响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - key: temperature
+                name: 空气温度
+                unit: ℃
+                icon: 🌡️
+                badgeColor: "#FF7043"
+                bgColor: "#FFF3E0"
+                warningMin: 10
+                warningMax: 35
+
+    EquipmentMetaResponse:
+      messageId: EquipmentMetaResponse
+      name: EquipmentMetaResponse
+      title: 设备/执行器元数据响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - key: water_pump
+                name: 水泵
+                icon: 💦
+                controllable: true
+
+    AgriQARequest:
+      messageId: AgriQARequest
+      name: AgriQARequest
+      title: 农业知识问答请求体
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          message:
+            type: string
+            description: 用户文字问题
+            example: 番茄叶子发黄怎么办？
+          image_uri:
+            type: string
+            description: 用户上传的图片 URI（可选）
+            example: file://local/path/to/image.jpg
+
+    AgriQAResponse:
+      messageId: AgriQAResponse
+      name: AgriQAResponse
+      title: 农业知识问答响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              reply: 番茄叶片发黄常见原因包括缺氮、缺铁或浇水过多...
+
+    GenericSuccessResponse:
+      messageId: GenericSuccessResponse
+      name: GenericSuccessResponse
+      title: 通用成功响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data: null
+
+    ChangePasswordRequest:
+      messageId: ChangePasswordRequest
+      name: ChangePasswordRequest
+      title: 修改密码请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [oldPassword, newPassword]
+        properties:
+          oldPassword:
+            type: string
+            format: password
+            example: "oldPass123"
+          newPassword:
+            type: string
+            format: password
+            example: "newPass456"
+
+    EquipmentStatsRequest:
+      messageId: EquipmentStatsRequest
+      name: EquipmentStatsRequest
+      title: 执行器统计请求体
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          query:
+            type: object
+            properties:
+              device_type:
+                type: string
+                description: 执行器标识（如 water_pump、fan 等）
+                example: water_pump
+              time_range:
+                type: string
+                description: 时间范围（如 24h、7d）
+                example: 24h
+
+    EquipmentStatsResponse:
+      messageId: EquipmentStatsResponse
+      name: EquipmentStatsResponse
+      title: 执行器统计响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              summary:
+                totalRuntime: "5h 30m"
+                avgDaily: "1h 06m"
+              points:
+                - timeLabel: "03-14"
+                  value: 3.2
+                - timeLabel: "03-15"
+                  value: 5.1
+
+    TraceabilityScanRequest:
+      messageId: TraceabilityScanRequest
+      name: TraceabilityScanRequest
+      title: 溯源码扫码请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [code]
+        properties:
+          code:
+            type: string
+            example: "TRACE-2026-001"
+
+    TraceabilityScanResponse:
+      messageId: TraceabilityScanResponse
+      name: TraceabilityScanResponse
+      title: 溯源码扫码响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              text: "溯源码 TRACE-2026-001 已记录"
+
+    CameraLiveResponse:
+      messageId: CameraLiveResponse
+      name: CameraLiveResponse
+      title: 摄像头直播流响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              cameraId: A03_Node_01
+              cameraName: 温室摄像头 A03_Node_01
+              status: online
+              streamTag: HLS
+              resolution: 1920x1080
+              lastHeartbeat: "2026-03-20T12:00:00"
+              streamUrl: "https://example.com/live/A03_Node_01.m3u8"
+
+    CameraPlaybackResponse:
+      messageId: CameraPlaybackResponse
+      name: CameraPlaybackResponse
+      title: 摄像头回放列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - id: pb-001
+                date: "2026-03-20"
+                duration: "00:30:00"
+                quality: 1080p
+                available: true
+                abnormalCount: 1
+              - id: pb-002
+                date: "2026-03-20"
+                duration: "00:20:00"
+                quality: 720p
+                available: true
+                abnormalCount: 0
+
+    CameraKeyframesResponse:
+      messageId: CameraKeyframesResponse
+      name: CameraKeyframesResponse
+      title: 摄像头关键帧抓拍响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - id: kf-001
+                captureTime: "2026-03-20T09:30:00"
+                label: 叶片发黄
+                confidence: 0.87
+                thumbnailHint: "thumb://A03_Node_01/1"
+                isAbnormal: true
+                abnormalType: 叶片异常
+                severity: warning
+              - id: kf-002
+                captureTime: "2026-03-20T14:20:00"
+                label: 虫害疑似
+                confidence: 0.78
+                thumbnailHint: "thumb://A03_Node_01/2"
+                isAbnormal: true
+                abnormalType: 虫害预警
+                severity: critical
 
     # ---------- MQTT Messages ----------
     TelemetryMessage:
@@ -649,61 +1294,30 @@ components:
 
     EnvironmentData:
       type: object
-      description: 环境传感器读数
-      properties:
-        temperature:
-          type: number
-          format: float
-          description: 空气温度（°C）
-          example: 25.4
-        humidity:
-          type: number
-          format: float
-          description: 空气湿度（%RH）
-          example: 60.1
-        soilTemp:
-          type: number
-          format: float
-          description: 土壤温度（°C）
-          example: 22.0
-        soilHumidity:
-          type: number
-          format: float
-          description: 土壤湿度（%）
-          example: 45.2
-        light:
-          type: number
-          format: float
-          description: 光照强度（Lux）
-          example: 15000
-        co2:
-          type: number
-          format: float
-          description: CO₂ 浓度（ppm）
-          example: 450
-        soilPh:
-          type: number
-          format: float
-          description: 土壤 pH 值
-          example: 6.8
+      description: |
+        环境传感器读数（动态键值对）。
+        键名由 sensor-meta 接口定义，常见键：temperature, humidity, light, co2, soilTemp, soilHumidity, soilPh 等。
+      additionalProperties:
+        type: number
+        format: float
+      example:
+        temperature: 25.4
+        humidity: 60.1
+        soilTemp: 22.0
+        soilHumidity: 45.2
+        light: 15000
+        co2: 450
+        soilPh: 6.8
 
     EquipmentState:
       type: object
-      description: 执行器（设备）当前开关状态
-      properties:
-        water_pump:
-          type: boolean
-          description: 水泵是否开启
-          example: false
-        led_light:
-          type: boolean
-          description: LED 补光灯是否开启
-          example: true
-        fan:
-          type: boolean
-          description: 风扇是否开启
-          example: false
-        camera:
-          type: boolean
-          description: 摄像头是否开启
-          example: false
+      description: |
+        执行器当前开关状态（动态键值对）。
+        键名由 equipment-meta 接口定义，常见键：water_pump, led_light, fan, camera 等。
+      additionalProperties:
+        type: boolean
+      example:
+        water_pump: false
+        led_light: true
+        fan: false
+        camera: false

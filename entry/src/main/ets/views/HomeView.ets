@@ -1,9 +1,6 @@
 ﻿import { Device } from '../models/Device';
-import { DashboardView } from './DashboardView';
-import { ControlView } from './ControlView';
-import { VideoMonitorView } from './VideoMonitorView';
-import { PestDetectionView } from './PestDetectionView';
-import { KnowledgeView } from './KnowledgeView';
+import { MonitorView } from './MonitorView';
+import { AgriQAView } from './AgriQAView';
 import { promptAction } from '@kit.ArkUI';
 
 @Component
@@ -19,12 +16,9 @@ export struct HomeView {
   @State isSidebarShow: boolean = false;
 
   private sidebarMenus: string[] = [
-    '环境监测',
-    '视频监控',
-    '病虫害检测',
-    '农业知识科普',
-    '控制中心',
-    '切换设备'
+    '综合监控',
+    '农业知识问答',
+    '切换节点'
   ];
 
   @Builder
@@ -62,12 +56,6 @@ export struct HomeView {
   @Builder
   PlaceholderContent(title: string) {
     Column() {
-      Text(title)
-        .fontSize(28)
-        .fontWeight(FontWeight.Bolder)
-        .fontColor('#2C3E50')
-        .margin({ top: 30, bottom: 20 })
-      
       Blank()
       Text('功能暂未开放')
         .fontSize(16)
@@ -82,11 +70,11 @@ export struct HomeView {
   @Builder
   SwitchDeviceContent() {
     Column() {
-      Text('设备管理')
+      Text('切换节点')
         .fontSize(28)
         .fontWeight(FontWeight.Bolder)
         .fontColor('#2C3E50')
-        .margin({ top: 30, bottom: 20 })
+        .margin({ top: 10, bottom: 20 })
 
       List({ space: 10 }) {
         ForEach(this.devicesList, (name: string, index: number) => {
@@ -128,23 +116,23 @@ export struct HomeView {
       .alignListItem(ListItemAlign.Center)
       .layoutWeight(1)
 
-      Button('添加新设备', { type: ButtonType.Capsule })
+      Button('添加新节点', { type: ButtonType.Capsule })
         .width('80%')
         .height(45)
         .backgroundColor('#4CAF50')
         .margin({ bottom: 40 })
         .onClick(() => {
           promptAction.showDialog({
-            title: '添加设备',
-            message: '请输入新设备名称（暂通过弹窗模拟即可）',
+            title: '添加节点',
+            message: '请输入新节点名称（暂通过弹窗模拟即可）',
             buttons: [
               { text: '取消', color: '#90A4AE' },
-              { text: '添加模拟设备', color: '#4CAF50' }
+              { text: '添加模拟节点', color: '#4CAF50' }
             ]
           }).then(data => {
             if (data.index === 1) {
                if (this.onAddDevice) {
-                 this.onAddDevice(`新建设备 ${this.devicesList.length + 1}`);
+                 this.onAddDevice(`新建节点 ${this.devicesList.length + 1}`);
                }
             }
           });
@@ -159,11 +147,15 @@ export struct HomeView {
     Stack({ alignContent: Alignment.TopStart }) {
       Column() {
         Row() {
+          Text(this.sidebarMenus[this.currentSidebarIndex])
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#2C3E50')
           Blank()
-          Text(`当前: ${this.device.name}`).fontSize(14).fontColor('#2C3E50')
+          Text(`当前: ${this.device.name}`).fontSize(14).fontColor('#78909C')
         }
         .width('100%')
-        .height(60)
+        .height(56)
         .padding({ left: 15, right: 15 })
         .backgroundColor('#FFFFFF')
         .shadow({ radius: 5, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
@@ -171,16 +163,16 @@ export struct HomeView {
         Scroll() {
           Column() {
             if (this.currentSidebarIndex === 0) {
-              DashboardView({ deviceId: this.device.id, sensorData: this.device.sensorData })
+              MonitorView({
+                deviceId: this.device.id,
+                sensorData: this.device.sensorData,
+                deviceState: this.device.deviceState,
+                sensorMeta: this.device.sensorMeta,
+                equipmentMeta: this.device.equipmentMeta
+              })
             } else if (this.currentSidebarIndex === 1) {
-              VideoMonitorView({ deviceId: this.device.id })
+              AgriQAView()
             } else if (this.currentSidebarIndex === 2) {
-              PestDetectionView()
-            } else if (this.currentSidebarIndex === 3) {
-              KnowledgeView()
-            } else if (this.currentSidebarIndex === 4) {
-              ControlView({ deviceId: this.device.id, deviceState: this.device.deviceState })
-            } else if (this.currentSidebarIndex === 5) {
               this.SwitchDeviceContent()
             }
           }

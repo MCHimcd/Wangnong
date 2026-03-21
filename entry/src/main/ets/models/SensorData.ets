@@ -1,10 +1,25 @@
 @Observed
 export class SensorData {
-  temperature: number = 0; // 空气温度
-  humidity: number = 0; // 空气湿度
-  light: number = 0; // 光照 (Lux)
-  co2: number = 0; // 二氧化碳 (ppm)
-  soilTemp: number = 0; // 土壤温度
-  soilHumidity: number = 0; // 土壤湿度
-  soilPh: number = 0; // 土壤 pH
+  // 动态键值存储，key 来自后端 sensor-meta
+  values: Record<string, number> = {};
+  // 触发 UI 刷新的计数器（@Observed 不深度监听 Record）
+  revision: number = 0;
+
+  getValue(key: string): number {
+    return this.values[key] ?? 0;
+  }
+
+  setValue(key: string, val: number): void {
+    this.values[key] = val;
+    this.revision++;
+  }
+
+  /** 批量写入后统一触发一次 revision */
+  setValues(kvs: Record<string, number>): void {
+    const keys = Object.keys(kvs);
+    for (let i = 0; i < keys.length; i++) {
+      this.values[keys[i]] = kvs[keys[i]];
+    }
+    this.revision++;
+  }
 }

@@ -1,10 +1,16 @@
 ﻿import { Device } from '../models/Device';
+import { SensorMetaItem } from '../models/SensorMeta';
+import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { HomeView } from '../views/HomeView';
 import { AlertView } from '../views/AlertView';
 import { ProfileView } from '../views/ProfileView';
 import { DeviceListItem, HttpService } from '../services/HttpService';
 import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
+import { AlertData } from '../models/AlertData';
+import { AppConfig } from '../common/AppConfig';
+import { promptAction } from '@kit.ArkUI';
+import router from '@ohos.router';
 
 @Entry
 @Component
@@ -36,13 +42,29 @@ struct Index {
     }
   }
 
+  private async loadMetaForAllDevices(): Promise<void> {
+    const httpService = HttpService.getInstance();
+    for (let i = 0; i < this.devices.length; i++) {
+      const device = this.devices[i];
+      const sMeta = await httpService.getSensorMeta(device.id);
+      if (sMeta) {
+        device.sensorMeta = sMeta;
+      }
+      const eMeta = await httpService.getEquipmentMeta(device.id);
+      if (eMeta) {
+        device.equipmentMeta = eMeta;
+      }
+    }
+  }
+
   async aboutToAppear() {
     await this.loadDevicesFromServer();
     HttpService.getInstance().setDeviceId(this.devices[this.currentDeviceIndex].id);
+    await this.loadMetaForAllDevices();
 
     MqttClientService.getInstance().connect(
-      'tcp://broker.emqx.io:1883',
-      'app_client_' + new Date().getTime(),
+      AppConfig.MQTT_BROKER_URL,
+      AppConfig.MQTT_CLIENT_PREFIX + new Date().getTime(),
       (deviceId, msgStr) => {
         try {
           const payload = JSON.parse(msgStr) as Record<string, Object | string | number | boolean>;
@@ -52,19 +74,17 @@ struct Index {
               if (device.id === deviceId) {
                 if (data['environment']) {
                   const env = data['environment'] as Record<string, number>;
-                  if (env['temperature'] !== undefined) device.sensorData.temperature = env['temperature'];
-                  if (env['humidity'] !== undefined) device.sensorData.humidity = env['humidity'];
-                  if (env['light'] !== undefined) device.sensorData.light = env['light'];
-                  if (env['co2'] !== undefined) device.sensorData.co2 = env['co2'];
-                  if (env['soilTemp'] !== undefined) device.sensorData.soilTemp = env['soilTemp'];
-                  if (env['soilHumidity'] !== undefined) device.sensorData.soilHumidity = env['soilHumidity'];
-                  if (env['soilPh'] !== undefined) device.sensorData.soilPh = env['soilPh'];
+                  const envKeys = Object.keys(env);
+                  for (let i = 0; i < envKeys.length; i++) {
+                    device.sensorData.setValue(envKeys[i], env[envKeys[i]]);
+                  }
                 }
                 if (data['equipment']) {
                   const equip = data['equipment'] as Record<string, boolean | number>;
-                  if (equip['water_pump'] !== undefined) device.deviceState.waterPumpOn = Boolean(equip['water_pump']);
-                  if (equip['led_light'] !== undefined) device.deviceState.ledOn = Boolean(equip['led_light']);
-                  if (equip['fan'] !== undefined) device.deviceState.fanOn = Boolean(equip['fan']);
+                  const equipKeys = Object.keys(equip);
+                  for (let i = 0; i < equipKeys.length; i++) {
+                    device.deviceState.setState(equipKeys[i], Boolean(equip[equipKeys[i]]));
+                  }
                 }
                 if (data['mode'] !== undefined) {
                   const mode = data['mode'];
@@ -86,6 +106,20 @@ struct Index {
         console.info(`[Index] MQTT status changed: ${status}, info: ${debugInfo || ''}`);
       }
     );
+    AlertSyncService.getInstance().setAlertDialogCallback((alert: AlertData) => {
+      promptAction.showDialog({
+        title: '新告警提示',
+        message: `检测到新告警（最新：${alert.type_name}），是否立即查看？`,
+        buttons: [
+          { text: '稍后处理', color: '#90A4AE' },
+          { text: '立即查看', color: '#D84315' }
+        ]
+      }).then((res) => {
+        if (res.index === 1) {
+          this.currentTabIndex = 1;
+        }
+      }).catch(() => {});
+    });
     AlertSyncService.getInstance().startRealtimeSync();
   }
 

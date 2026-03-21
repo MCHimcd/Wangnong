@@ -19,22 +19,9 @@ export class CachedTrendPoint {
   }
 }
 
-class EnvironmentData {
-  temperature?: number;
-  humidity?: number;
-  light?: number;
-  co2?: number;
-  soilTemp?: number;
-  soilHumidity?: number;
-  soilPh?: number;
-}
+type EnvironmentData = Record<string, number | undefined>;
 
-class EquipmentData {
-  water_pump?: boolean;
-  led_light?: boolean;
-  fan?: boolean;
-  camera?: boolean;
-}
+type EquipmentData = Record<string, boolean | undefined>;
 
 class TelemetryData {
   environment?: EnvironmentData;
@@ -126,16 +113,13 @@ export class MqttClientService {
       return;
     }
 
-    let env = data.environment;
+    let env: EnvironmentData = data.environment;
     let timeLabel = this.formatTrendTime(timestamp || new Date().getTime());
 
-    this.cacheSingleMetric(deviceId, 'temperature', env.temperature, timeLabel);
-    this.cacheSingleMetric(deviceId, 'humidity', env.humidity, timeLabel);
-    this.cacheSingleMetric(deviceId, 'light', env.light, timeLabel);
-    this.cacheSingleMetric(deviceId, 'co2', env.co2, timeLabel);
-    this.cacheSingleMetric(deviceId, 'soilTemp', env.soilTemp, timeLabel);
-    this.cacheSingleMetric(deviceId, 'soilHumidity', env.soilHumidity, timeLabel);
-    this.cacheSingleMetric(deviceId, 'soilPh', env.soilPh, timeLabel);
+    const keys = Object.keys(env);
+    for (let i = 0; i < keys.length; i++) {
+      this.cacheSingleMetric(deviceId, keys[i], env[keys[i]], timeLabel);
+    }
   }
 
   public getCachedTrend(deviceId: string, metricKey: string): CachedTrendPoint[] {

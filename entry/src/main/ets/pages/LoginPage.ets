@@ -18,11 +18,62 @@ struct LoginPage {
   @State phone: string = '';
   @State verifyCode: string = '';
   @State newPassword: string = '';
+  @State isSendingCode: boolean = false;
+  @State codeCountdown: number = 0;
+
+  private codeTimerId: number = -1;
 
   private readonly PREF_NAME: string = 'AppPreferences';
 
   async aboutToAppear() {
     await this.checkAutoLogin();
+  }
+
+  aboutToDisappear(): void {
+    this.stopCodeTimer();
+  }
+
+  private stopCodeTimer(): void {
+    if (this.codeTimerId !== -1) {
+      clearInterval(this.codeTimerId);
+      this.codeTimerId = -1;
+    }
+  }
+
+  private startCodeTimer(): void {
+    this.stopCodeTimer();
+    this.codeCountdown = 60;
+    this.codeTimerId = setInterval(() => {
+      if (this.codeCountdown <= 1) {
+        this.codeCountdown = 0;
+        this.stopCodeTimer();
+        return;
+      }
+      this.codeCountdown -= 1;
+    }, 1000);
+  }
+
+  async onSendVerifyCodeClick() {
+    const phone = this.phone.trim();
+    if (phone.length === 0) {
+      promptAction.showToast({ message: '请先输入手机号' });
+      return;
+    }
+    if (this.codeCountdown > 0 || this.isSendingCode) {
+      return;
+    }
+
+    this.isSendingCode = true;
+    const ok = await HttpService.getInstance().sendVerificationCode(phone);
+    this.isSendingCode = false;
+
+    if (!ok) {
+      promptAction.showToast({ message: '验证码发送失败，请稍后重试' });
+      return;
+    }
+
+    promptAction.showToast({ message: '验证码已发送（测试固定为1234）' });
+    this.startCodeTimer();
   }
 
   async checkAutoLogin() {
@@ -293,11 +344,14 @@ struct LoginPage {
           .width('60%')
           .height(50)
           .onChange((value: string) => this.verifyCode = value)
-        Button('获取')
+        Button(this.codeCountdown > 0 ? `${this.codeCountdown}s` : (this.isSendingCode ? '发送中' : '获取'))
           .width('35%')
           .height(50)
           .backgroundColor('#4CAF50')
-          .onClick(() => promptAction.showToast({ message: '验证码已发送' }))
+          .enabled(!this.isSendingCode && this.codeCountdown === 0)
+          .onClick(() => {
+            void this.onSendVerifyCodeClick();
+          })
       }
       .width('80%')
       .margin({ bottom: 20 })
@@ -358,11 +412,14 @@ struct LoginPage {
           .width('60%')
           .height(50)
           .onChange((value: string) => this.verifyCode = value)
-        Button('获取')
+        Button(this.codeCountdown > 0 ? `${this.codeCountdown}s` : (this.isSendingCode ? '发送中' : '获取'))
           .width('35%')
           .height(50)
           .backgroundColor('#4CAF50')
-          .onClick(() => promptAction.showToast({ message: '验证码已发送' }))
+          .enabled(!this.isSendingCode && this.codeCountdown === 0)
+          .onClick(() => {
+            void this.onSendVerifyCodeClick();
+          })
       }
       .width('80%')
       .margin({ bottom: 20 })
