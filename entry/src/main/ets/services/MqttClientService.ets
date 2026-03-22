@@ -30,14 +30,14 @@ class TelemetryData {
 
 class TelemetryPayload {
   msg_type?: string;
-  device_id?: string;
+  node_id?: string;
   timestamp?: number;
   data?: TelemetryData;
 }
 
 class AlertPayload {
   msg_type?: string;
-  device_id?: string;
+  node_id?: string;
   timestamp?: number;
   data?: Record<string, Object | string | number | boolean | null>;
 }
@@ -58,8 +58,8 @@ class ControlMessage {
 export class MqttClientService {
   private static instance: MqttClientService;
   private static readonly MAX_TREND_POINTS: number = 60;
-  private onTelemetryDataListeners: Array<(deviceId: string, msgStr: string) => void> = [];
-  private onAlertDataListeners: Array<(deviceId: string, msgStr: string) => void> = [];
+  private onTelemetryDataListeners: Array<(nodeId: string, msgStr: string) => void> = [];
+  private onAlertDataListeners: Array<(nodeId: string, msgStr: string) => void> = [];
   private onOfflineCallback: (() => void) | null = null;
   private offlineTimerId: number = -1;
   private connected: boolean = false;
@@ -88,12 +88,12 @@ export class MqttClientService {
     return `${hour}:${minute}:${second}`;
   }
 
-  private cacheSingleMetric(deviceId: string, metric: string, value: number | undefined, timeLabel: string) {
+  private cacheSingleMetric(nodeId: string, metric: string, value: number | undefined, timeLabel: string) {
     if (typeof value !== 'number') {
       return;
     }
 
-    let cacheKey = `${deviceId}_${metric}`;
+    let cacheKey = `${nodeId}_${metric}`;
     let cachedPoints = this.trendCache[cacheKey] || [];
     let lastPoint = cachedPoints.length > 0 ? cachedPoints[cachedPoints.length - 1] : null;
     if (lastPoint && lastPoint.value === value) {
@@ -108,7 +108,7 @@ export class MqttClientService {
     this.trendCache[cacheKey] = cachedPoints;
   }
 
-  private cacheTelemetry(deviceId: string, data?: TelemetryData, timestamp?: number) {
+  private cacheTelemetry(nodeId: string, data?: TelemetryData, timestamp?: number) {
     if (!data || !data.environment) {
       return;
     }
@@ -118,12 +118,12 @@ export class MqttClientService {
 
     const keys = Object.keys(env);
     for (let i = 0; i < keys.length; i++) {
-      this.cacheSingleMetric(deviceId, keys[i], env[keys[i]], timeLabel);
+      this.cacheSingleMetric(nodeId, keys[i], env[keys[i]], timeLabel);
     }
   }
 
-  public getCachedTrend(deviceId: string, metricKey: string): CachedTrendPoint[] {
-    let cacheKey = `${deviceId}_${metricKey}`;
+  public getCachedTrend(nodeId: string, metricKey: string): CachedTrendPoint[] {
+    let cacheKey = `${nodeId}_${metricKey}`;
     let cachedPoints = this.trendCache[cacheKey] || [];
     let result: CachedTrendPoint[] = [];
     cachedPoints.forEach((point) => {
@@ -144,26 +144,26 @@ export class MqttClientService {
     }, 10000);
   }
 
-  public addTelemetryListener(listener: (deviceId: string, msgStr: string) => void) {
+  public addTelemetryListener(listener: (nodeId: string, msgStr: string) => void) {
     if (this.onTelemetryDataListeners.indexOf(listener) === -1) {
       this.onTelemetryDataListeners.push(listener);
     }
   }
 
-  public removeTelemetryListener(listener: (deviceId: string, msgStr: string) => void) {
+  public removeTelemetryListener(listener: (nodeId: string, msgStr: string) => void) {
     const index = this.onTelemetryDataListeners.indexOf(listener);
     if (index > -1) {
       this.onTelemetryDataListeners.splice(index, 1);
     }
   }
 
-  public addAlertListener(listener: (deviceId: string, msgStr: string) => void) {
+  public addAlertListener(listener: (nodeId: string, msgStr: string) => void) {
     if (this.onAlertDataListeners.indexOf(listener) === -1) {
       this.onAlertDataListeners.push(listener);
     }
   }
 
-  public removeAlertListener(listener: (deviceId: string, msgStr: string) => void) {
+  public removeAlertListener(listener: (nodeId: string, msgStr: string) => void) {
     const index = this.onAlertDataListeners.indexOf(listener);
     if (index > -1) {
       this.onAlertDataListeners.splice(index, 1);
@@ -171,7 +171,7 @@ export class MqttClientService {
   }
 
   public connect(brokerUrl: string, clientId: string,
-    onTelemetryData: (deviceId: string, msgStr: string) => void,
+    onTelemetryData: (nodeId: string, msgStr: string) => void,
     onStatusChange?: (status: 'connected' | 'disconnected', debugInfo?: string) => void) {
     this.addTelemetryListener(onTelemetryData);
     console.info(`[MQTT] Connecting to ${brokerUrl}`);
@@ -210,8 +210,8 @@ export class MqttClientService {
           }
 
           if (this.client) {
-            let telemetrySubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/device/+/telemetry', qos: 1 };
-            let alertSubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/device/+/alert', qos: 1 };
+            let telemetrySubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/telemetry', qos: 1 };
+            let alertSubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/alert', qos: 1 };
 
             this.client.messageArrived((err, mqttMessage: MqttMessage) => {
               if (err) {
@@ -223,18 +223,18 @@ export class MqttClientService {
                 const msgType = parsed.msg_type || '';
                 if (msgType === 'alert') {
                   const alertPayload = parsed as AlertPayload;
-                  const alertDeviceId = alertPayload.device_id || '';
+                  const alertNodeId = alertPayload.node_id || '';
                   this.onAlertDataListeners.forEach(listener => {
-                    listener(alertDeviceId, payloadStr);
+                    listener(alertNodeId, payloadStr);
                   });
                   return;
                 }
 
                 const payload = parsed as TelemetryPayload;
-                if (payload.device_id) {
-                  this.cacheTelemetry(payload.device_id, payload.data, payload.timestamp);
+                if (payload.node_id) {
+                  this.cacheTelemetry(payload.node_id, payload.data, payload.timestamp);
                   this.onTelemetryDataListeners.forEach(listener => {
-                    listener(payload.device_id!, payloadStr);
+                    listener(payload.node_id!, payloadStr);
                   });
                   this.resetOfflineTimer();
                 }
@@ -273,7 +273,7 @@ export class MqttClientService {
     }
   }
 
-  public publishCommand(deviceId: string, targetDevice: string, action: string, param?: Record<string, number>) {
+  public publishCommand(nodeId: string, targetDevice: string, action: string, param?: Record<string, number>) {
     let ctrlAction = new ControlAction();
     ctrlAction.target_device = targetDevice;
     ctrlAction.command = action;
@@ -288,11 +288,11 @@ export class MqttClientService {
     let payloadStr = JSON.stringify(ctrlMsg);
 
     if (!this.client || !this.connected) {
-      console.warn(`[MQTT] Cannot publish to ${deviceId}, not connected.`);
+      console.warn(`[MQTT] Cannot publish to ${nodeId}, not connected.`);
       return;
     }
 
-    let topic = `/wangnong_2026/device/${deviceId}/command`;
+    let topic = `/wangnong_2026/node/${nodeId}/command`;
     console.info(`[MQTT] Publish to ${topic}: ${payloadStr}`);
     if (this.client.publish) {
       let pubOpts: MqttPublishOptions = {

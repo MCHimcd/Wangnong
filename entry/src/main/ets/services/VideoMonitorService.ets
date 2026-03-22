@@ -11,24 +11,24 @@ export class VideoMonitorService {
     return VideoMonitorService.instance;
   }
 
-  async getLiveStreamInfo(deviceId: string): Promise<LiveStreamInfo> {
-    let res = await HttpService.getInstance().getCameraLive(deviceId);
+  async getLiveStreamInfo(nodeId: string): Promise<LiveStreamInfo> {
+    let res = await HttpService.getInstance().getCameraLive(nodeId);
     if (res && res.data) {
       return res.data;
     }
     throw new Error('直播流信息获取失败，请检查后端连接');
   }
 
-  async getDailyPlaybackList(deviceId: string): Promise<PlaybackItem[]> {
-    let res = await HttpService.getInstance().getCameraPlayback(deviceId, '2026-03-16');
+  async getDailyPlaybackList(nodeId: string): Promise<PlaybackItem[]> {
+    let res = await HttpService.getInstance().getCameraPlayback(nodeId, '2026-03-16');
     if (res && res.data) {
       return res.data;
     }
     throw new Error('回放列表获取失败，请检查后端连接');
   }
 
-  async getKeyframesByDate(deviceId: string, date: string): Promise<KeyframeImageItem[]> {
-    let res = await HttpService.getInstance().getCameraKeyframes(deviceId, date);
+  async getKeyframesByDate(nodeId: string, date: string): Promise<KeyframeImageItem[]> {
+    let res = await HttpService.getInstance().getCameraKeyframes(nodeId, date);
     if (res && res.data) {
       return res.data;
     }

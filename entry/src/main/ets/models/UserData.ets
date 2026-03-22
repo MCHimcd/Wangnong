@@ -9,6 +9,7 @@ export interface UserProfile {
   gender: string;
   birthDate: string;
   avatarSrc: string;
+  role: string;
 }
 
 export interface BaseResponse<T> {

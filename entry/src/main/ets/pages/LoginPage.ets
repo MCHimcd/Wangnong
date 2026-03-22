@@ -89,6 +89,8 @@ struct LoginPage {
         let res = await HttpService.getInstance().login(savedUsername, savedPassword);
         if (res && res.token) {
           HttpService.getInstance().setToken(res.token);
+          let profile = await HttpService.getInstance().getUserProfile();
+          AppStorage.setOrCreate('userRole', profile?.role || 'user');
           AppStorage.setOrCreate('isLoggedIn', true);
           router.replaceUrl({ url: 'pages/Index' });
           return;
@@ -140,6 +142,8 @@ struct LoginPage {
       }
       
       promptAction.showToast({ message: '登录成功' });
+      let profile = await HttpService.getInstance().getUserProfile();
+      AppStorage.setOrCreate('userRole', profile?.role || 'user');
       AppStorage.setOrCreate('isLoggedIn', true);
       router.replaceUrl({ url: 'pages/Index' });
     } else {

@@ -7,6 +7,7 @@ import { HttpService } from '../services/HttpService';
 export struct ProfileView {
   @State avatarSrc: ResourceStr = $r('app.media.startIcon');
   @State userId: string = 'WangNong_001';
+  @StorageLink('userRole') userRole: string = 'user';
   @StorageLink('profileUserName') userName: string = '王农';
   @StorageLink('profileAvatarSrc') profileAvatarSrc: string = '';
 
@@ -22,6 +23,8 @@ export struct ProfileView {
     if (profile) {
       if (profile.userId) this.userId = profile.userId;
       if (profile.userName) this.userName = profile.userName;
+      this.userRole = profile.role || 'user';
+      AppStorage.setOrCreate('userRole', this.userRole);
       this.profileAvatarSrc = profile.avatarSrc || '';
       AppStorage.setOrCreate('profileUserName', this.userName);
       AppStorage.setOrCreate('profileAvatarSrc', this.profileAvatarSrc);
@@ -110,6 +113,25 @@ export struct ProfileView {
           .onClick(() => {
             router.pushUrl({ url: 'pages/TraceabilityScanPage' });
           })
+
+          if (this.userRole === 'admin') {
+            Row() {
+              Text('管理后台')
+                .fontSize(16)
+                .fontColor('#2C3E50')
+              Blank()
+              Text('>')
+                .fontSize(16)
+            }
+            .width('90%')
+            .padding(20)
+            .backgroundColor(Color.White)
+            .borderRadius(12)
+            .margin({ bottom: 15 })
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/AdminPage' });
+            })
+          }
 
           Row() {
             Text('设置')

@@ -5,7 +5,7 @@ import { MqttClientService } from './MqttClientService';
 
 interface AlertPushPayload {
   msg_type?: string;
-  device_id?: string;
+  node_id?: string;
   timestamp?: number;
   data?: AlertListItem;
 }
@@ -19,7 +19,7 @@ export class AlertSyncService {
   private startupLoaded: boolean = false;
   private startupLoading: boolean = false;
   private dataChangeListeners: (() => void)[] = [];
-  private onAlertPush = (_deviceId: string, msgStr: string) => {
+  private onAlertPush = (_nodeId: string, msgStr: string) => {
     this.handleAlertPush(msgStr);
   };
 

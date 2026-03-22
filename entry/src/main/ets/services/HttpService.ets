@@ -43,7 +43,7 @@ export class TraceabilityScanRequest {
 
 export class ApiQueryPayload {
   sensor_type?: string;
-  device_type?: string;
+  equipment_type?: string;
   time_range?: string;
   scene?: string;
   page?: number;
@@ -62,25 +62,25 @@ export class ApiDataPayload {
 
 export class AppApiPayload {
   app_id: string = APP_ID;
-  device_id: string = "";
+  node_id: string = "";
   timestamp: number = 0;
   query?: ApiQueryPayload;
   data?: ApiDataPayload;
 }
 
-export interface DeviceSummary {
+export interface EquipmentSummary {
   total_value: number;
   unit: string;
 }
 
-export interface DeviceDataPoint {
+export interface EquipmentDataPoint {
   timeLabel: string;
   value: number;
 }
 
 export interface EquipmentStatsData {
-  summary: DeviceSummary;
-  points: DeviceDataPoint[];
+  summary: EquipmentSummary;
+  points: EquipmentDataPoint[];
 }
 
 export interface SensorHistoryPoint {
@@ -120,25 +120,45 @@ export interface AlertListData {
   items: AlertListItem[];
 }
 
-export type DeviceDetailStateData = Record<string, boolean | undefined>;
+export type NodeDetailStateData = Record<string, boolean | undefined>;
 
-export interface DeviceDetailData {
+export interface NodeDetailData {
   id: string;
   name: string;
   status: string;
   sensorData?: Record<string, number>;
-  deviceState?: DeviceDetailStateData;
+  nodeState?: NodeDetailStateData;
 }
 
-export interface DeviceListItem {
+export interface NodeListItem {
   id: string;
   name: string;
   status: string;
 }
 
+export interface AdminUserInfo {
+  id: number;
+  userName: string;
+  phone: string;
+  role: string;
+}
+
+export class AdminCreateNodeRequest {
+  nodeId: string = '';
+  nodeName: string = '';
+}
+
+export class AdminUpdateNodeRequest {
+  nodeName: string = '';
+}
+
+export class AdminUpdateRoleRequest {
+  role: string = '';
+}
+
 export class HttpService {
   private static instance: HttpService;
-  private currentDeviceId: string = "A03_Node_01";
+  private currentNodeId: string = "A03_Node_01";
   private token: string = "";
 
   private constructor() {}
@@ -154,8 +174,8 @@ export class HttpService {
     this.token = token;
   }
 
-  public setDeviceId(id: string) {
-    this.currentDeviceId = id;
+  public setNodeId(id: string) {
+    this.currentNodeId = id;
   }
 
   private async request<T>(path: string, method: http.RequestMethod, extraData?: Object,
@@ -315,34 +335,34 @@ export class HttpService {
     return res ? res.data : null;
   }
 
-  public async getSensorHistory(deviceId: string, range: string, metric: string): Promise<SensorHistoryData | null> {
+  public async getSensorHistory(nodeId: string, range: string, metric: string): Promise<SensorHistoryData | null> {
     let res = await this.request<BaseResponse<SensorHistoryData>>(
-      `/api/v1/sensors/${deviceId}/history?range=${range}&metric=${metric}`,
+      `/api/v1/sensors/${nodeId}/history?range=${range}&metric=${metric}`,
       http.RequestMethod.GET
     );
     return res ? res.data : null;
   }
 
-  public async getDeviceDetail(deviceId: string): Promise<DeviceDetailData | null> {
-    let res = await this.request<BaseResponse<DeviceDetailData>>(
-      `/api/v1/devices/${deviceId}`,
+  public async getNodeDetail(nodeId: string): Promise<NodeDetailData | null> {
+    let res = await this.request<BaseResponse<NodeDetailData>>(
+      `/api/v1/nodes/${nodeId}`,
       http.RequestMethod.GET
     );
     return res ? res.data : null;
   }
 
-  public async getDevices(): Promise<DeviceListItem[] | null> {
-    let res = await this.request<BaseResponse<DeviceListItem[]>>(
-      '/api/v1/devices',
+  public async getNodes(): Promise<NodeListItem[] | null> {
+    let res = await this.request<BaseResponse<NodeListItem[]>>(
+      '/api/v1/nodes',
       http.RequestMethod.GET
     );
     return res ? res.data : null;
   }
 
-  public async getEquipmentStats(deviceType: string, timeRange: string): Promise<BaseResponse<EquipmentStatsData> | null> {
+  public async getEquipmentStats(equipmentType: string, timeRange: string): Promise<BaseResponse<EquipmentStatsData> | null> {
     let payload = new AppApiPayload();
     let query = new ApiQueryPayload();
-    query.device_type = deviceType;
+    query.equipment_type = equipmentType;
     query.time_range = timeRange;
     payload.query = query;
     return await this.request<BaseResponse<EquipmentStatsData>>('/api/v1/equipment/stats', http.RequestMethod.POST, payload);
@@ -378,17 +398,17 @@ export class HttpService {
   }
 
   // ==== 传感器 / 设备元数据 ====
-  public async getSensorMeta(deviceId: string): Promise<SensorMetaItem[] | null> {
+  public async getSensorMeta(nodeId: string): Promise<SensorMetaItem[] | null> {
     let res = await this.request<BaseResponse<SensorMetaItem[]>>(
-      `/api/v1/devices/${deviceId}/sensor-meta`,
+      `/api/v1/nodes/${nodeId}/sensor-meta`,
       http.RequestMethod.GET
     );
     return res ? res.data : null;
   }
 
-  public async getEquipmentMeta(deviceId: string): Promise<EquipmentMetaItem[] | null> {
+  public async getEquipmentMeta(nodeId: string): Promise<EquipmentMetaItem[] | null> {
     let res = await this.request<BaseResponse<EquipmentMetaItem[]>>(
-      `/api/v1/devices/${deviceId}/equipment-meta`,
+      `/api/v1/nodes/${nodeId}/equipment-meta`,
       http.RequestMethod.GET
     );
     return res ? res.data : null;
@@ -414,16 +434,67 @@ export class HttpService {
   }
 
   // ==== 视频流及抓拍 ====
-  public async getCameraLive(deviceId: string): Promise<BaseResponse<LiveStreamInfo> | null> {
-    return await this.request<BaseResponse<LiveStreamInfo>>(`/api/v1/cameras/${deviceId}/live`, http.RequestMethod.GET);
+  public async getCameraLive(nodeId: string): Promise<BaseResponse<LiveStreamInfo> | null> {
+    return await this.request<BaseResponse<LiveStreamInfo>>(`/api/v1/cameras/${nodeId}/live`, http.RequestMethod.GET);
   }
 
-  public async getCameraPlayback(deviceId: string, date: string): Promise<BaseResponse<PlaybackItem[]> | null> {
-    return await this.request<BaseResponse<PlaybackItem[]>>(`/api/v1/cameras/${deviceId}/playback?date=${date}`, http.RequestMethod.GET);
+  public async getCameraPlayback(nodeId: string, date: string): Promise<BaseResponse<PlaybackItem[]> | null> {
+    return await this.request<BaseResponse<PlaybackItem[]>>(`/api/v1/cameras/${nodeId}/playback?date=${date}`, http.RequestMethod.GET);
   }
 
-  public async getCameraKeyframes(deviceId: string, date: string): Promise<BaseResponse<KeyframeImageItem[]> | null> {
-    return await this.request<BaseResponse<KeyframeImageItem[]>>(`/api/v1/cameras/${deviceId}/keyframes?date=${date}`, http.RequestMethod.GET);
+  public async getCameraKeyframes(nodeId: string, date: string): Promise<BaseResponse<KeyframeImageItem[]> | null> {
+    return await this.request<BaseResponse<KeyframeImageItem[]>>(`/api/v1/cameras/${nodeId}/keyframes?date=${date}`, http.RequestMethod.GET);
+  }
+
+  // ==== 管理员 API ====
+  public async adminCreateNode(nodeId: string, nodeName: string): Promise<boolean> {
+    let body = new AdminCreateNodeRequest();
+    body.nodeId = nodeId;
+    body.nodeName = nodeName;
+    let res = await this.request<BaseResponse<Object>>(
+      '/api/v1/admin/nodes',
+      http.RequestMethod.POST,
+      body
+    );
+    return res !== null && res.code === 200;
+  }
+
+  public async adminUpdateNode(nodeId: string, nodeName: string): Promise<boolean> {
+    let body = new AdminUpdateNodeRequest();
+    body.nodeName = nodeName;
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/admin/nodes/${nodeId}`,
+      http.RequestMethod.PUT,
+      body
+    );
+    return res !== null && res.code === 200;
+  }
+
+  public async adminDeleteNode(nodeId: string): Promise<boolean> {
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/admin/nodes/${nodeId}`,
+      'DELETE' as http.RequestMethod
+    );
+    return res !== null && res.code === 200;
+  }
+
+  public async adminListUsers(): Promise<AdminUserInfo[] | null> {
+    let res = await this.request<BaseResponse<AdminUserInfo[]>>(
+      '/api/v1/admin/users',
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
+  }
+
+  public async adminUpdateUserRole(userId: number, role: string): Promise<boolean> {
+    let body = new AdminUpdateRoleRequest();
+    body.role = role;
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/admin/users/${userId}/role`,
+      http.RequestMethod.PUT,
+      body
+    );
+    return res !== null && res.code === 200;
   }
 
 }

@@ -1,5 +1,5 @@
 import router from '@ohos.router';
-import { HttpService, DeviceDataPoint, EquipmentStatsData } from '../services/HttpService';
+import { HttpService, EquipmentDataPoint, EquipmentStatsData } from '../services/HttpService';
 
 @Entry
 @Component
@@ -7,7 +7,7 @@ struct DeviceDetailPage {
   @State type: string = '';
   @State title: string = '';
   @State isOn: boolean = false;
-  @State dataPoints: DeviceDataPoint[] = [];
+  @State dataPoints: EquipmentDataPoint[] = [];
   @State summaryTotal: number = 0;
   @State yAxisLabel: string = '';
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
@@ -28,7 +28,7 @@ struct DeviceDetailPage {
     if (res && res.code === 200 && res.data) {
       let dataObj: EquipmentStatsData = res.data;
       let summaryObj = dataObj.summary;
-      let pointsArr: DeviceDataPoint[] = dataObj.points;
+      let pointsArr: EquipmentDataPoint[] = dataObj.points;
 
       this.summaryTotal = summaryObj.total_value || 0;
       this.yAxisLabel = summaryObj.unit || '';
@@ -68,7 +68,7 @@ struct DeviceDetailPage {
       this.context.stroke();
     }
 
-    let maxVal = Math.max(...this.dataPoints.map(p => p.value));
+    let maxVal = Math.max(...this.dataPoints.map((p: EquipmentDataPoint): number => p.value));
     if (maxVal === 0) {
       maxVal = 10;
     }

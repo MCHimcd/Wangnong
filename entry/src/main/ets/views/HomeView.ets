@@ -1,16 +1,16 @@
-﻿import { Device } from '../models/Device';
+﻿import { Node } from '../models/Node';
 import { MonitorView } from './MonitorView';
 import { AgriQAView } from './AgriQAView';
 import { promptAction } from '@kit.ArkUI';
 
 @Component
 export struct HomeView {
-  @ObjectLink device: Device;
-  @Prop devicesList: string[] = [];
-  @Prop currentDeviceIndex: number = 0;
+  @ObjectLink node: Node;
+  @Prop nodesList: string[] = [];
+  @Prop currentNodeIndex: number = 0;
   
-  onSwitchDevice: ((index: number) => void) | null = null;
-  onAddDevice: ((name: string) => void) | null = null;
+  onSwitchNode: ((index: number) => void) | null = null;
+  onAddNode: ((name: string) => void) | null = null;
 
   @State currentSidebarIndex: number = 0;
   @State isSidebarShow: boolean = false;
@@ -77,15 +77,15 @@ export struct HomeView {
         .margin({ top: 10, bottom: 20 })
 
       List({ space: 10 }) {
-        ForEach(this.devicesList, (name: string, index: number) => {
+        ForEach(this.nodesList, (name: string, index: number) => {
           ListItem() {
             Row() {
               Text(name)
                 .fontSize(18)
-                .fontWeight(this.currentDeviceIndex === index ? FontWeight.Bold : FontWeight.Normal)
-                .fontColor(this.currentDeviceIndex === index ? '#4CAF50' : '#2C3E50')
+                .fontWeight(this.currentNodeIndex === index ? FontWeight.Bold : FontWeight.Normal)
+                .fontColor(this.currentNodeIndex === index ? '#4CAF50' : '#2C3E50')
               Blank()
-              if (this.currentDeviceIndex === index) {
+              if (this.currentNodeIndex === index) {
                 Text('当前')
                   .fontSize(14)
                   .fontColor('#4CAF50')
@@ -98,8 +98,8 @@ export struct HomeView {
                   .fontSize(14)
                   .backgroundColor('#4CAF50')
                   .onClick(() => {
-                    if (this.onSwitchDevice) {
-                      this.onSwitchDevice(index);
+                    if (this.onSwitchNode) {
+                      this.onSwitchNode(index);
                     }
                   })
               }
@@ -131,8 +131,8 @@ export struct HomeView {
             ]
           }).then(data => {
             if (data.index === 1) {
-               if (this.onAddDevice) {
-                 this.onAddDevice(`新建节点 ${this.devicesList.length + 1}`);
+               if (this.onAddNode) {
+                 this.onAddNode(`新建节点 ${this.nodesList.length + 1}`);
                }
             }
           });
@@ -152,7 +152,7 @@ export struct HomeView {
             .fontWeight(FontWeight.Bold)
             .fontColor('#2C3E50')
           Blank()
-          Text(`当前: ${this.device.name}`).fontSize(14).fontColor('#78909C')
+          Text(`当前: ${this.node.name}`).fontSize(14).fontColor('#78909C')
         }
         .width('100%')
         .height(56)
@@ -164,11 +164,11 @@ export struct HomeView {
           Column() {
             if (this.currentSidebarIndex === 0) {
               MonitorView({
-                deviceId: this.device.id,
-                sensorData: this.device.sensorData,
-                deviceState: this.device.deviceState,
-                sensorMeta: this.device.sensorMeta,
-                equipmentMeta: this.device.equipmentMeta
+                nodeId: this.node.id,
+                sensorData: this.node.sensorData,
+                nodeState: this.node.nodeState,
+                sensorMeta: this.node.sensorMeta,
+                equipmentMeta: this.node.equipmentMeta
               })
             } else if (this.currentSidebarIndex === 1) {
               AgriQAView()

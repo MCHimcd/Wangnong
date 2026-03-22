@@ -146,7 +146,8 @@ struct EditProfilePage {
                userName: this.userName,
                gender: this.gender,
                birthDate: this.birthDate,
-               avatarSrc: this.originalProfile ? this.originalProfile.avatarSrc : ''
+               avatarSrc: this.originalProfile ? this.originalProfile.avatarSrc : '',
+               role: this.originalProfile ? (this.originalProfile.role || 'user') : 'user'
              };
              let success = await HttpService.getInstance().updateUserProfile(newProfile);
              if (success) {

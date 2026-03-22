@@ -6,7 +6,7 @@ import { VideoMonitorService } from '../services/VideoMonitorService';
 @Entry
 @Component
 struct VideoDetailPage {
-  @State deviceId: string = '';
+  @State nodeId: string = '';
   @State playbackItems: PlaybackItem[] = [];
   @State keyframes: KeyframeImageItem[] = [];
   @State abnormalFrames: KeyframeImageItem[] = [];
@@ -16,7 +16,7 @@ struct VideoDetailPage {
   aboutToAppear(): void {
     const params = router.getParams() as Record<string, string>;
     if (params) {
-      this.deviceId = params['deviceId'] ?? '';
+      this.nodeId = params['nodeId'] ?? '';
     }
     void this.loadData();
   }
@@ -25,10 +25,10 @@ struct VideoDetailPage {
     this.isLoading = true;
     try {
       const service = VideoMonitorService.getInstance();
-      this.playbackItems = await service.getDailyPlaybackList(this.deviceId);
+      this.playbackItems = await service.getDailyPlaybackList(this.nodeId);
       if (this.playbackItems.length > 0) {
         this.selectedDate = this.playbackItems[0].date;
-        this.applyKeyframes(await service.getKeyframesByDate(this.deviceId, this.selectedDate));
+        this.applyKeyframes(await service.getKeyframesByDate(this.nodeId, this.selectedDate));
       }
     } catch (e) {
       promptAction.showToast({ message: '数据加载失败', duration: 1800 });
@@ -46,7 +46,7 @@ struct VideoDetailPage {
   private async onSelectPlayback(item: PlaybackItem): Promise<void> {
     try {
       this.selectedDate = item.date;
-      this.applyKeyframes(await VideoMonitorService.getInstance().getKeyframesByDate(this.deviceId, item.date));
+      this.applyKeyframes(await VideoMonitorService.getInstance().getKeyframesByDate(this.nodeId, item.date));
     } catch (e) {
       promptAction.showToast({ message: '关键帧加载失败', duration: 1800 });
     }

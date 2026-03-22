@@ -1,10 +1,10 @@
-﻿import { Device } from '../models/Device';
+﻿import { Node } from '../models/Node';
 import { SensorMetaItem } from '../models/SensorMeta';
 import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { HomeView } from '../views/HomeView';
 import { AlertView } from '../views/AlertView';
 import { ProfileView } from '../views/ProfileView';
-import { DeviceListItem, HttpService } from '../services/HttpService';
+import { NodeListItem, HttpService } from '../services/HttpService';
 import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
 import { AlertData } from '../models/AlertData';
@@ -15,11 +15,11 @@ import router from '@ohos.router';
 @Entry
 @Component
 struct Index {
-  @State devices: Device[] = [
-    new Device('A03_Node_01', '温室节点 1'),
-    new Device('A03_Node_02', '温室节点 2')
+  @State nodes: Node[] = [
+    new Node('A03_Node_01', '温室节点 1'),
+    new Node('A03_Node_02', '温室节点 2')
   ];
-  @State currentDeviceIndex: number = 0;
+  @State currentNodeIndex: number = 0;
   @Provide tempThreshold: number = 30;
   @Provide humidThreshold: number = 40;
   @Provide autoIrrigation: boolean = false;
@@ -27,71 +27,71 @@ struct Index {
   
   @Provide connectionStatus: 'connected' | 'disconnected' = 'disconnected';
 
-  private async loadDevicesFromServer() {
-    const remoteDevices = await HttpService.getInstance().getDevices();
-    if (!remoteDevices || remoteDevices.length === 0) {
+  private async loadNodesFromServer() {
+    const remoteNodes = await HttpService.getInstance().getNodes();
+    if (!remoteNodes || remoteNodes.length === 0) {
       return;
     }
 
-    this.devices = remoteDevices.map((item: DeviceListItem) => {
-      return new Device(item.id, item.name);
+    this.nodes = remoteNodes.map((item: NodeListItem) => {
+      return new Node(item.id, item.name);
     });
 
-    if (this.currentDeviceIndex >= this.devices.length) {
-      this.currentDeviceIndex = 0;
+    if (this.currentNodeIndex >= this.nodes.length) {
+      this.currentNodeIndex = 0;
     }
   }
 
-  private async loadMetaForAllDevices(): Promise<void> {
+  private async loadMetaForAllNodes(): Promise<void> {
     const httpService = HttpService.getInstance();
-    for (let i = 0; i < this.devices.length; i++) {
-      const device = this.devices[i];
-      const sMeta = await httpService.getSensorMeta(device.id);
+    for (let i = 0; i < this.nodes.length; i++) {
+      const node = this.nodes[i];
+      const sMeta = await httpService.getSensorMeta(node.id);
       if (sMeta) {
-        device.sensorMeta = sMeta;
+        node.sensorMeta = sMeta;
       }
-      const eMeta = await httpService.getEquipmentMeta(device.id);
+      const eMeta = await httpService.getEquipmentMeta(node.id);
       if (eMeta) {
-        device.equipmentMeta = eMeta;
+        node.equipmentMeta = eMeta;
       }
     }
   }
 
   async aboutToAppear() {
-    await this.loadDevicesFromServer();
-    HttpService.getInstance().setDeviceId(this.devices[this.currentDeviceIndex].id);
-    await this.loadMetaForAllDevices();
+    await this.loadNodesFromServer();
+    HttpService.getInstance().setNodeId(this.nodes[this.currentNodeIndex].id);
+    await this.loadMetaForAllNodes();
 
     MqttClientService.getInstance().connect(
       AppConfig.MQTT_BROKER_URL,
       AppConfig.MQTT_CLIENT_PREFIX + new Date().getTime(),
-      (deviceId, msgStr) => {
+      (nodeId, msgStr) => {
         try {
           const payload = JSON.parse(msgStr) as Record<string, Object | string | number | boolean>;
           if (payload['data']) {
             const data = payload['data'] as Record<string, Object | string | number | boolean>;
-            this.devices.forEach(device => {
-              if (device.id === deviceId) {
+            this.nodes.forEach(node => {
+              if (node.id === nodeId) {
                 if (data['environment']) {
                   const env = data['environment'] as Record<string, number>;
                   const envKeys = Object.keys(env);
                   for (let i = 0; i < envKeys.length; i++) {
-                    device.sensorData.setValue(envKeys[i], env[envKeys[i]]);
+                    node.sensorData.setValue(envKeys[i], env[envKeys[i]]);
                   }
                 }
                 if (data['equipment']) {
                   const equip = data['equipment'] as Record<string, boolean | number>;
                   const equipKeys = Object.keys(equip);
                   for (let i = 0; i < equipKeys.length; i++) {
-                    device.deviceState.setState(equipKeys[i], Boolean(equip[equipKeys[i]]));
+                    node.nodeState.setState(equipKeys[i], Boolean(equip[equipKeys[i]]));
                   }
                 }
                 if (data['mode'] !== undefined) {
                   const mode = data['mode'];
                   if (typeof mode === 'string') {
-                    device.deviceState.smartMode = mode.toLowerCase() === 'smart';
+                    node.nodeState.smartMode = mode.toLowerCase() === 'smart';
                   } else if (typeof mode === 'boolean') {
-                    device.deviceState.smartMode = mode;
+                    node.nodeState.smartMode = mode;
                   }
                 }
               }
@@ -136,15 +136,15 @@ struct Index {
       Tabs({ barPosition: BarPosition.End, index: this.currentTabIndex, controller: this.tabsController }) {
         TabContent() {
           HomeView({ 
-            device: this.devices[this.currentDeviceIndex],
-            devicesList: this.devices.map(d => d.name),
-            currentDeviceIndex: this.currentDeviceIndex,
-            onSwitchDevice: (idx: number) => {
-              this.currentDeviceIndex = idx;
-              HttpService.getInstance().setDeviceId(this.devices[idx].id);
+            node: this.nodes[this.currentNodeIndex],
+            nodesList: this.nodes.map(d => d.name),
+            currentNodeIndex: this.currentNodeIndex,
+            onSwitchNode: (idx: number) => {
+              this.currentNodeIndex = idx;
+              HttpService.getInstance().setNodeId(this.nodes[idx].id);
             },
-            onAddDevice: (name: string) => {
-              this.devices.push(new Device('dev_' + Date.now(), name));
+            onAddNode: (name: string) => {
+              this.nodes.push(new Node('node_' + Date.now(), name));
             }
           })
         }

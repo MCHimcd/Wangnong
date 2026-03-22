@@ -59,7 +59,7 @@ const MAX_REALTIME_POINTS: number = 60;
 @Entry
 @Component
 struct SensorDetailPage {
-  @State deviceId: string = 'A03_Node_01';
+  @State nodeId: string = 'A03_Node_01';
   @State type: string = '';
   @State metricKey: string = '';
   @State title: string = '';
@@ -96,9 +96,9 @@ struct SensorDetailPage {
   private historyLabels: string[] = [];
   private historyFullTimeLabels: string[] = [];
   
-  private telemetryListener = (deviceId: string, msgStr: string) => {
+  private telemetryListener = (nodeId: string, msgStr: string) => {
     try {
-      if (deviceId !== this.deviceId) {
+      if (nodeId !== this.nodeId) {
         return;
       }
       const payload = JSON.parse(msgStr) as Record<string, Object>;
@@ -157,7 +157,7 @@ struct SensorDetailPage {
   aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
     if (params) {
-      this.deviceId = (params['deviceId'] as string) || 'A03_Node_01';
+      this.nodeId = (params['nodeId'] as string) || 'A03_Node_01';
       this.type = params['type'] as string;
       this.metricKey = (params['metricKey'] as string) || '';
       this.title = params['title'] as string;
@@ -328,7 +328,7 @@ struct SensorDetailPage {
   }
 
   private getCacheKey(): string {
-    return `${this.deviceId}_${this.metricKey}`;
+    return `${this.nodeId}_${this.metricKey}`;
   }
 
   private restoreRealTimeCache(): void {
@@ -336,7 +336,7 @@ struct SensorDetailPage {
     this.realTimeLabels = [];
     this.realTimePoints = 0;
 
-    const cachedPoints = MqttClientService.getInstance().getCachedTrend(this.deviceId, this.metricKey);
+    const cachedPoints = MqttClientService.getInstance().getCachedTrend(this.nodeId, this.metricKey);
     if (cachedPoints.length === 0) {
       return;
     }
@@ -389,7 +389,7 @@ struct SensorDetailPage {
   async loadHistoryData() {
     let metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
 
-    let res = await HttpService.getInstance().getSensorHistory(this.deviceId, this.timeRange, metric);
+    let res = await HttpService.getInstance().getSensorHistory(this.nodeId, this.timeRange, metric);
     
     this.historyEntriesAvg.clear();
     this.historyEntriesMax.clear();

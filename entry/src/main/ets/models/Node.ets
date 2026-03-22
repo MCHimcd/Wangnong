@@ -1,14 +1,14 @@
 import { SensorData } from './SensorData';
-import { DeviceState } from './DeviceState';
+import { NodeState } from './NodeState';
 import { SensorMetaItem } from './SensorMeta';
 import { EquipmentMetaItem } from './EquipmentMeta';
 
 @Observed
-export class Device {
+export class Node {
   id: string;
   name: string;
   sensorData: SensorData;
-  deviceState: DeviceState;
+  nodeState: NodeState;
   sensorMeta: SensorMetaItem[] = [];
   equipmentMeta: EquipmentMetaItem[] = [];
 
@@ -16,6 +16,6 @@ export class Device {
     this.id = id;
     this.name = name;
     this.sensorData = new SensorData();
-    this.deviceState = new DeviceState();
+    this.nodeState = new NodeState();
   }
 }

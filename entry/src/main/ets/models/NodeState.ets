@@ -1,5 +1,5 @@
 @Observed
-export class DeviceState {
+export class NodeState {
   smartMode: boolean = false;
   controlStateBootstrapped: boolean = false;
   // 动态键值存储，key 来自后端 equipment-meta

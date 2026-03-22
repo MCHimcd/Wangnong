@@ -9,6 +9,7 @@
     "pages/EditProfilePage",
     "pages/ChangePasswordPage",
     "pages/AgreementPage",
-    "pages/TraceabilityScanPage"
+    "pages/TraceabilityScanPage",
+    "pages/AdminPage"
   ]
 }

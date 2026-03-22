@@ -199,36 +199,36 @@ channels:
       message:
         $ref: '#/components/messages/GenericSuccessResponse'
 
-  /api/v1/devices:
-    description: 获取当前账号下的设备列表
+  /api/v1/nodes:
+    description: 获取当前账号下的节点列表
     bindings:
       http:
         type: request
     subscribe:
-      operationId: listDevices
-      summary: 查询设备列表 (GET)
+      operationId: listNodes
+      summary: 查询节点列表 (GET)
       bindings:
         http:
           method: GET
       message:
-        $ref: '#/components/messages/DeviceListResponse'
+        $ref: '#/components/messages/NodeListResponse'
 
-  /api/v1/devices/{device_id}:
-    description: 获取指定设备的详细信息
+  /api/v1/nodes/{node_id}:
+    description: 获取指定节点的详细信息
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
     subscribe:
-      operationId: getDevice
-      summary: 查询设备详情 (GET)
+      operationId: getNode
+      summary: 查询节点详情 (GET)
       bindings:
         http:
           method: GET
       message:
-        $ref: '#/components/messages/DeviceDetailResponse'
+        $ref: '#/components/messages/NodeDetailResponse'
 
   /api/v1/alerts/list:
     description: 分页查询告警记录列表
@@ -268,11 +268,11 @@ channels:
       message:
         $ref: '#/components/messages/HandleAlertResponse'
 
-  /api/v1/sensors/{device_id}/history:
+  /api/v1/sensors/{node_id}/history:
     description: 查询传感器历史数据（时序图表用）
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
@@ -285,11 +285,11 @@ channels:
       message:
         $ref: '#/components/messages/SensorHistoryResponse'
 
-  /api/v1/devices/{device_id}/sensor-meta:
-    description: 获取指定设备支持的传感器元数据（类型、单位、图标、阈值等）
+  /api/v1/nodes/{node_id}/sensor-meta:
+    description: 获取指定节点支持的传感器元数据（类型、单位、图标、阈值等）
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
@@ -302,17 +302,17 @@ channels:
       message:
         $ref: '#/components/messages/SensorMetaResponse'
 
-  /api/v1/devices/{device_id}/equipment-meta:
-    description: 获取指定设备支持的执行器元数据（名称、图标、是否可控等）
+  /api/v1/nodes/{node_id}/equipment-meta:
+    description: 获取指定节点支持的执行器元数据（名称、图标、是否可控等）
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
     subscribe:
       operationId: getEquipmentMeta
-      summary: 查询设备/执行器元数据 (GET)
+      summary: 查询节点/执行器元数据 (GET)
       bindings:
         http:
           method: GET
@@ -376,11 +376,95 @@ channels:
       message:
         $ref: '#/components/messages/TraceabilityScanResponse'
 
-  /api/v1/cameras/{device_id}/live:
-    description: 获取指定设备摄像头的实时直播流信息
+  # ---------- 管理员 API ----------
+  /api/v1/admin/nodes:
+    description: 管理员创建新节点（需 admin 角色）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: adminCreateNode
+      summary: 创建节点 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/AdminNodeRequest'
+    subscribe:
+      operationId: adminCreateNodeResponse
+      summary: 创建节点响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  /api/v1/admin/nodes/{node_id}:
+    description: 管理员更新或删除指定节点（需 admin 角色）
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: adminUpdateNode
+      summary: 更新节点 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/AdminNodeRequest'
+    subscribe:
+      operationId: adminDeleteNode
+      summary: 删除节点 (DELETE)
+      bindings:
+        http:
+          method: DELETE
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  /api/v1/admin/users:
+    description: 管理员查询用户列表（需 admin 角色）
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: adminListUsers
+      summary: 查询用户列表 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/AdminUserListResponse'
+
+  /api/v1/admin/users/{user_id}/role:
+    description: 管理员修改用户角色（需 admin 角色）
+    parameters:
+      user_id:
+        description: 用户 ID
+        schema:
+          type: integer
+          example: 1
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: adminUpdateUserRole
+      summary: 修改用户角色 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/AdminUpdateRoleRequest'
+    subscribe:
+      operationId: adminUpdateUserRoleResponse
+      summary: 修改用户角色响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  /api/v1/cameras/{node_id}/live:
+    description: 获取指定节点摄像头的实时直播流信息
+    parameters:
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
@@ -393,11 +477,11 @@ channels:
       message:
         $ref: '#/components/messages/CameraLiveResponse'
 
-  /api/v1/cameras/{device_id}/playback:
-    description: 获取指定设备摄像头的回放记录列表
+  /api/v1/cameras/{node_id}/playback:
+    description: 获取指定节点摄像头的回放记录列表
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
@@ -410,11 +494,11 @@ channels:
       message:
         $ref: '#/components/messages/CameraPlaybackResponse'
 
-  /api/v1/cameras/{device_id}/keyframes:
-    description: 获取指定设备摄像头的关键帧抓拍列表
+  /api/v1/cameras/{node_id}/keyframes:
+    description: 获取指定节点摄像头的关键帧抓拍列表
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       http:
         type: request
@@ -431,13 +515,13 @@ channels:
   # MQTT Channels
   # ============================================================
 
-  /wangnong_2026/device/{device_id}/telemetry:
+  /wangnong_2026/node/{node_id}/telemetry:
     description: |
-      **设备传感器数据实时上报**（Device → Cloud/App）。
-      设备每 3–5 秒发布一次，包含环境传感器读数与设备状态。
+      **节点传感器数据实时上报**（Node → Cloud/App）。
+      节点每 3–5 秒发布一次，包含环境传感器读数与节点状态。
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       mqtt:
         qos: 1
@@ -448,37 +532,37 @@ channels:
       message:
         $ref: '#/components/messages/TelemetryMessage'
 
-  /wangnong_2026/device/{device_id}/alert:
+  /wangnong_2026/node/{node_id}/alert:
     description: |
       **突发告警推送**（Cloud/Edge → App）。
       当检测到异常（高温、低湿等）时由后端或边侧计算节点发布。
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       mqtt:
         qos: 1
         retain: false
     subscribe:
       operationId: receiveAlert
-      summary: 接收设备告警推送
+      summary: 接收节点告警推送
       message:
         $ref: '#/components/messages/AlertMessage'
 
-  /wangnong_2026/device/{device_id}/command:
+  /wangnong_2026/node/{node_id}/command:
     description: |
-      **控制指令下发**（App/Cloud → Device）。
-      用于远程切换设备模式或控制执行器（水泵、LED 灯、风扇等）。
+      **控制指令下发**（App/Cloud → Node）。
+      用于远程切换节点模式或控制执行器（水泵、LED 灯、电磁阀等）。
     parameters:
-      device_id:
-        $ref: '#/components/parameters/deviceId'
+      node_id:
+        $ref: '#/components/parameters/nodeId'
     bindings:
       mqtt:
         qos: 1
         retain: false
     publish:
       operationId: sendCommand
-      summary: 向设备下发控制指令
+      summary: 向节点下发控制指令
       message:
         $ref: '#/components/messages/CommandMessage'
 
@@ -488,8 +572,8 @@ channels:
 components:
 
   parameters:
-    deviceId:
-      description: 设备唯一标识符，例如 `A03_Node_01`
+    nodeId:
+      description: 节点唯一标识符，例如 `A03_Node_01`
       schema:
         type: string
         example: A03_Node_01
@@ -504,15 +588,16 @@ components:
       contentType: application/json
       payload:
         type: object
-        required: [username, password]
+        required: [phone, password]
         properties:
-          username:
+          phone:
             type: string
-            example: admin
+            description: 手机号
+            example: "13800138000"
           password:
             type: string
             format: password
-            example: "secret123"
+            example: "Pass1234"
 
     LoginResponse:
       messageId: LoginResponse
@@ -529,6 +614,7 @@ components:
             data:
               token: eyJhbGciOiJIUzI1NiIs...
               expires_in: 3600
+              role: user
 
     SendVerificationCodeRequest:
       messageId: SendVerificationCodeRequest
@@ -680,11 +766,64 @@ components:
               gender: 男
               birthDate: "1990-01-01"
               avatarSrc: https://example.com/avatar.jpg
+              role: user
 
-    DeviceListResponse:
-      messageId: DeviceListResponse
-      name: DeviceListResponse
-      title: 设备列表响应
+    AdminNodeRequest:
+      messageId: AdminNodeRequest
+      name: AdminNodeRequest
+      title: 管理员节点操作请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [node_id, node_name]
+        properties:
+          node_id:
+            type: string
+            example: A03_Node_03
+          node_name:
+            type: string
+            example: 3号大棚-节点03
+
+    AdminUserListResponse:
+      messageId: AdminUserListResponse
+      name: AdminUserListResponse
+      title: 用户列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - id: 1
+                phone: "13800000000"
+                nickname: 农场主
+                role: user
+              - id: 2
+                phone: "13800000001"
+                nickname: 管理员
+                role: admin
+
+    AdminUpdateRoleRequest:
+      messageId: AdminUpdateRoleRequest
+      name: AdminUpdateRoleRequest
+      title: 修改用户角色请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [role]
+        properties:
+          role:
+            type: string
+            enum: [user, admin]
+            example: admin
+
+    NodeListResponse:
+      messageId: NodeListResponse
+      name: NodeListResponse
+      title: 节点列表响应
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ApiResponse'
@@ -698,10 +837,10 @@ components:
                 name: 3号大棚-节点01
                 status: online
 
-    DeviceDetailResponse:
-      messageId: DeviceDetailResponse
-      name: DeviceDetailResponse
-      title: 设备详情响应
+    NodeDetailResponse:
+      messageId: NodeDetailResponse
+      name: NodeDetailResponse
+      title: 节点详情响应
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ApiResponse'
@@ -773,7 +912,7 @@ components:
               handled_recent_count: 0
               items:
                 - alert_id: A10992
-                  device_id: A03_Node_01
+                  node_id: A03_Node_01
                   type: high_temp
                   type_name: 高温告警
                   level: critical
@@ -955,9 +1094,9 @@ components:
           query:
             type: object
             properties:
-              device_type:
+              equipment_type:
                 type: string
-                description: 执行器标识（如 water_pump、fan 等）
+                description: 执行器标识（如 water_pump、water_valve 等）
                 example: water_pump
               time_range:
                 type: string
@@ -1096,7 +1235,7 @@ components:
       messageId: TelemetryMessage
       name: TelemetryMessage
       title: 传感器遥测数据包
-      summary: 设备每 3–5 秒上报一次环境传感器与设备状态
+      summary: 节点每 3–5 秒上报一次环境传感器与节点状态
       contentType: application/json
       payload:
         $ref: '#/components/schemas/TelemetryPayload'
@@ -1104,7 +1243,7 @@ components:
         - name: normal
           payload:
             msg_type: telemetry
-            device_id: A03_Node_01
+            node_id: A03_Node_01
             timestamp: 1773993600000
             data:
               environment:
@@ -1114,11 +1253,10 @@ components:
                 soilHumidity: 45.2
                 light: 15000
                 co2: 450
-                soilPh: 6.8
               equipment:
+                water_valve: false
                 water_pump: false
                 led_light: true
-                fan: false
                 camera: false
               mode: smart
 
@@ -1134,7 +1272,7 @@ components:
         - name: high_temp
           payload:
             msg_type: alert
-            device_id: A03_Node_01
+            node_id: A03_Node_01
             timestamp: 1773993650000
             data:
               alert_id: A10992
@@ -1151,8 +1289,8 @@ components:
     CommandMessage:
       messageId: CommandMessage
       name: CommandMessage
-      title: 设备控制指令
-      summary: App 或云端向设备下发控制动作
+      title: 节点控制指令
+      summary: App 或云端向节点下发控制动作
       contentType: application/json
       payload:
         $ref: '#/components/schemas/CommandPayload'
@@ -1187,12 +1325,12 @@ components:
 
     TelemetryPayload:
       type: object
-      required: [msg_type, device_id, timestamp, data]
+      required: [msg_type, node_id, timestamp, data]
       properties:
         msg_type:
           type: string
           const: telemetry
-        device_id:
+        node_id:
           type: string
           example: A03_Node_01
         timestamp:
@@ -1214,12 +1352,12 @@ components:
 
     AlertPayload:
       type: object
-      required: [msg_type, device_id, timestamp, data]
+      required: [msg_type, node_id, timestamp, data]
       properties:
         msg_type:
           type: string
           const: alert
-        device_id:
+        node_id:
           type: string
           example: A03_Node_01
         timestamp:
@@ -1279,9 +1417,9 @@ components:
               type: string
               description: |
                 执行器标识符。可选值：
+                - `water_valve` – 电磁阀
                 - `water_pump` – 水泵
                 - `led_light` – LED 补光灯
-                - `fan` – 风扇
                 - `camera` – 摄像头
                 - `mode` – 运行模式
               example: water_pump
@@ -1296,7 +1434,7 @@ components:
       type: object
       description: |
         环境传感器读数（动态键值对）。
-        键名由 sensor-meta 接口定义，常见键：temperature, humidity, light, co2, soilTemp, soilHumidity, soilPh 等。
+        键名由 sensor-meta 接口定义，常见键：temperature, humidity, light, co2, soilTemp, soilHumidity。
       additionalProperties:
         type: number
         format: float
@@ -1307,17 +1445,16 @@ components:
         soilHumidity: 45.2
         light: 15000
         co2: 450
-        soilPh: 6.8
 
     EquipmentState:
       type: object
       description: |
         执行器当前开关状态（动态键值对）。
-        键名由 equipment-meta 接口定义，常见键：water_pump, led_light, fan, camera 等。
+        键名由 equipment-meta 接口定义，常见键：water_valve, water_pump, led_light, camera。
       additionalProperties:
         type: boolean
       example:
+        water_valve: false
         water_pump: false
         led_light: true
-        fan: false
         camera: false

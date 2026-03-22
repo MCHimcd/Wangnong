@@ -1,5 +1,5 @@
 import { SensorData } from '../models/SensorData';
-import { DeviceState } from '../models/DeviceState';
+import { NodeState } from '../models/NodeState';
 import { SensorMetaItem } from '../models/SensorMeta';
 import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { LiveStreamInfo } from '../models/VideoMonitorData';
@@ -11,9 +11,9 @@ import router from '@ohos.router';
 
 @Component
 export struct MonitorView {
-  @Prop deviceId: string = '';
+  @Prop nodeId: string = '';
   @ObjectLink sensorData: SensorData;
-  @ObjectLink deviceState: DeviceState;
+  @ObjectLink nodeState: NodeState;
   @Prop sensorMeta: SensorMetaItem[] = [];
   @Prop equipmentMeta: EquipmentMetaItem[] = [];
 
@@ -37,7 +37,7 @@ export struct MonitorView {
   private async loadVideoInfo(): Promise<void> {
     this.videoLoading = true;
     try {
-      this.liveInfo = await VideoMonitorService.getInstance().getLiveStreamInfo(this.deviceId);
+      this.liveInfo = await VideoMonitorService.getInstance().getLiveStreamInfo(this.nodeId);
     } catch (e) {
       console.error('[MonitorView] loadVideoInfo failed', e);
     } finally {
@@ -46,23 +46,23 @@ export struct MonitorView {
   }
 
   private async bootstrapControlState(): Promise<void> {
-    if (this.deviceState.controlStateBootstrapped) {
+    if (this.nodeState.controlStateBootstrapped) {
       return;
     }
-    const detail = await HttpService.getInstance().getDeviceDetail(this.deviceId);
-    if (!detail || !detail.deviceState) {
+    const detail = await HttpService.getInstance().getNodeDetail(this.nodeId);
+    if (!detail || !detail.nodeState) {
       return;
     }
-    const st: Record<string, boolean | undefined> = detail.deviceState;
+    const st: Record<string, boolean | undefined> = detail.nodeState;
     const keys = Object.keys(st);
     for (let i = 0; i < keys.length; i++) {
       if (keys[i] === 'smartMode') {
-        this.deviceState.smartMode = Boolean(st[keys[i]]);
+        this.nodeState.smartMode = Boolean(st[keys[i]]);
       } else {
-        this.deviceState.setState(keys[i], Boolean(st[keys[i]]));
+        this.nodeState.setState(keys[i], Boolean(st[keys[i]]));
       }
     }
-    this.deviceState.controlStateBootstrapped = true;
+    this.nodeState.controlStateBootstrapped = true;
   }
 
   /** 传感器卡片 isWarning 判定 */
@@ -152,7 +152,7 @@ export struct MonitorView {
       router.pushUrl({
         url: 'pages/SensorDetailPage',
         params: {
-          deviceId: this.deviceId,
+          nodeId: this.nodeId,
           type: meta.key,
           metricKey: meta.key,
           title: meta.name,
@@ -231,7 +231,7 @@ export struct MonitorView {
           .onClick(() => {
             router.pushUrl({
               url: 'pages/VideoDetailPage',
-              params: { deviceId: this.deviceId }
+              params: { nodeId: this.nodeId }
             });
           })
       }
@@ -258,11 +258,11 @@ export struct MonitorView {
           .fontSize(14)
           .fontColor('#34495E')
           .margin({ right: 8 })
-        Toggle({ type: ToggleType.Switch, isOn: this.deviceState.smartMode })
+        Toggle({ type: ToggleType.Switch, isOn: this.nodeState.smartMode })
           .selectedColor('#4CAF50')
           .onChange((isOn: boolean) => {
-            this.deviceState.smartMode = isOn;
-            MqttClientService.getInstance().publishCommand(this.deviceId, 'mode', isOn ? 'smart' : 'manual');
+            this.nodeState.smartMode = isOn;
+            MqttClientService.getInstance().publishCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
             promptAction.showToast({ message: `已切换至${isOn ? '智能' : '手动'}模式` });
           })
       }
@@ -270,7 +270,7 @@ export struct MonitorView {
       .margin({ bottom: 12 })
 
       // 触发依赖
-      Text('').visibility(Visibility.None).fontSize(this.deviceState.revision)
+      Text('').visibility(Visibility.None).fontSize(this.nodeState.revision)
 
       if (this.equipmentMeta.length === 0) {
         Text('暂无设备配置')
@@ -320,36 +320,36 @@ export struct MonitorView {
       Button({ type: ButtonType.Capsule }) {
         Row() {
           Circle({ width: 8, height: 8 })
-            .fill(this.deviceState.getState(meta.key) ? '#2E7D32' : '#B0B7B0')
+            .fill(this.nodeState.getState(meta.key) ? '#2E7D32' : '#B0B7B0')
             .margin({ right: 6 })
-          Text(this.deviceState.getState(meta.key) ? '运行中' : '已停止')
+          Text(this.nodeState.getState(meta.key) ? '运行中' : '已停止')
             .fontSize(13)
-            .fontColor(this.deviceState.getState(meta.key) ? '#2E7D32' : '#7B847D')
+            .fontColor(this.nodeState.getState(meta.key) ? '#2E7D32' : '#7B847D')
         }
       }
       .width('82%')
       .height(32)
-      .backgroundColor(this.deviceState.getState(meta.key) ? '#E5F3E7' : '#F4F5F4')
+      .backgroundColor(this.nodeState.getState(meta.key) ? '#E5F3E7' : '#F4F5F4')
       .border({
         width: 1,
-        color: this.deviceState.getState(meta.key) ? '#92C69A' : '#D9DFDA'
+        color: this.nodeState.getState(meta.key) ? '#92C69A' : '#D9DFDA'
       })
-      .opacity(this.deviceState.smartMode ? 0.6 : 1.0)
+      .opacity(this.nodeState.smartMode ? 0.6 : 1.0)
       .onClick(() => {
-        if (this.deviceState.smartMode) {
+        if (this.nodeState.smartMode) {
           return;
         }
-        const newState = !this.deviceState.getState(meta.key);
+        const newState = !this.nodeState.getState(meta.key);
         MqttClientService.getInstance().publishCommand(
-          this.deviceId, meta.key, newState ? 'turn_on' : 'turn_off'
+          this.nodeId, meta.key, newState ? 'turn_on' : 'turn_off'
         );
         promptAction.showToast({ message: `已发送${newState ? '开启' : '关闭'}指令` });
       })
     }
     .width(140)
     .height(140)
-    .backgroundColor(this.deviceState.getState(meta.key) ? '#EAF4EA' : '#FFFFFF')
-    .border({ width: 2, color: this.deviceState.getState(meta.key) ? '#6AAA71' : '#D8DEDA' })
+    .backgroundColor(this.nodeState.getState(meta.key) ? '#EAF4EA' : '#FFFFFF')
+    .border({ width: 2, color: this.nodeState.getState(meta.key) ? '#6AAA71' : '#D8DEDA' })
     .borderRadius(16)
     .padding(10)
     .justifyContent(FlexAlign.Center)
@@ -357,7 +357,7 @@ export struct MonitorView {
     .onClick(() => {
       router.pushUrl({
         url: 'pages/DeviceDetailPage',
-        params: { type: meta.key, title: meta.name, isOn: this.deviceState.getState(meta.key) }
+        params: { type: meta.key, title: meta.name, isOn: this.nodeState.getState(meta.key) }
       });
     })
   }
