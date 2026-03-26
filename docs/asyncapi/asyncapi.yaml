@@ -460,6 +460,149 @@ channels:
       message:
         $ref: '#/components/messages/GenericSuccessResponse'
 
+  /api/v1/admin/users/{user_id}/nodes:
+    description: 管理员查询或设置用户可访问的节点列表（节点授权）
+    parameters:
+      user_id:
+        description: 用户 ID
+        schema:
+          type: integer
+          example: 1
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: adminGetUserNodes
+      summary: 查询用户授权节点 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/UserNodeAccessResponse'
+    publish:
+      operationId: adminSetUserNodes
+      summary: 设置用户授权节点 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/SetUserNodesRequest'
+
+  /api/v1/admin/logs:
+    description: 分页查询操作日志（需 admin 角色）。支持 page / size / type 查询参数
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: adminGetOperationLogs
+      summary: 查询操作日志 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/OperationLogPageResponse'
+
+  # ---------- 定时任务 API ----------
+  /api/v1/tasks:
+    description: 定时任务列表 & 创建
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: listScheduledTasks
+      summary: 查询当前用户的定时任务列表 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/ScheduledTaskListResponse'
+    publish:
+      operationId: createScheduledTask
+      summary: 创建定时任务 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/CreateScheduledTaskRequest'
+
+  /api/v1/tasks/{taskId}:
+    description: 更新或删除指定定时任务
+    parameters:
+      taskId:
+        description: 任务 ID
+        schema:
+          type: integer
+          example: 1
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: updateScheduledTask
+      summary: 更新定时任务 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/UpdateScheduledTaskRequest'
+    subscribe:
+      operationId: deleteScheduledTask
+      summary: 删除定时任务 (DELETE)
+      bindings:
+        http:
+          method: DELETE
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  /api/v1/tasks/{taskId}/toggle:
+    description: 切换定时任务启用/禁用状态
+    parameters:
+      taskId:
+        description: 任务 ID
+        schema:
+          type: integer
+          example: 1
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: toggleScheduledTask
+      summary: 切换任务启用状态 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        name: EmptyBody
+        payload:
+          type: object
+    subscribe:
+      operationId: toggleScheduledTaskResponse
+      summary: 切换任务响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
+  # ---------- 传感器阈值 ----------
+  /api/v1/nodes/{node_id}/sensor-thresholds:
+    description: 更新指定节点的传感器预警阈值
+    parameters:
+      node_id:
+        $ref: '#/components/parameters/nodeId'
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: updateSensorThresholds
+      summary: 更新传感器阈值 (PUT)
+      bindings:
+        http:
+          method: PUT
+      message:
+        $ref: '#/components/messages/ThresholdUpdateRequest'
+    subscribe:
+      operationId: updateSensorThresholdsResponse
+      summary: 更新阈值响应
+      message:
+        $ref: '#/components/messages/GenericSuccessResponse'
+
   /api/v1/cameras/{node_id}/live:
     description: 获取指定节点摄像头的实时直播流信息
     parameters:
@@ -819,6 +962,174 @@ components:
             type: string
             enum: [user, admin]
             example: admin
+
+    UserNodeAccessResponse:
+      messageId: UserNodeAccessResponse
+      name: UserNodeAccessResponse
+      title: 用户授权节点列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - A03_Node_01
+              - A03_Node_02
+
+    SetUserNodesRequest:
+      messageId: SetUserNodesRequest
+      name: SetUserNodesRequest
+      title: 设置用户授权节点请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [nodeIds]
+        properties:
+          nodeIds:
+            type: array
+            items:
+              type: string
+            example: ["A03_Node_01", "A03_Node_02"]
+
+    OperationLogPageResponse:
+      messageId: OperationLogPageResponse
+      name: OperationLogPageResponse
+      title: 操作日志分页响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              total: 120
+              items:
+                - id: 1
+                  userId: 1
+                  userName: 管理员
+                  operationType: LOGIN
+                  targetType: USER
+                  targetId: "1"
+                  detail: 用户登录
+                  createdAt: "2026-03-20T10:00:00"
+
+    ScheduledTaskListResponse:
+      messageId: ScheduledTaskListResponse
+      name: ScheduledTaskListResponse
+      title: 定时任务列表响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponse'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              - id: 1
+                nodeId: A03_Node_01
+                taskName: 早间灌溉
+                equipmentKey: water_pump
+                action: turn_on
+                hour: 7
+                minute: 0
+                repeatDays: "1,2,3,4,5"
+                enabled: true
+
+    CreateScheduledTaskRequest:
+      messageId: CreateScheduledTaskRequest
+      name: CreateScheduledTaskRequest
+      title: 创建定时任务请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [nodeId, taskName, equipmentKey, action, hour, minute, repeatDays]
+        properties:
+          nodeId:
+            type: string
+            example: A03_Node_01
+          taskName:
+            type: string
+            example: 早间灌溉
+          equipmentKey:
+            type: string
+            example: water_pump
+          action:
+            type: string
+            enum: [turn_on, turn_off]
+            example: turn_on
+          hour:
+            type: integer
+            minimum: 0
+            maximum: 23
+            example: 7
+          minute:
+            type: integer
+            minimum: 0
+            maximum: 59
+            example: 0
+          repeatDays:
+            type: string
+            description: 逗号分隔的星期数字（1=周一，7=周日），空串表示只执行一次
+            example: "1,2,3,4,5"
+
+    UpdateScheduledTaskRequest:
+      messageId: UpdateScheduledTaskRequest
+      name: UpdateScheduledTaskRequest
+      title: 更新定时任务请求体
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          taskName:
+            type: string
+            example: 晚间灌溉
+          equipmentKey:
+            type: string
+            example: water_pump
+          action:
+            type: string
+            enum: [turn_on, turn_off]
+            example: turn_off
+          hour:
+            type: integer
+            example: 19
+          minute:
+            type: integer
+            example: 30
+          repeatDays:
+            type: string
+            example: "1,2,3,4,5,6,7"
+
+    ThresholdUpdateRequest:
+      messageId: ThresholdUpdateRequest
+      name: ThresholdUpdateRequest
+      title: 更新传感器阈值请求体
+      contentType: application/json
+      payload:
+        type: object
+        required: [items]
+        properties:
+          items:
+            type: array
+            items:
+              type: object
+              required: [key, warningMin, warningMax]
+              properties:
+                key:
+                  type: string
+                  example: temperature
+                warningMin:
+                  type: number
+                  example: 10
+                warningMax:
+                  type: number
+                  example: 35
 
     NodeListResponse:
       messageId: NodeListResponse

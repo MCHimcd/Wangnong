@@ -10,6 +10,8 @@
     "pages/ChangePasswordPage",
     "pages/AgreementPage",
     "pages/TraceabilityScanPage",
-    "pages/AdminPage"
+    "pages/AdminPage",
+    "pages/AlertDetailPage",
+    "pages/ScheduledTaskPage"
   ]
 }

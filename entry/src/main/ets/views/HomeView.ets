@@ -2,6 +2,7 @@
 import { MonitorView } from './MonitorView';
 import { AgriQAView } from './AgriQAView';
 import { promptAction } from '@kit.ArkUI';
+import router from '@ohos.router';
 
 @Component
 export struct HomeView {
@@ -18,6 +19,7 @@ export struct HomeView {
   private sidebarMenus: string[] = [
     '综合监控',
     '农业知识问答',
+    '定时任务',
     '切换节点'
   ];
 
@@ -173,6 +175,17 @@ export struct HomeView {
             } else if (this.currentSidebarIndex === 1) {
               AgriQAView()
             } else if (this.currentSidebarIndex === 2) {
+              // 点击后跳转到独立的定时任务页面
+              Column() {
+                Blank()
+                Button('进入定时任务管理', { type: ButtonType.Capsule })
+                  .width('60%').height(44).fontSize(16).backgroundColor('#4CAF50')
+                  .onClick(() => {
+                    router.pushUrl({ url: 'pages/ScheduledTaskPage' });
+                  })
+                Blank()
+              }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+            } else if (this.currentSidebarIndex === 3) {
               this.SwitchDeviceContent()
             }
           }

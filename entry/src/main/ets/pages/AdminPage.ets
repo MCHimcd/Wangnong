@@ -1,6 +1,6 @@
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
-import { HttpService, NodeListItem, AdminUserInfo } from '../services/HttpService';
+import { HttpService, NodeListItem, AdminUserInfo, OperationLogItem, OperationLogPage } from '../services/HttpService';
 
 @Entry
 @Component
@@ -18,6 +18,18 @@ struct AdminPage {
   @State dialogNodeName: string = '';
   @State editingNodeId: string = '';
 
+  // --- 操作日志 ---
+  @State opLogs: OperationLogItem[] = [];
+  @State opLogPage: number = 1;
+  @State opLogTotal: number = 0;
+
+  // --- 用户节点授权 ---
+  @State showNodeAccessDialog: boolean = false;
+  @State nodeAccessUserId: number = 0;
+  @State nodeAccessUserName: string = '';
+  @State nodeAccessIds: string[] = [];
+  @State allNodeIds: string[] = [];
+
   async aboutToAppear() {
     await this.refreshAll();
   }
@@ -26,6 +38,7 @@ struct AdminPage {
     this.isLoading = true;
     await this.loadNodes();
     await this.loadUsers();
+    await this.loadOpLogs();
     this.isLoading = false;
   }
 
@@ -33,6 +46,7 @@ struct AdminPage {
     let list = await HttpService.getInstance().getNodes();
     if (list) {
       this.nodes = list;
+      this.allNodeIds = list.map((n: NodeListItem) => n.id);
     }
   }
 
@@ -40,6 +54,41 @@ struct AdminPage {
     let list = await HttpService.getInstance().adminListUsers();
     if (list) {
       this.users = list;
+    }
+  }
+
+  private async loadOpLogs() {
+    let result = await HttpService.getInstance().getOperationLogs(this.opLogPage);
+    if (result) {
+      this.opLogs = result.items;
+      this.opLogTotal = result.total;
+    }
+  }
+
+  private async openNodeAccess(user: AdminUserInfo) {
+    this.nodeAccessUserId = user.id;
+    this.nodeAccessUserName = user.userName || user.phone;
+    let ids = await HttpService.getInstance().adminGetUserNodes(user.id);
+    this.nodeAccessIds = ids ? ids : [];
+    this.showNodeAccessDialog = true;
+  }
+
+  private async saveNodeAccess() {
+    let ok = await HttpService.getInstance().adminSetUserNodes(this.nodeAccessUserId, this.nodeAccessIds);
+    if (ok) {
+      promptAction.showToast({ message: '授权已保存' });
+      this.showNodeAccessDialog = false;
+    } else {
+      promptAction.showToast({ message: '保存失败' });
+    }
+  }
+
+  private toggleNodeAccess(nodeId: string) {
+    let idx = this.nodeAccessIds.indexOf(nodeId);
+    if (idx >= 0) {
+      this.nodeAccessIds = this.nodeAccessIds.filter((id: string) => id !== nodeId);
+    } else {
+      this.nodeAccessIds = [...this.nodeAccessIds, nodeId];
     }
   }
 
@@ -157,6 +206,7 @@ struct AdminPage {
         Row() {
           this.TabButton('节点管理', 0)
           this.TabButton('用户管理', 1)
+          this.TabButton('操作日志', 2)
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 10, bottom: 5 })
@@ -165,8 +215,10 @@ struct AdminPage {
         // ===== 内容区 =====
         if (this.currentTab === 0) {
           this.NodeManageTab()
-        } else {
+        } else if (this.currentTab === 1) {
           this.UserManageTab()
+        } else {
+          this.OpLogTab()
         }
       }
       .width('100%')
@@ -180,6 +232,10 @@ struct AdminPage {
       // ===== 编辑节点弹窗 =====
       if (this.showEditDialog) {
         this.DialogOverlay('编辑节点', false)
+      }
+      // ===== 节点授权弹窗 =====
+      if (this.showNodeAccessDialog) {
+        this.NodeAccessDialog()
       }
     }
     .width('100%')
@@ -330,6 +386,16 @@ struct AdminPage {
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
+                // 节点授权
+                Text('授权')
+                  .fontSize(12)
+                  .fontColor('#1976D2')
+                  .backgroundColor('#E3F2FD')
+                  .borderRadius(12)
+                  .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                  .margin({ right: 8 })
+                  .onClick(() => this.openNodeAccess(user))
+
                 // 角色标签
                 Text(user.role === 'admin' ? '管理员' : '普通用户')
                   .fontSize(12)
@@ -428,6 +494,172 @@ struct AdminPage {
     .backgroundColor('#FFFFFF')
     .borderRadius(16)
     .position({ x: '7.5%', y: '30%' })
+    .shadow({ radius: 20, color: 'rgba(0,0,0,0.15)', offsetY: 5 })
+  }
+
+  // ===== 操作日志 Tab =====
+  @Builder OpLogTab() {
+    Column() {
+      Row() {
+        Text(`共 ${this.opLogTotal} 条日志`)
+          .fontSize(14)
+          .fontColor('#78909C')
+        Blank()
+        if (this.opLogPage > 1) {
+          Text('上一页')
+            .fontSize(13)
+            .fontColor('#4CAF50')
+            .padding(8)
+            .onClick(async () => {
+              this.opLogPage -= 1;
+              await this.loadOpLogs();
+            })
+        }
+        if (this.opLogs.length >= 20) {
+          Text('下一页')
+            .fontSize(13)
+            .fontColor('#4CAF50')
+            .padding(8)
+            .onClick(async () => {
+              this.opLogPage += 1;
+              await this.loadOpLogs();
+            })
+        }
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 15, bottom: 10 })
+
+      if (this.opLogs.length === 0 && !this.isLoading) {
+        Column() {
+          Blank()
+          Text('暂无操作日志')
+            .fontSize(16)
+            .fontColor('#B0BEC5')
+          Blank()
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.opLogs, (log: OperationLogItem) => {
+            ListItem() {
+              Column() {
+                Row() {
+                  Text(log.operationType)
+                    .fontSize(12)
+                    .fontColor('#FFFFFF')
+                    .backgroundColor('#78909C')
+                    .borderRadius(4)
+                    .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                  Text(log.userName || '-')
+                    .fontSize(13)
+                    .fontColor('#2C3E50')
+                    .margin({ left: 10 })
+                    .layoutWeight(1)
+                  Text(log.createdAt || '')
+                    .fontSize(11)
+                    .fontColor('#B0BEC5')
+                }
+                .width('100%')
+                .margin({ bottom: 6 })
+
+                Text(log.detail || '-')
+                  .fontSize(13)
+                  .fontColor('#607D8B')
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+              }
+              .width('100%')
+              .padding(14)
+              .backgroundColor('#FFFFFF')
+              .borderRadius(10)
+            }
+          })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding({ left: 15, right: 15 })
+      }
+    }
+    .layoutWeight(1)
+    .width('100%')
+  }
+
+  // ===== 节点授权弹窗 =====
+  @Builder NodeAccessDialog() {
+    Column() {
+      Blank()
+    }
+    .width('100%')
+    .height('100%')
+    .position({ x: 0, y: 0 })
+    .backgroundColor('rgba(0,0,0,0.4)')
+    .onClick(() => { this.showNodeAccessDialog = false; })
+
+    Column() {
+      Text(`节点授权 - ${this.nodeAccessUserName}`)
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#2C3E50')
+        .margin({ bottom: 16 })
+
+      if (this.allNodeIds.length === 0) {
+        Text('暂无可授权节点')
+          .fontSize(14)
+          .fontColor('#B0BEC5')
+          .margin({ bottom: 20 })
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.allNodeIds, (nodeId: string) => {
+            ListItem() {
+              Row() {
+                Text(nodeId)
+                  .fontSize(14)
+                  .fontColor('#2C3E50')
+                  .layoutWeight(1)
+                Toggle({ type: ToggleType.Switch, isOn: this.nodeAccessIds.includes(nodeId) })
+                  .onChange((isOn: boolean) => {
+                    this.toggleNodeAccess(nodeId);
+                  })
+              }
+              .width('100%')
+              .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+            }
+          })
+        }
+        .width('100%')
+        .height(200)
+        .margin({ bottom: 16 })
+      }
+
+      Row() {
+        Button('取消')
+          .fontSize(14)
+          .fontColor('#78909C')
+          .backgroundColor('#F5F5F5')
+          .borderRadius(20)
+          .height(38)
+          .layoutWeight(1)
+          .margin({ right: 10 })
+          .onClick(() => { this.showNodeAccessDialog = false; })
+        Button('保存')
+          .fontSize(14)
+          .fontColor('#FFFFFF')
+          .backgroundColor('#4CAF50')
+          .borderRadius(20)
+          .height(38)
+          .layoutWeight(1)
+          .onClick(async () => { await this.saveNodeAccess(); })
+      }
+      .width('100%')
+    }
+    .width('85%')
+    .padding(24)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+    .position({ x: '7.5%', y: '25%' })
     .shadow({ radius: 20, color: 'rgba(0,0,0,0.15)', offsetY: 5 })
   }
 }

@@ -156,6 +156,65 @@ export class AdminUpdateRoleRequest {
   role: string = '';
 }
 
+export class SetUserNodesRequest {
+  nodeIds: string[] = [];
+}
+
+export interface ScheduledTaskItem {
+  id: number;
+  nodeId: string;
+  equipmentKey: string;
+  action: string;
+  taskName: string;
+  hour: number;
+  minute: number;
+  repeatDays: string;
+  enabled: boolean;
+  createdAt: number;
+}
+
+export class CreateTaskRequest {
+  nodeId: string = '';
+  equipmentKey: string = '';
+  action: string = '';
+  taskName: string = '';
+  hour: number = 0;
+  minute: number = 0;
+  repeatDays: string = '';
+}
+
+export class UpdateTaskRequest {
+  nodeId: string = '';
+  equipmentKey: string = '';
+  action: string = '';
+  taskName: string = '';
+  hour: number = 0;
+  minute: number = 0;
+  repeatDays: string = '';
+}
+
+export class ThresholdUpdateItem {
+  sensorKey: string = '';
+  warningMin: number | null = null;
+  warningMax: number | null = null;
+}
+
+export interface OperationLogItem {
+  id: number;
+  userId: number | null;
+  userName: string | null;
+  operationType: string;
+  targetType: string | null;
+  targetId: string | null;
+  detail: string | null;
+  createdAt: string | null;
+}
+
+export interface OperationLogPage {
+  total: number;
+  items: OperationLogItem[];
+}
+
 export class HttpService {
   private static instance: HttpService;
   private currentNodeId: string = "A03_Node_01";
@@ -495,6 +554,92 @@ export class HttpService {
       body
     );
     return res !== null && res.code === 200;
+  }
+
+  // ==== 用户-节点授权管理 ====
+  public async adminGetUserNodes(userId: number): Promise<string[] | null> {
+    let res = await this.request<BaseResponse<string[]>>(
+      `/api/v1/admin/users/${userId}/nodes`,
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
+  }
+
+  public async adminSetUserNodes(userId: number, nodeIds: string[]): Promise<boolean> {
+    let body = new SetUserNodesRequest();
+    body.nodeIds = nodeIds;
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/admin/users/${userId}/nodes`,
+      http.RequestMethod.PUT,
+      body
+    );
+    return res !== null && res.code === 200;
+  }
+
+  // ==== 定时任务 ====
+  public async getScheduledTasks(): Promise<ScheduledTaskItem[] | null> {
+    let res = await this.request<BaseResponse<ScheduledTaskItem[]>>(
+      '/api/v1/tasks',
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
+  }
+
+  public async createScheduledTask(req: CreateTaskRequest): Promise<ScheduledTaskItem | null> {
+    let res = await this.request<BaseResponse<ScheduledTaskItem>>(
+      '/api/v1/tasks',
+      http.RequestMethod.POST,
+      req
+    );
+    return res ? res.data : null;
+  }
+
+  public async updateScheduledTask(taskId: number, req: UpdateTaskRequest): Promise<ScheduledTaskItem | null> {
+    let res = await this.request<BaseResponse<ScheduledTaskItem>>(
+      `/api/v1/tasks/${taskId}`,
+      http.RequestMethod.PUT,
+      req
+    );
+    return res ? res.data : null;
+  }
+
+  public async deleteScheduledTask(taskId: number): Promise<boolean> {
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/tasks/${taskId}`,
+      'DELETE' as http.RequestMethod
+    );
+    return res !== null;
+  }
+
+  public async toggleScheduledTask(taskId: number): Promise<boolean> {
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/tasks/${taskId}/toggle`,
+      http.RequestMethod.PUT
+    );
+    return res !== null;
+  }
+
+  // ==== 传感器阈值更新 ====
+  public async updateSensorThresholds(nodeId: string, thresholds: ThresholdUpdateItem[]): Promise<boolean> {
+    let res = await this.request<BaseResponse<Object>>(
+      `/api/v1/nodes/${nodeId}/sensor-thresholds`,
+      http.RequestMethod.PUT,
+      thresholds
+    );
+    return res !== null;
+  }
+
+  // ==== 操作日志 ====
+  public async getOperationLogs(page: number = 1, size: number = 20, type?: string): Promise<OperationLogPage | null> {
+    let url = `/api/v1/admin/logs?page=${page}&size=${size}`;
+    if (type) {
+      url += `&type=${type}`;
+    }
+    let res = await this.request<BaseResponse<OperationLogPage>>(
+      url,
+      http.RequestMethod.GET
+    );
+    return res ? res.data : null;
   }
 
 }

@@ -1,6 +1,7 @@
 ﻿import { AlertData } from '../models/AlertData';
 import { promptAction } from '@kit.ArkUI';
 import { AlertSyncService } from '../services/AlertSyncService';
+import router from '@ohos.router';
 
 @Component
 export struct AlertView {
@@ -177,6 +178,9 @@ export struct AlertView {
               offsetY: 2
             })
             .width('100%')
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/AlertDetailPage', params: { alertId: alert.alert_id } });
+            })
           }
         })
       }

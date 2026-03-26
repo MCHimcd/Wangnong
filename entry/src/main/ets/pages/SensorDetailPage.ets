@@ -16,9 +16,11 @@ import {
   AxisBase
 } from '@ohos/mpchart';
 
-import { HttpService, SensorHistoryData } from '../services/HttpService';
+import { HttpService, SensorHistoryData, ThresholdUpdateItem } from '../services/HttpService';
+import { SensorMetaItem } from '../models/SensorMeta';
 
 import { CachedTrendPoint, MqttClientService } from '../services/MqttClientService';
+import { promptAction } from '@kit.ArkUI';
 
 export interface HistoricalDatapoint {
   time: string;
@@ -84,6 +86,10 @@ struct SensorDetailPage {
   @State showAvgLine: boolean = true;
   @State showMaxLine: boolean = true;
   @State showMinLine: boolean = true;
+
+  @State editWarningMin: string = '';
+  @State editWarningMax: string = '';
+  @State thresholdSaving: boolean = false;
 
   private realTimer: number = -1;
   private realTimePoints: number = 0;
@@ -158,18 +164,18 @@ struct SensorDetailPage {
     const params = router.getParams() as Record<string, Object>;
     if (params) {
       this.nodeId = (params['nodeId'] as string) || 'A03_Node_01';
-      this.type = params['type'] as string;
+      this.type = (params['type'] as string) || '';
       this.metricKey = (params['metricKey'] as string) || '';
-      this.title = params['title'] as string;
-      this.currentValue = params['currentValue'] as number;
-      this.badgeColor = params['badgeColor'] as string;
-      if (params['unit'] !== undefined) {
+      this.title = (params['title'] as string) || '';
+      this.currentValue = (params['currentValue'] as number) || 0;
+      this.badgeColor = (params['badgeColor'] as string) || '#4CAF50';
+      if (params['unit'] != null) {
         this.unitFromParam = params['unit'] as string;
       }
-      if (params['warningMin'] !== undefined) {
+      if (params['warningMin'] != null && typeof params['warningMin'] === 'number') {
         this.warningMin = params['warningMin'] as number;
       }
-      if (params['warningMax'] !== undefined) {
+      if (params['warningMax'] != null && typeof params['warningMax'] === 'number') {
         this.warningMax = params['warningMax'] as number;
       }
     }
@@ -177,6 +183,9 @@ struct SensorDetailPage {
     if (this.metricKey.length === 0) {
       this.metricKey = this.getMetricKey();
     }
+
+    this.editWarningMin = (this.warningMin == null || this.warningMin === -Infinity) ? '' : this.warningMin.toString();
+    this.editWarningMax = (this.warningMax == null || this.warningMax === Infinity) ? '' : this.warningMax.toString();
 
     this.restoreRealTimeCache();
     
@@ -214,6 +223,20 @@ struct SensorDetailPage {
 
     this.startRealtimeStream();
     this.loadHistoryData();
+    this.refreshThresholds();
+  }
+
+  private async refreshThresholds() {
+    let metas = await HttpService.getInstance().getSensorMeta(this.nodeId);
+    if (metas) {
+      let found = metas.find((m: SensorMetaItem) => m.key === this.metricKey);
+      if (found) {
+        this.warningMin = (found.warningMin != null) ? found.warningMin : -Infinity;
+        this.warningMax = (found.warningMax != null) ? found.warningMax : Infinity;
+        this.editWarningMin = (this.warningMin === -Infinity) ? '' : this.warningMin.toString();
+        this.editWarningMax = (this.warningMax === Infinity) ? '' : this.warningMax.toString();
+      }
+    }
   }
 
   aboutToDisappear() {
@@ -648,6 +671,59 @@ struct SensorDetailPage {
           }
         }
         .tabBar("历史数据")
+
+        TabContent() {
+          Column() {
+            Text('阈值设置').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#2C3E50')
+              .margin({ top: 20, bottom: 5 })
+            Text('超出阈值范围时将产生告警').fontSize(13).fontColor('#90A4AE')
+              .margin({ bottom: 20 })
+
+            Column() {
+              Text('最低阈值').fontSize(14).fontColor('#78909C').margin({ bottom: 5 }).width('100%')
+              TextInput({ placeholder: '留空表示不设限', text: this.editWarningMin })
+                .onChange((value: string) => { this.editWarningMin = value; })
+                .height(44).backgroundColor('#F5F5F5').borderRadius(8)
+                .type(InputType.Number)
+                .margin({ bottom: 15 })
+
+              Text('最高阈值').fontSize(14).fontColor('#78909C').margin({ bottom: 5 }).width('100%')
+              TextInput({ placeholder: '留空表示不设限', text: this.editWarningMax })
+                .onChange((value: string) => { this.editWarningMax = value; })
+                .height(44).backgroundColor('#F5F5F5').borderRadius(8)
+                .type(InputType.Number)
+                .margin({ bottom: 20 })
+
+              Row() {
+                Text(`当前: ${this.warningMin === -Infinity ? '无' : this.warningMin.toString()} ~ ${this.warningMax === Infinity ? '无' : this.warningMax.toString()}`)
+                  .fontSize(13).fontColor('#90A4AE')
+              }.width('100%').margin({ bottom: 15 })
+
+              Button(this.thresholdSaving ? '保存中...' : '保存阈值', { type: ButtonType.Capsule })
+                .width('80%').height(44).backgroundColor('#4CAF50').fontSize(16)
+                .enabled(!this.thresholdSaving)
+                .onClick(async () => {
+                  this.thresholdSaving = true;
+                  let item = new ThresholdUpdateItem();
+                  item.sensorKey = this.metricKey;
+                  item.warningMin = this.editWarningMin.trim() ? parseFloat(this.editWarningMin) : null;
+                  item.warningMax = this.editWarningMax.trim() ? parseFloat(this.editWarningMax) : null;
+                  let ok = await HttpService.getInstance().updateSensorThresholds(this.nodeId, [item]);
+                  this.thresholdSaving = false;
+                  if (ok) {
+                    this.warningMin = item.warningMin !== null ? item.warningMin : -Infinity;
+                    this.warningMax = item.warningMax !== null ? item.warningMax : Infinity;
+                    promptAction.showToast({ message: '阈值已保存' });
+                  } else {
+                    promptAction.showToast({ message: '保存失败' });
+                  }
+                })
+            }
+            .width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(16)
+          }
+          .width('100%').padding({ left: 15, right: 15 })
+        }
+        .tabBar("阈值设置")
       }
       .layoutWeight(1)
     }

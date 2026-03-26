@@ -3,10 +3,11 @@
  */
 export class AppConfig {
   /** HTTP 后端基地址 */
-  static readonly BASE_URL: string = 'http://192.168.1.101:8080';
+  // static readonly BASE_URL: string = 'http://47.109.27.231:8080';
+  static readonly BASE_URL: string = 'http://192.168.1.100:8080';
 
   /** MQTT Broker 连接地址 */
-  static readonly MQTT_BROKER_URL: string = 'tcp://broker.emqx.io:1883';
+  static readonly MQTT_BROKER_URL: string = 'tcp://47.109.27.231:1883';
 
   /** MQTT 客户端 ID 前缀（实际 ID = 前缀 + 时间戳） */
   static readonly MQTT_CLIENT_PREFIX: string = 'app_client_';
