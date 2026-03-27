@@ -2,6 +2,7 @@ import { promptAction, router } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { HttpService } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 @Component
 export struct ProfileView {
@@ -35,31 +36,62 @@ export struct ProfileView {
     await this.refreshProfile();
   }
 
+  @Builder
+  MenuItem(icon: string, label: string, isDanger: boolean = false) {
+    Row() {
+      Text(icon)
+        .fontSize(AppFontSize.H3)
+        .margin({ right: AppSpacing.MD })
+      Text(label)
+        .fontSize(AppFontSize.Body)
+        .fontColor(isDanger ? AppColors.AlertCritical : AppColors.TextPrimary)
+        .layoutWeight(1)
+      Text('›')
+        .fontSize(20)
+        .fontColor(isDanger ? AppColors.AlertCritical : AppColors.TextTertiary)
+    }
+    .width('100%')
+    .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.MD, bottom: AppSpacing.MD })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.MD)
+  }
+
   build() {
     Scroll() {
       Column() {
-        Text('我的')
-          .fontSize(28)
-          .fontWeight(FontWeight.Bolder)
-          .fontColor('#2C3E50')
-          .margin({ top: 30, bottom: 20 })
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          
-        Column() {
-          Image(this.getCurrentAvatar())
-            .width(100)
-            .height(100)
-            .borderRadius(50)
-            .backgroundColor('#E0E0E0')
-            .margin({ top: 20, bottom: 10 })
+        // 顶部横幅区域（渐变）
+        Stack({ alignContent: Alignment.Center }) {
+          Column() {}
+            .width('100%')
+            .height('100%')
+            .linearGradient({
+              angle: 135,
+              colors: [[AppColors.GradientBannerStart, 0], [AppColors.GradientBannerEnd, 1]]
+            })
+
+          Column() {
+            // 头像
+            Stack() {
+              Row() {}
+                .width(108)
+                .height(108)
+                .borderRadius(54)
+                .border({ width: 3, color: 'rgba(255,255,255,0.5)' })
+
+              Image(this.getCurrentAvatar())
+                .width(100)
+                .height(100)
+                .borderRadius(50)
+                .backgroundColor(AppColors.Divider)
+            }
+            .margin({ bottom: AppSpacing.MD })
             .onClick(async () => {
               try {
                 let menuResult = await promptAction.showActionMenu({
                   title: '修改头像',
                   buttons: [
-                    { text: '拍照', color: '#4CAF50' },
-                    { text: '从相册选择', color: '#4CAF50' }
+                    { text: '拍照', color: AppColors.Primary },
+                    { text: '从相册选择', color: AppColors.Primary }
                   ]
                 });
 
@@ -85,135 +117,100 @@ export struct ProfileView {
                 promptAction.showToast({ message: '头像更新失败' });
               }
             })
-          
-          Text(`名称: ${this.userName}`)
-            .fontSize(22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#333333')
-            .margin({ top: 10 })
 
-          Text(`ID: ${this.userId}`)
-            .fontSize(16)
-            .fontColor('#78909c')
-            .margin({ bottom: 20 })
+            Text(this.userName)
+              .fontSize(AppFontSize.H1)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.TextOnPrimary)
 
-          Row() {
-            Text('溯源码：扫码展示作物信息')
-              .fontSize(16)
-              .fontColor('#2C3E50')
-            Blank()
-            Text('...')
-              .fontSize(16)
-          }
-          .width('90%')
-          .padding(20)
-          .backgroundColor(Color.White)
-          .borderRadius(12)
-          .margin({ bottom: 15 })
-          .onClick(() => {
-            router.pushUrl({ url: 'pages/TraceabilityScanPage' });
-          })
+            Text(`ID: ${this.userId}`)
+              .fontSize(AppFontSize.Caption)
+              .fontColor('rgba(255,255,255,0.75)')
+              .margin({ top: AppSpacing.XS })
 
-          if (this.userRole === 'admin') {
             Row() {
-              Text('管理后台')
-                .fontSize(16)
-                .fontColor('#2C3E50')
-              Blank()
-              Text('>')
-                .fontSize(16)
-            }
-            .width('90%')
-            .padding(20)
-            .backgroundColor(Color.White)
-            .borderRadius(12)
-            .margin({ bottom: 15 })
-            .onClick(() => {
-              router.pushUrl({ url: 'pages/AdminPage' });
-            })
+              Text(this.userRole === 'admin' ? '🔑 管理员' : '🌱 普通用户')
+                .fontSize(AppFontSize.Caption)
+                .fontColor(AppColors.TextOnPrimary)
+                .padding({ left: AppSpacing.MD, right: AppSpacing.MD, top: AppSpacing.XS, bottom: AppSpacing.XS })
+                .backgroundColor('rgba(255,255,255,0.2)')
+                .borderRadius(AppRadius.Full)
+            }.margin({ top: AppSpacing.SM })
           }
-
-          Row() {
-            Text('设置')
-              .fontSize(16)
-              .fontColor('#2C3E50')
-            Blank()
-            Text('>')
-              .fontSize(16)
-          }
-          .width('90%')
-          .padding(20)
-          .backgroundColor(Color.White)
-          .borderRadius(12)
-          .margin({ bottom: 15 })
-          .onClick(() => {
-            router.pushUrl({ url: 'pages/SettingsPage' });
-          })
-          
-          Row() {
-            Text('切换账号')
-              .fontSize(16)
-              .fontColor('#2C3E50')
-            Blank()
-            Text('>')
-              .fontSize(16)
-          }
-          .width('90%')
-          .padding(20)
-          .backgroundColor(Color.White)
-          .borderRadius(12)
-          .margin({ bottom: 15 })
-          .onClick(() => {
-             router.replaceUrl({ url: 'pages/LoginPage' });
-          })
-
-          Row() {
-            Text('退出登录')
-              .fontSize(16)
-              .fontColor('#E53935')
-            Blank()
-            Text('>')
-              .fontSize(16)
-              .fontColor('#E53935')
-          }
-          .width('90%')
-          .padding(20)
-          .backgroundColor(Color.White)
-          .borderRadius(12)
-          .margin({ bottom: 40 })
-          .onClick(async () => {
-             try {
-               const remoteLogoutOk = await HttpService.getInstance().logout();
-                let context = getContext(this) as common.UIAbilityContext;
-                let pref = await preferences.getPreferences(context, 'AppPreferences');
-                await pref.put('autoLogin', false);
-                await pref.flush();
-                AppStorage.setOrCreate('isLoggedIn', false);
-               AppStorage.setOrCreate('profileUserName', '');
-               AppStorage.setOrCreate('profileAvatarSrc', '');
-               HttpService.getInstance().setToken('');
-               if (!remoteLogoutOk) {
-                promptAction.showToast({ message: '服务器退出失败，已本地退出' });
-               }
-                router.replaceUrl({ url: 'pages/LoginPage' });
-             } catch (err) {
-                console.error(`Logout failed. Code:${err.code},message:${err.message}`);
-                promptAction.showToast({ message: '退出失败' });
-             }
-          })
         }
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
+        .height(260)
 
-        Blank()
+        // 菜单列表
+        Column({ space: AppSpacing.SM }) {
+          this.MenuItem('📦', '溯源码：扫码展示作物信息')
+        }
+        .width('100%')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.LG })
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/TraceabilityScanPage' });
+        })
+
+        if (this.userRole === 'admin') {
+          Column({ space: AppSpacing.SM }) {
+            this.MenuItem('🖥️', '管理后台')
+          }
+          .width('100%')
+          .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM })
+          .onClick(() => {
+            router.pushUrl({ url: 'pages/AdminPage' });
+          })
+        }
+
+        Column({ space: AppSpacing.SM }) {
+          this.MenuItem('⚙️', '设置')
+        }
+        .width('100%')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM })
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/SettingsPage' });
+        })
+
+        Column({ space: AppSpacing.SM }) {
+          this.MenuItem('🔄', '切换账号')
+        }
+        .width('100%')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM })
+        .onClick(() => {
+          router.replaceUrl({ url: 'pages/LoginPage' });
+        })
+
+        Column({ space: AppSpacing.SM }) {
+          this.MenuItem('🚪', '退出登录', true)
+        }
+        .width('100%')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM, bottom: AppSpacing.XXL })
+        .onClick(async () => {
+          try {
+            const remoteLogoutOk = await HttpService.getInstance().logout();
+            let context = getContext(this) as common.UIAbilityContext;
+            let pref = await preferences.getPreferences(context, 'AppPreferences');
+            await pref.put('autoLogin', false);
+            await pref.flush();
+            AppStorage.setOrCreate('isLoggedIn', false);
+            AppStorage.setOrCreate('profileUserName', '');
+            AppStorage.setOrCreate('profileAvatarSrc', '');
+            HttpService.getInstance().setToken('');
+            if (!remoteLogoutOk) {
+              promptAction.showToast({ message: '服务器退出失败，已本地退出' });
+            }
+            router.replaceUrl({ url: 'pages/LoginPage' });
+          } catch (err) {
+            console.error(`Logout failed. Code:${err.code},message:${err.message}`);
+            promptAction.showToast({ message: '退出失败' });
+          }
+        })
       }
       .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.SpaceBetween)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
     .scrollBar(BarState.Off)
   }
 }

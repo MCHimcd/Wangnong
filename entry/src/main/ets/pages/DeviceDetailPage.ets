@@ -1,5 +1,6 @@
 import router from '@ohos.router';
 import { HttpService, EquipmentDataPoint, EquipmentStatsData } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -127,71 +128,70 @@ struct DeviceDetailPage {
       // Header
       Row() {
         Image($r('sys.media.ohos_ic_back'))
-          .width(28)
-          .height(28)
-          .margin({ right: 15 })
-          .fillColor('#2C3E50')
+          .width(24)
+          .height(24)
+          .margin({ right: AppSpacing.MD })
+          .fillColor(AppColors.TextPrimary)
           .onClick(() => {
             router.back();
           })
         Text(`${this.title}`)
-          .fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder).layoutWeight(1)
+          .fontSize(AppFontSize.H1).fontColor(AppColors.TextPrimary).fontWeight(FontWeight.Bold).layoutWeight(1)
 
         Text(this.isOn ? '运行中' : '已离线')
-          .fontSize(14)
+          .fontSize(AppFontSize.Caption)
           .fontColor(Color.White)
           .fontWeight(FontWeight.Medium)
-          .backgroundColor(this.isOn ? '#4CAF50' : '#B0BEC5')
+          .backgroundColor(this.isOn ? AppColors.Success : AppColors.TextTertiary)
           .padding({
-            left: 12,
-            right: 12,
-            top: 6,
-            bottom: 6
+            left: AppSpacing.MD,
+            right: AppSpacing.MD,
+            top: AppSpacing.XS,
+            bottom: AppSpacing.XS
           })
-          .borderRadius(20)
+          .borderRadius(AppRadius.Full)
       }
       .width('100%')
       .padding({
-        left: 20,
-        right: 20,
+        left: AppSpacing.LG,
+        right: AppSpacing.LG,
         top: 40,
-        bottom: 20
+        bottom: AppSpacing.LG
       })
       .alignItems(VerticalAlign.Center)
 
       // Summary
       Row() {
         Column() {
-          Text(`近7日总${this.yAxisLabel.split('(')[0]}`).fontSize(15).fontColor('#78909C')
+          Text(`近7日总${this.yAxisLabel.split('(')[0]}`).fontSize(AppFontSize.Body).fontColor(AppColors.TextSecondary)
           Text(`${this.summaryTotal}`)
             .fontSize(42)
-            .fontWeight(FontWeight.Bolder)
-            .fontColor('#2C3E50')
-            .margin({ top: 5 })
+            .fontWeight(FontWeight.Bold)
+            .fontColor(AppColors.TextPrimary)
+            .margin({ top: AppSpacing.XS })
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
 
-        // decorative icon background
-        Circle({ width: 60, height: 60 }).fill('#F1F8E9').opacity(0.8)
+        Circle({ width: 60, height: 60 }).fill(AppColors.SuccessBg).opacity(0.8)
       }
       .width('90%')
-      .padding(25)
-      .backgroundColor(Color.White)
-      .borderRadius(24)
-      .margin({ bottom: 25 })
+      .padding(AppSpacing.XL)
+      .backgroundColor(AppColors.Surface)
+      .borderRadius(AppRadius.LG)
+      .margin({ bottom: AppSpacing.XL })
       .shadow({
-        radius: 20,
-        color: 'rgba(76, 175, 80, 0.08)',
+        radius: AppShadow.ElevatedRadius,
+        color: AppShadow.ElevatedColor,
         offsetX: 0,
-        offsetY: 10
+        offsetY: AppShadow.ElevatedOffsetY
       })
 
       // Chart Area
       Column() {
         Text(`过去7天数据统计`)
-          .fontSize(18)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C3E50')
-          .margin({ bottom: 15, left: 20, top: 20 })
+          .fontColor(AppColors.TextPrimary)
+          .margin({ bottom: AppSpacing.MD, left: AppSpacing.LG, top: AppSpacing.LG })
           .width('100%')
 
         Canvas(this.context)
@@ -201,14 +201,14 @@ struct DeviceDetailPage {
             this.drawBarChart();
           })
       }
-      .width('90%').backgroundColor(Color.White).borderRadius(24)
+      .width('90%').backgroundColor(AppColors.Surface).borderRadius(AppRadius.LG)
       .shadow({
-        radius: 20,
-        color: 'rgba(76, 175, 80, 0.08)',
+        radius: AppShadow.ElevatedRadius,
+        color: AppShadow.ElevatedColor,
         offsetX: 0,
-        offsetY: 10
+        offsetY: AppShadow.ElevatedOffsetY
       })
     }
-    .width('100%').height('100%').backgroundColor('#F2F6F3')
+    .width('100%').height('100%').backgroundColor(AppColors.Background)
   }
 }

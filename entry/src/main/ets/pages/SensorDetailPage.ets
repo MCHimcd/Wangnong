@@ -18,6 +18,7 @@ import {
 
 import { HttpService, SensorHistoryData, ThresholdUpdateItem } from '../services/HttpService';
 import { SensorMetaItem } from '../models/SensorMeta';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
 import { CachedTrendPoint, MqttClientService } from '../services/MqttClientService';
 import { promptAction } from '@kit.ArkUI';
@@ -530,11 +531,11 @@ struct SensorDetailPage {
 
   @Builder TimeButton(label: string, range: string) {
     Button(label, { type: ButtonType.Capsule })
-      .backgroundColor(this.timeRange === range ? '#4CAF50' : '#E8F5E9')
-      .fontColor(this.timeRange === range ? Color.White : '#4CAF50')
-      .fontSize(14)
+      .backgroundColor(this.timeRange === range ? AppColors.Primary : AppColors.SuccessBg)
+      .fontColor(this.timeRange === range ? Color.White : AppColors.Primary)
+      .fontSize(AppFontSize.Caption)
       .height(32)
-      .margin({ left: 5, right: 5 })
+      .margin({ left: AppSpacing.XS, right: AppSpacing.XS })
       .onClick(() => {
         this.timeRange = range;
         this.loadHistoryData();
@@ -546,18 +547,18 @@ struct SensorDetailPage {
       // Header
       Row() {
         Image($r('sys.media.ohos_ic_back'))
-          .width(28)
-          .height(28)
-          .margin({ right: 15 })
-          .fillColor('#2C3E50')
+          .width(24)
+          .height(24)
+          .margin({ right: AppSpacing.MD })
+          .fillColor(AppColors.TextPrimary)
           .onClick(() => {
             router.back();
           })
         Text(this.title)
-          .fontSize(24).fontColor('#2C3E50').fontWeight(FontWeight.Bolder).layoutWeight(1)
+          .fontSize(AppFontSize.H1).fontColor(AppColors.TextPrimary).fontWeight(FontWeight.Bold).layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 40, bottom: 20 })
+      .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: 40, bottom: AppSpacing.LG })
       .alignItems(VerticalAlign.Center)
 
       Tabs({ barPosition: BarPosition.Start }) {
@@ -674,33 +675,33 @@ struct SensorDetailPage {
 
         TabContent() {
           Column() {
-            Text('阈值设置').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#2C3E50')
-              .margin({ top: 20, bottom: 5 })
-            Text('超出阈值范围时将产生告警').fontSize(13).fontColor('#90A4AE')
-              .margin({ bottom: 20 })
+            Text('阈值设置').fontSize(AppFontSize.H2).fontWeight(FontWeight.Bold).fontColor(AppColors.TextPrimary)
+              .margin({ top: AppSpacing.LG, bottom: AppSpacing.XS })
+            Text('超出阈值范围时将产生告警').fontSize(AppFontSize.Caption).fontColor(AppColors.TextTertiary)
+              .margin({ bottom: AppSpacing.LG })
 
             Column() {
-              Text('最低阈值').fontSize(14).fontColor('#78909C').margin({ bottom: 5 }).width('100%')
+              Text('最低阈值').fontSize(AppFontSize.Body).fontColor(AppColors.TextSecondary).margin({ bottom: AppSpacing.XS }).width('100%')
               TextInput({ placeholder: '留空表示不设限', text: this.editWarningMin })
                 .onChange((value: string) => { this.editWarningMin = value; })
-                .height(44).backgroundColor('#F5F5F5').borderRadius(8)
+                .height(AppSize.InputHeight).backgroundColor(AppColors.Divider).borderRadius(AppRadius.MD)
                 .type(InputType.Number)
-                .margin({ bottom: 15 })
+                .margin({ bottom: AppSpacing.MD })
 
-              Text('最高阈值').fontSize(14).fontColor('#78909C').margin({ bottom: 5 }).width('100%')
+              Text('最高阈值').fontSize(AppFontSize.Body).fontColor(AppColors.TextSecondary).margin({ bottom: AppSpacing.XS }).width('100%')
               TextInput({ placeholder: '留空表示不设限', text: this.editWarningMax })
                 .onChange((value: string) => { this.editWarningMax = value; })
-                .height(44).backgroundColor('#F5F5F5').borderRadius(8)
+                .height(AppSize.InputHeight).backgroundColor(AppColors.Divider).borderRadius(AppRadius.MD)
                 .type(InputType.Number)
-                .margin({ bottom: 20 })
+                .margin({ bottom: AppSpacing.LG })
 
               Row() {
                 Text(`当前: ${this.warningMin === -Infinity ? '无' : this.warningMin.toString()} ~ ${this.warningMax === Infinity ? '无' : this.warningMax.toString()}`)
-                  .fontSize(13).fontColor('#90A4AE')
-              }.width('100%').margin({ bottom: 15 })
+                  .fontSize(AppFontSize.Caption).fontColor(AppColors.TextTertiary)
+              }.width('100%').margin({ bottom: AppSpacing.MD })
 
               Button(this.thresholdSaving ? '保存中...' : '保存阈值', { type: ButtonType.Capsule })
-                .width('80%').height(44).backgroundColor('#4CAF50').fontSize(16)
+                .width('80%').height(AppSize.ButtonHeight).backgroundColor(AppColors.Primary).fontSize(AppFontSize.Body)
                 .enabled(!this.thresholdSaving)
                 .onClick(async () => {
                   this.thresholdSaving = true;
@@ -719,14 +720,14 @@ struct SensorDetailPage {
                   }
                 })
             }
-            .width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(16)
+            .width('100%').padding(AppSpacing.LG).backgroundColor(AppColors.Surface).borderRadius(AppRadius.LG)
           }
-          .width('100%').padding({ left: 15, right: 15 })
+          .width('100%').padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
         }
         .tabBar("阈值设置")
       }
       .layoutWeight(1)
     }
-    .width('100%').height('100%').backgroundColor('#F2F6F3')
+    .width('100%').height('100%').backgroundColor(AppColors.Background)
   }
 }

@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import { KeyframeImageItem, PlaybackItem } from '../models/VideoMonitorData';
 import { VideoMonitorService } from '../services/VideoMonitorService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -56,68 +57,69 @@ struct VideoDetailPage {
   PlaybackSection() {
     Column() {
       Text('监控回放')
-        .fontSize(20)
+        .fontSize(AppFontSize.H2)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#2C3E50')
+        .fontColor(AppColors.TextPrimary)
         .width('100%')
-        .margin({ bottom: 12 })
+        .margin({ bottom: AppSpacing.MD })
 
       if (this.playbackItems.length === 0) {
         Text(this.isLoading ? '加载中...' : '暂无回放记录')
-          .fontSize(14)
-          .fontColor('#90A4AE')
-          .margin({ top: 8, bottom: 8 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
         Column({ space: 10 }) {
           ForEach(this.playbackItems, (item: PlaybackItem) => {
             Row() {
               Column() {
                 Text(item.date)
-                  .fontSize(16)
+                  .fontSize(AppFontSize.H3)
                   .fontWeight(FontWeight.Medium)
-                  .fontColor('#2C3E50')
+                  .fontColor(AppColors.TextPrimary)
                 Text(`时长 ${item.duration} · ${item.quality}`)
-                  .fontSize(12)
-                  .fontColor('#78909C')
-                  .margin({ top: 4 })
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.TextTertiary)
+                  .margin({ top: AppSpacing.XS })
               }
               Blank()
               Text(item.available ? '可回放' : '待生成')
-                .fontSize(12)
-                .fontColor(item.available ? '#2E7D32' : '#F57C00')
-                .backgroundColor(item.available ? '#E8F5E9' : '#FFF3E0')
-                .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .borderRadius(10)
-                .margin({ right: 10 })
+                .fontSize(AppFontSize.Caption)
+                .fontColor(item.available ? AppColors.Primary : AppColors.AlertWarning)
+                .backgroundColor(item.available ? AppColors.SuccessBg : AppColors.AlertWarningBg)
+                .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: AppSpacing.XS, bottom: AppSpacing.XS })
+                .borderRadius(AppRadius.SM)
+                .margin({ right: AppSpacing.SM })
               Text(`异常 ${item.abnormalCount}`)
-                .fontSize(12)
-                .fontColor(item.abnormalCount > 0 ? '#C62828' : '#607D8B')
-                .backgroundColor(item.abnormalCount > 0 ? '#FFEBEE' : '#ECEFF1')
-                .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                .borderRadius(10)
-                .margin({ right: 10 })
+                .fontSize(AppFontSize.Caption)
+                .fontColor(item.abnormalCount > 0 ? AppColors.AlertCritical : AppColors.TextSecondary)
+                .backgroundColor(item.abnormalCount > 0 ? AppColors.AlertCriticalBg : AppColors.Divider)
+                .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: AppSpacing.XS, bottom: AppSpacing.XS })
+                .borderRadius(AppRadius.SM)
+                .margin({ right: AppSpacing.SM })
               Button('查看')
                 .height(30)
-                .fontSize(13)
+                .fontSize(AppFontSize.Caption)
                 .enabled(item.available)
-                .backgroundColor(item.available ? '#4CAF50' : '#CFD8DC')
+                .backgroundColor(item.available ? AppColors.Primary : AppColors.Border)
+                .borderRadius(AppRadius.SM)
                 .onClick(() => {
                   void this.onSelectPlayback(item);
                 })
             }
             .width('100%')
-            .padding(12)
-            .backgroundColor(item.date === this.selectedDate ? '#F1F8E9' : '#FAFAFA')
-            .borderRadius(14)
+            .padding(AppSpacing.MD)
+            .backgroundColor(item.date === this.selectedDate ? AppColors.SuccessBg : AppColors.Background)
+            .borderRadius(AppRadius.LG)
           }, (item: PlaybackItem) => item.id)
         }
       }
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
-    .borderRadius(20)
-    .padding(16)
-    .shadow({ radius: 12, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.LG)
+    .padding(AppSpacing.PagePadding)
+    .shadow({ radius: AppShadow.ElevatedRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
   }
 
   @Builder
@@ -125,22 +127,22 @@ struct VideoDetailPage {
     Column() {
       Row() {
         Text('AI异常关键帧')
-          .fontSize(20)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C3E50')
+          .fontColor(AppColors.TextPrimary)
         Blank()
         Text(this.selectedDate.length > 0 ? this.selectedDate : '未选择日期')
-          .fontSize(12)
-          .fontColor('#78909C')
+          .fontSize(AppFontSize.Caption)
+          .fontColor(AppColors.TextTertiary)
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: AppSpacing.MD })
 
       if (this.abnormalFrames.length === 0) {
         Text('当前日期未检测到异常关键帧')
-          .fontSize(14)
-          .fontColor('#90A4AE')
-          .margin({ top: 8, bottom: 8 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
         Column({ space: 12 }) {
           ForEach(this.abnormalFrames, (item: KeyframeImageItem) => {
@@ -149,44 +151,44 @@ struct VideoDetailPage {
                 Row() {}
                   .width(88)
                   .height(88)
-                  .borderRadius(12)
-                  .backgroundColor(item.severity === 'critical' ? '#FFCDD2' : '#FFE0B2')
+                  .borderRadius(AppRadius.MD)
+                  .backgroundColor(item.severity === 'critical' ? AppColors.AlertCriticalBg : AppColors.AlertWarningBg)
                 Text(item.thumbnailHint)
                   .fontSize(30)
               }
-              .margin({ right: 12 })
+              .margin({ right: AppSpacing.MD })
 
               Column() {
                 Row() {
                   Text(item.severity === 'critical' ? '高危异常' : '一般异常')
-                    .fontSize(11)
-                    .fontColor(item.severity === 'critical' ? '#B71C1C' : '#E65100')
-                    .backgroundColor(item.severity === 'critical' ? '#FFEBEE' : '#FFF3E0')
+                    .fontSize(AppFontSize.Mini)
+                    .fontColor(item.severity === 'critical' ? AppColors.AlertCritical : AppColors.AlertWarning)
+                    .backgroundColor(item.severity === 'critical' ? AppColors.AlertCriticalBg : AppColors.AlertWarningBg)
                     .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-                    .borderRadius(8)
+                    .borderRadius(AppRadius.SM)
                   Text(item.captureTime)
-                    .fontSize(12)
-                    .fontColor('#546E7A')
-                    .margin({ left: 8 })
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextSecondary)
+                    .margin({ left: AppSpacing.SM })
                 }
 
                 Text(`${item.abnormalType} · 置信度 ${item.confidence.toFixed(1)}%`)
-                  .fontSize(12)
-                  .fontColor('#90A4AE')
-                  .margin({ top: 4 })
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.TextTertiary)
+                  .margin({ top: AppSpacing.XS })
                 Text(item.label)
-                  .fontSize(14)
+                  .fontSize(AppFontSize.Body)
                   .fontWeight(FontWeight.Medium)
-                  .fontColor('#37474F')
+                  .fontColor(AppColors.TextPrimary)
                   .margin({ top: 2 })
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
             }
             .width('100%')
-            .padding(12)
+            .padding(AppSpacing.MD)
             .backgroundColor(item.severity === 'critical' ? '#FFF5F5' : '#FFFDF8')
-            .borderRadius(14)
+            .borderRadius(AppRadius.LG)
             .onClick(() => {
               promptAction.showToast({ message: `${item.label} ${item.captureTime}`, duration: 1800 });
             })
@@ -196,10 +198,10 @@ struct VideoDetailPage {
       }
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
-    .borderRadius(20)
-    .padding(16)
-    .shadow({ radius: 12, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.LG)
+    .padding(AppSpacing.PagePadding)
+    .shadow({ radius: AppShadow.ElevatedRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
   }
 
   build() {
@@ -207,21 +209,21 @@ struct VideoDetailPage {
       // Header
       Row() {
         Image($r('sys.media.ohos_ic_back'))
-          .width(28)
-          .height(28)
-          .margin({ right: 15 })
-          .fillColor('#2C3E50')
+          .width(24)
+          .height(24)
+          .margin({ right: AppSpacing.MD })
+          .fillColor(AppColors.TextPrimary)
           .onClick(() => {
             router.back();
           })
         Text('视频监控详情')
-          .fontSize(24)
-          .fontColor('#2C3E50')
-          .fontWeight(FontWeight.Bolder)
+          .fontSize(AppFontSize.H1)
+          .fontColor(AppColors.TextPrimary)
+          .fontWeight(FontWeight.Bold)
           .layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 40, bottom: 20 })
+      .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: 40, bottom: AppSpacing.LG })
       .alignItems(VerticalAlign.Center)
 
       Scroll() {
@@ -237,6 +239,6 @@ struct VideoDetailPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }

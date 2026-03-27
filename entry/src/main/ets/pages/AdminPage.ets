@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import { HttpService, NodeListItem, AdminUserInfo, OperationLogItem, OperationLogPage } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -183,24 +184,25 @@ struct AdminPage {
       Column() {
         // ===== 顶部导航 =====
         Row() {
-          Text('←')
-            .fontSize(22)
-            .fontColor('#4CAF50')
+          Image($r('sys.media.ohos_ic_back'))
+            .width(24).height(24)
+            .fillColor(AppColors.Primary)
             .onClick(() => router.back())
-            .width(40)
+            .margin({ right: AppSpacing.SM })
           Text('管理后台')
-            .fontSize(20)
+            .fontSize(AppFontSize.H2)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#2C3E50')
+            .fontColor(AppColors.TextPrimary)
             .layoutWeight(1)
             .textAlign(TextAlign.Center)
           // 占位平衡
-          Text('').width(40)
+          Text('').width(30)
         }
         .width('100%')
         .height(56)
-        .padding({ left: 15, right: 15 })
-        .backgroundColor('#FFFFFF')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
+        .backgroundColor(AppColors.Surface)
+        .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
 
         // ===== Tab 栏 =====
         Row() {
@@ -209,8 +211,8 @@ struct AdminPage {
           this.TabButton('操作日志', 2)
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 10, bottom: 5 })
-        .backgroundColor('#FFFFFF')
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.SM, bottom: AppSpacing.XS })
+        .backgroundColor(AppColors.Surface)
 
         // ===== 内容区 =====
         if (this.currentTab === 0) {
@@ -223,7 +225,7 @@ struct AdminPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F2F6F3')
+      .backgroundColor(AppColors.Background)
 
       // ===== 新增节点弹窗 =====
       if (this.showAddDialog) {
@@ -245,12 +247,12 @@ struct AdminPage {
   // ===== Tab 按钮 =====
   @Builder TabButton(label: string, index: number) {
     Text(label)
-      .fontSize(15)
+      .fontSize(AppFontSize.Body)
       .fontWeight(this.currentTab === index ? FontWeight.Bold : FontWeight.Normal)
-      .fontColor(this.currentTab === index ? '#4CAF50' : '#90A4AE')
-      .padding({ left: 20, right: 20, top: 10, bottom: 10 })
-      .borderRadius(20)
-      .backgroundColor(this.currentTab === index ? '#E8F5E9' : Color.Transparent)
+      .fontColor(this.currentTab === index ? AppColors.Primary : AppColors.TextTertiary)
+      .padding({ left: AppSpacing.LG, right: AppSpacing.LG, top: AppSpacing.SM, bottom: AppSpacing.SM })
+      .borderRadius(AppRadius.Full)
+      .backgroundColor(this.currentTab === index ? AppColors.SuccessBg : Color.Transparent)
       .onClick(() => { this.currentTab = index; })
   }
 
@@ -260,14 +262,14 @@ struct AdminPage {
       // 标题 + 新增按钮
       Row() {
         Text(`共 ${this.nodes.length} 个节点`)
-          .fontSize(14)
-          .fontColor('#78909C')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
         Blank()
         Button('+ 新增')
-          .fontSize(14)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#4CAF50')
-          .borderRadius(20)
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextOnPrimary)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.Full)
           .height(34)
           .onClick(() => {
             this.dialogNodeId = '';
@@ -276,14 +278,14 @@ struct AdminPage {
           })
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 })
+      .padding({ left: AppSpacing.XL, right: AppSpacing.XL, top: AppSpacing.LG, bottom: AppSpacing.SM })
 
       if (this.nodes.length === 0 && !this.isLoading) {
         Column() {
           Blank()
           Text('暂无节点')
-            .fontSize(16)
-            .fontColor('#B0BEC5')
+            .fontSize(AppFontSize.H3)
+            .fontColor(AppColors.TextTertiary)
           Blank()
         }
         .layoutWeight(1)
@@ -296,27 +298,27 @@ struct AdminPage {
               Row() {
                 // 状态指示
                 Circle({ width: 10, height: 10 })
-                  .fill(node.status === 'online' ? '#4CAF50' : '#BDBDBD')
-                  .margin({ right: 12 })
+                  .fill(node.status === 'online' ? AppColors.Success : AppColors.Border)
+                  .margin({ right: AppSpacing.MD })
                 // 信息
                 Column() {
                   Text(node.id)
-                    .fontSize(15)
+                    .fontSize(AppFontSize.Body)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor('#2C3E50')
+                    .fontColor(AppColors.TextPrimary)
                   Text(node.name)
-                    .fontSize(13)
-                    .fontColor('#78909C')
-                    .margin({ top: 4 })
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextTertiary)
+                    .margin({ top: AppSpacing.XS })
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
                 // 编辑
                 Text('编辑')
-                  .fontSize(13)
-                  .fontColor('#4CAF50')
-                  .padding(8)
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.Primary)
+                  .padding(AppSpacing.SM)
                   .onClick(() => {
                     this.editingNodeId = node.id;
                     this.dialogNodeName = node.name;
@@ -324,21 +326,22 @@ struct AdminPage {
                   })
                 // 删除
                 Text('删除')
-                  .fontSize(13)
-                  .fontColor('#F44336')
-                  .padding(8)
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.AlertCritical)
+                  .padding(AppSpacing.SM)
                   .onClick(() => this.confirmDeleteNode(node.id))
               }
               .width('100%')
-              .padding(16)
-              .backgroundColor('#FFFFFF')
-              .borderRadius(12)
+              .padding(AppSpacing.PagePadding)
+              .backgroundColor(AppColors.Surface)
+              .borderRadius(AppRadius.MD)
+              .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
             }
           })
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 15, right: 15 })
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
       }
     }
     .layoutWeight(1)
@@ -350,18 +353,18 @@ struct AdminPage {
     Column() {
       Row() {
         Text(`共 ${this.users.length} 个用户`)
-          .fontSize(14)
-          .fontColor('#78909C')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 })
+      .padding({ left: AppSpacing.XL, right: AppSpacing.XL, top: AppSpacing.LG, bottom: AppSpacing.SM })
 
       if (this.users.length === 0 && !this.isLoading) {
         Column() {
           Blank()
           Text('暂无用户数据')
-            .fontSize(16)
-            .fontColor('#B0BEC5')
+            .fontSize(AppFontSize.H3)
+            .fontColor(AppColors.TextTertiary)
           Blank()
         }
         .layoutWeight(1)
@@ -375,46 +378,47 @@ struct AdminPage {
                 // 用户信息
                 Column() {
                   Text(user.userName || '未命名')
-                    .fontSize(15)
+                    .fontSize(AppFontSize.Body)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor('#2C3E50')
+                    .fontColor(AppColors.TextPrimary)
                   Text(user.phone)
-                    .fontSize(13)
-                    .fontColor('#78909C')
-                    .margin({ top: 4 })
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextTertiary)
+                    .margin({ top: AppSpacing.XS })
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
                 // 节点授权
                 Text('授权')
-                  .fontSize(12)
-                  .fontColor('#1976D2')
-                  .backgroundColor('#E3F2FD')
-                  .borderRadius(12)
-                  .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-                  .margin({ right: 8 })
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.Accent)
+                  .backgroundColor(AppColors.AlertInfoBg)
+                  .borderRadius(AppRadius.MD)
+                  .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: 5, bottom: 5 })
+                  .margin({ right: AppSpacing.SM })
                   .onClick(() => this.openNodeAccess(user))
 
                 // 角色标签
                 Text(user.role === 'admin' ? '管理员' : '普通用户')
-                  .fontSize(12)
-                  .fontColor(user.role === 'admin' ? '#E65100' : '#4CAF50')
-                  .backgroundColor(user.role === 'admin' ? '#FFF3E0' : '#E8F5E9')
-                  .borderRadius(12)
-                  .padding({ left: 12, right: 12, top: 5, bottom: 5 })
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(user.role === 'admin' ? AppColors.AlertWarning : AppColors.Primary)
+                  .backgroundColor(user.role === 'admin' ? AppColors.AlertWarningBg : AppColors.SuccessBg)
+                  .borderRadius(AppRadius.MD)
+                  .padding({ left: AppSpacing.MD, right: AppSpacing.MD, top: 5, bottom: 5 })
                   .onClick(() => this.confirmChangeRole(user))
               }
               .width('100%')
-              .padding(16)
-              .backgroundColor('#FFFFFF')
-              .borderRadius(12)
+              .padding(AppSpacing.PagePadding)
+              .backgroundColor(AppColors.Surface)
+              .borderRadius(AppRadius.MD)
+              .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
             }
           })
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 15, right: 15 })
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
       }
     }
     .layoutWeight(1)
@@ -424,7 +428,6 @@ struct AdminPage {
   // ===== 弹窗 Overlay =====
   @Builder DialogOverlay(title: string, isAdd: boolean) {
     Column() {
-      // 遮罩
       Blank()
     }
     .width('100%')
@@ -438,45 +441,45 @@ struct AdminPage {
 
     Column() {
       Text(title)
-        .fontSize(18)
+        .fontSize(AppFontSize.H2)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#2C3E50')
-        .margin({ bottom: 20 })
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: AppSpacing.XL })
 
       if (isAdd) {
         TextInput({ placeholder: '节点 ID（如 A03_Node_03）', text: this.dialogNodeId })
           .onChange((value: string) => { this.dialogNodeId = value; })
           .height(44)
-          .backgroundColor('#F5F5F5')
-          .borderRadius(8)
-          .margin({ bottom: 12 })
+          .backgroundColor(AppColors.Background)
+          .borderRadius(AppRadius.SM)
+          .margin({ bottom: AppSpacing.MD })
       }
 
       TextInput({ placeholder: '节点名称', text: this.dialogNodeName })
         .onChange((value: string) => { this.dialogNodeName = value; })
         .height(44)
-        .backgroundColor('#F5F5F5')
-        .borderRadius(8)
-        .margin({ bottom: 20 })
+        .backgroundColor(AppColors.Background)
+        .borderRadius(AppRadius.SM)
+        .margin({ bottom: AppSpacing.XL })
 
       Row() {
         Button('取消')
-          .fontSize(14)
-          .fontColor('#78909C')
-          .backgroundColor('#F5F5F5')
-          .borderRadius(20)
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .backgroundColor(AppColors.Background)
+          .borderRadius(AppRadius.Full)
           .height(38)
           .layoutWeight(1)
-          .margin({ right: 10 })
+          .margin({ right: AppSpacing.SM })
           .onClick(() => {
             this.showAddDialog = false;
             this.showEditDialog = false;
           })
         Button('确定')
-          .fontSize(14)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#4CAF50')
-          .borderRadius(20)
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextOnPrimary)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.Full)
           .height(38)
           .layoutWeight(1)
           .onClick(async () => {
@@ -490,11 +493,11 @@ struct AdminPage {
       .width('100%')
     }
     .width('85%')
-    .padding(24)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(16)
+    .padding(AppSpacing.XXL)
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.LG)
     .position({ x: '7.5%', y: '30%' })
-    .shadow({ radius: 20, color: 'rgba(0,0,0,0.15)', offsetY: 5 })
+    .shadow({ radius: AppShadow.ElevatedRadius, color: AppShadow.ElevatedColor, offsetY: AppShadow.ElevatedOffsetY })
   }
 
   // ===== 操作日志 Tab =====
@@ -502,14 +505,14 @@ struct AdminPage {
     Column() {
       Row() {
         Text(`共 ${this.opLogTotal} 条日志`)
-          .fontSize(14)
-          .fontColor('#78909C')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
         Blank()
         if (this.opLogPage > 1) {
           Text('上一页')
-            .fontSize(13)
-            .fontColor('#4CAF50')
-            .padding(8)
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.Primary)
+            .padding(AppSpacing.SM)
             .onClick(async () => {
               this.opLogPage -= 1;
               await this.loadOpLogs();
@@ -517,9 +520,9 @@ struct AdminPage {
         }
         if (this.opLogs.length >= 20) {
           Text('下一页')
-            .fontSize(13)
-            .fontColor('#4CAF50')
-            .padding(8)
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.Primary)
+            .padding(AppSpacing.SM)
             .onClick(async () => {
               this.opLogPage += 1;
               await this.loadOpLogs();
@@ -527,14 +530,14 @@ struct AdminPage {
         }
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 })
+      .padding({ left: AppSpacing.XL, right: AppSpacing.XL, top: AppSpacing.LG, bottom: AppSpacing.SM })
 
       if (this.opLogs.length === 0 && !this.isLoading) {
         Column() {
           Blank()
           Text('暂无操作日志')
-            .fontSize(16)
-            .fontColor('#B0BEC5')
+            .fontSize(AppFontSize.H3)
+            .fontColor(AppColors.TextTertiary)
           Blank()
         }
         .layoutWeight(1)
@@ -547,40 +550,41 @@ struct AdminPage {
               Column() {
                 Row() {
                   Text(log.operationType)
-                    .fontSize(12)
-                    .fontColor('#FFFFFF')
-                    .backgroundColor('#78909C')
-                    .borderRadius(4)
-                    .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextOnPrimary)
+                    .backgroundColor(AppColors.TextSecondary)
+                    .borderRadius(AppRadius.SM)
+                    .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: 3, bottom: 3 })
                   Text(log.userName || '-')
-                    .fontSize(13)
-                    .fontColor('#2C3E50')
-                    .margin({ left: 10 })
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextPrimary)
+                    .margin({ left: AppSpacing.SM })
                     .layoutWeight(1)
                   Text(log.createdAt || '')
-                    .fontSize(11)
-                    .fontColor('#B0BEC5')
+                    .fontSize(AppFontSize.Mini)
+                    .fontColor(AppColors.TextTertiary)
                 }
                 .width('100%')
                 .margin({ bottom: 6 })
 
                 Text(log.detail || '-')
-                  .fontSize(13)
-                  .fontColor('#607D8B')
+                  .fontSize(AppFontSize.Caption)
+                  .fontColor(AppColors.TextSecondary)
                   .maxLines(2)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
               }
               .width('100%')
-              .padding(14)
-              .backgroundColor('#FFFFFF')
-              .borderRadius(10)
+              .padding(AppSpacing.LG)
+              .backgroundColor(AppColors.Surface)
+              .borderRadius(AppRadius.MD)
+              .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
             }
           })
         }
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 15, right: 15 })
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
       }
     }
     .layoutWeight(1)
@@ -600,24 +604,24 @@ struct AdminPage {
 
     Column() {
       Text(`节点授权 - ${this.nodeAccessUserName}`)
-        .fontSize(18)
+        .fontSize(AppFontSize.H2)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#2C3E50')
-        .margin({ bottom: 16 })
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: AppSpacing.LG })
 
       if (this.allNodeIds.length === 0) {
         Text('暂无可授权节点')
-          .fontSize(14)
-          .fontColor('#B0BEC5')
-          .margin({ bottom: 20 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ bottom: AppSpacing.XL })
       } else {
         List({ space: 8 }) {
           ForEach(this.allNodeIds, (nodeId: string) => {
             ListItem() {
               Row() {
                 Text(nodeId)
-                  .fontSize(14)
-                  .fontColor('#2C3E50')
+                  .fontSize(AppFontSize.Body)
+                  .fontColor(AppColors.TextPrimary)
                   .layoutWeight(1)
                 Toggle({ type: ToggleType.Switch, isOn: this.nodeAccessIds.includes(nodeId) })
                   .onChange((isOn: boolean) => {
@@ -625,30 +629,30 @@ struct AdminPage {
                   })
               }
               .width('100%')
-              .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+              .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: 6, bottom: 6 })
             }
           })
         }
         .width('100%')
         .height(200)
-        .margin({ bottom: 16 })
+        .margin({ bottom: AppSpacing.LG })
       }
 
       Row() {
         Button('取消')
-          .fontSize(14)
-          .fontColor('#78909C')
-          .backgroundColor('#F5F5F5')
-          .borderRadius(20)
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .backgroundColor(AppColors.Background)
+          .borderRadius(AppRadius.Full)
           .height(38)
           .layoutWeight(1)
-          .margin({ right: 10 })
+          .margin({ right: AppSpacing.SM })
           .onClick(() => { this.showNodeAccessDialog = false; })
         Button('保存')
-          .fontSize(14)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#4CAF50')
-          .borderRadius(20)
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextOnPrimary)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.Full)
           .height(38)
           .layoutWeight(1)
           .onClick(async () => { await this.saveNodeAccess(); })
@@ -656,10 +660,10 @@ struct AdminPage {
       .width('100%')
     }
     .width('85%')
-    .padding(24)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(16)
+    .padding(AppSpacing.XXL)
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.LG)
     .position({ x: '7.5%', y: '25%' })
-    .shadow({ radius: 20, color: 'rgba(0,0,0,0.15)', offsetY: 5 })
+    .shadow({ radius: AppShadow.ElevatedRadius, color: AppShadow.ElevatedColor, offsetY: AppShadow.ElevatedOffsetY })
   }
 }

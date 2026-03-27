@@ -2,6 +2,7 @@ import { router, promptAction } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { HttpService } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppSize } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -13,6 +14,7 @@ struct LoginPage {
   @State autoLogin: boolean = false;
   @State isAutoLoggingIn: boolean = true;
   @State agreedToTerms: boolean = false;
+  @StorageLink('currentBreakpoint') currentBreakpoint: string = 'sm';
 
   // 注册/找回专用
   @State phone: string = '';
@@ -210,22 +212,22 @@ struct LoginPage {
           this.agreedToTerms = value;
         })
       Text('已阅读并同意')
-        .fontSize(12)
-        .fontColor('#999')
+        .fontSize(AppFontSize.Caption)
+        .fontColor(AppColors.TextTertiary)
       Text('《用户协议》')
-        .fontSize(12)
-        .fontColor('#4CAF50')
+        .fontSize(AppFontSize.Caption)
+        .fontColor(AppColors.Primary)
         .onClick(() => router.pushUrl({ url: 'pages/AgreementPage', params: { type: 'user' } }))
       Text('与')
-        .fontSize(12)
-        .fontColor('#999')
+        .fontSize(AppFontSize.Caption)
+        .fontColor(AppColors.TextTertiary)
       Text('《隐私政策》')
-        .fontSize(12)
-        .fontColor('#4CAF50')
+        .fontSize(AppFontSize.Caption)
+        .fontColor(AppColors.Primary)
         .onClick(() => router.pushUrl({ url: 'pages/AgreementPage', params: { type: 'privacy' } }))
     }
     .width('80%')
-    .margin({ top: 10, bottom: 20 })
+    .margin({ top: AppSpacing.SM, bottom: AppSpacing.LG })
     .justifyContent(FlexAlign.Center)
   }
 
@@ -233,21 +235,27 @@ struct LoginPage {
     Column() {
       // Logo
       Image($r('app.media.app_icon'))
-        .width(120)
-        .height(120)
-        .borderRadius(20)
-        .margin({ top: 40, bottom: 30 })
+        .width(100)
+        .height(100)
+        .borderRadius(AppRadius.LG)
+        .margin({ top: 40, bottom: AppSpacing.LG })
 
       Text('鸿蒙慧田')
-        .fontSize(28)
+        .fontSize(AppFontSize.Hero)
         .fontWeight(FontWeight.Bold)
-        .margin({ bottom: 40 })
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: AppSpacing.SM })
+      Text('智慧农业 · IoT 管理平台')
+        .fontSize(AppFontSize.Caption)
+        .fontColor(AppColors.TextTertiary)
+        .margin({ bottom: 36 })
 
       TextInput({ placeholder: '请输入用户名或手机号', text: this.username })
         .type(InputType.Normal)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 20 })
+        .height(AppSize.InputHeight)
+        .margin({ bottom: AppSpacing.LG })
+        .borderRadius(AppRadius.MD)
         .onChange((value: string) => {
           this.username = value;
         })
@@ -255,8 +263,9 @@ struct LoginPage {
       TextInput({ placeholder: '请输入密码', text: this.password })
         .type(InputType.Password)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 20 })
+        .height(AppSize.InputHeight)
+        .margin({ bottom: AppSpacing.LG })
+        .borderRadius(AppRadius.MD)
         .onChange((value: string) => {
           this.password = value;
         })
@@ -269,8 +278,8 @@ struct LoginPage {
               this.rememberPassword = value;
               if (!value) this.autoLogin = false;
             })
-          Text('记住密码').fontSize(14).fontColor('#666')
-        }.margin({ right: 10 })
+          Text('记住密码').fontSize(AppFontSize.Caption).fontColor(AppColors.TextSecondary)
+        }.margin({ right: AppSpacing.MD })
 
         Row() {
           Checkbox({ name: 'autoLogin', group: 'login' })
@@ -279,33 +288,35 @@ struct LoginPage {
               this.autoLogin = value;
               if (value) this.rememberPassword = true;
             })
-          Text('自动登录').fontSize(14).fontColor('#666')
+          Text('自动登录').fontSize(AppFontSize.Caption).fontColor(AppColors.TextSecondary)
         }
       }
       .width('80%')
-      .margin({ bottom: 20 })
+      .margin({ bottom: AppSpacing.XL })
       .justifyContent(FlexAlign.Start)
 
       Button('登录')
         .width('80%')
-        .height(50)
-        .backgroundColor('#4CAF50')
+        .height(AppSize.ButtonHeight)
+        .backgroundColor(AppColors.Primary)
+        .borderRadius(AppRadius.MD)
+        .fontSize(AppFontSize.Body)
         .onClick(() => {
           this.onLoginClick();
         })
 
       Row() {
         Text('新用户注册')
-          .fontSize(14)
-          .fontColor('#4CAF50')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.Primary)
           .onClick(() => this.currentMode = 'register')
         Text('忘记密码?')
-          .fontSize(14)
-          .fontColor('#999')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
           .onClick(() => this.currentMode = 'forgot')
       }
       .width('80%')
-      .margin({ top: 20 })
+      .margin({ top: AppSpacing.LG })
       .justifyContent(FlexAlign.SpaceBetween)
 
       Blank()
@@ -319,59 +330,66 @@ struct LoginPage {
     Column() {
       // 头部返回
       Row() {
-        Text('< 返回登录')
-          .fontSize(16)
-          .fontColor('#666')
+        Text('← 返回登录')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextSecondary)
           .onClick(() => this.currentMode = 'login')
         Blank()
       }
       .width('90%')
-      .margin({ top: 20, bottom: 40 })
+      .margin({ top: AppSpacing.LG, bottom: 36 })
 
       Text('新用户注册')
-        .fontSize(28)
+        .fontSize(AppFontSize.Hero)
         .fontWeight(FontWeight.Bold)
-        .margin({ bottom: 40 })
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: 36 })
         .width('80%')
         .textAlign(TextAlign.Start)
 
       TextInput({ placeholder: '请输入手机号', text: this.phone })
         .type(InputType.PhoneNumber)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 20 })
+        .height(AppSize.InputHeight)
+        .borderRadius(AppRadius.MD)
+        .margin({ bottom: AppSpacing.LG })
         .onChange((value: string) => this.phone = value)
 
       Row() {
         TextInput({ placeholder: '请输入验证码', text: this.verifyCode })
           .type(InputType.Number)
           .width('60%')
-          .height(50)
+          .height(AppSize.InputHeight)
+          .borderRadius(AppRadius.MD)
           .onChange((value: string) => this.verifyCode = value)
         Button(this.codeCountdown > 0 ? `${this.codeCountdown}s` : (this.isSendingCode ? '发送中' : '获取'))
           .width('35%')
-          .height(50)
-          .backgroundColor('#4CAF50')
+          .height(AppSize.InputHeight)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.MD)
           .enabled(!this.isSendingCode && this.codeCountdown === 0)
           .onClick(() => {
             void this.onSendVerifyCodeClick();
           })
       }
       .width('80%')
-      .margin({ bottom: 20 })
+      .margin({ bottom: AppSpacing.LG })
       .justifyContent(FlexAlign.SpaceBetween)
 
       TextInput({ placeholder: '请设置密码', text: this.newPassword })
         .type(InputType.Password)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 40 })
+        .height(AppSize.InputHeight)
+        .borderRadius(AppRadius.MD)
+        .margin({ bottom: 36 })
         .onChange((value: string) => this.newPassword = value)
 
       Button('注册并登录')
         .width('80%')
-        .height(50)
-        .backgroundColor('#4CAF50')
+        .height(AppSize.ButtonHeight)
+        .backgroundColor(AppColors.Primary)
+        .borderRadius(AppRadius.MD)
+        .fontSize(AppFontSize.Body)
         .onClick(() => {
           this.onRegisterClick();
         })
@@ -387,59 +405,66 @@ struct LoginPage {
     Column() {
       // 头部返回
       Row() {
-        Text('< 返回登录')
-          .fontSize(16)
-          .fontColor('#666')
+        Text('← 返回登录')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextSecondary)
           .onClick(() => this.currentMode = 'login')
         Blank()
       }
       .width('90%')
-      .margin({ top: 20, bottom: 40 })
+      .margin({ top: AppSpacing.LG, bottom: 36 })
 
       Text('找回密码')
-        .fontSize(28)
+        .fontSize(AppFontSize.Hero)
         .fontWeight(FontWeight.Bold)
-        .margin({ bottom: 40 })
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: 36 })
         .width('80%')
         .textAlign(TextAlign.Start)
 
       TextInput({ placeholder: '请输入手机号', text: this.phone })
         .type(InputType.PhoneNumber)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 20 })
+        .height(AppSize.InputHeight)
+        .borderRadius(AppRadius.MD)
+        .margin({ bottom: AppSpacing.LG })
         .onChange((value: string) => this.phone = value)
 
       Row() {
         TextInput({ placeholder: '请输入验证码', text: this.verifyCode })
           .type(InputType.Number)
           .width('60%')
-          .height(50)
+          .height(AppSize.InputHeight)
+          .borderRadius(AppRadius.MD)
           .onChange((value: string) => this.verifyCode = value)
         Button(this.codeCountdown > 0 ? `${this.codeCountdown}s` : (this.isSendingCode ? '发送中' : '获取'))
           .width('35%')
-          .height(50)
-          .backgroundColor('#4CAF50')
+          .height(AppSize.InputHeight)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.MD)
           .enabled(!this.isSendingCode && this.codeCountdown === 0)
           .onClick(() => {
             void this.onSendVerifyCodeClick();
           })
       }
       .width('80%')
-      .margin({ bottom: 20 })
+      .margin({ bottom: AppSpacing.LG })
       .justifyContent(FlexAlign.SpaceBetween)
 
       TextInput({ placeholder: '请输入新密码', text: this.newPassword })
         .type(InputType.Password)
         .width('80%')
-        .height(50)
-        .margin({ bottom: 40 })
+        .height(AppSize.InputHeight)
+        .borderRadius(AppRadius.MD)
+        .margin({ bottom: 36 })
         .onChange((value: string) => this.newPassword = value)
 
       Button('确认修改')
         .width('80%')
-        .height(50)
-        .backgroundColor('#4CAF50')
+        .height(AppSize.ButtonHeight)
+        .backgroundColor(AppColors.Primary)
+        .borderRadius(AppRadius.MD)
+        .fontSize(AppFontSize.Body)
         .onClick(() => {
           this.onForgotPasswordClick();
         })
@@ -448,12 +473,75 @@ struct LoginPage {
     .height('100%')
   }
 
+  @Builder BrandPanel() {
+    Column() {
+      Image($r('app.media.app_icon'))
+        .width(120)
+        .height(120)
+        .borderRadius(AppRadius.LG)
+        .margin({ bottom: AppSpacing.XL })
+      Text('鸿蒙慧田')
+        .fontSize(40)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.TextOnPrimary)
+        .margin({ bottom: AppSpacing.SM })
+      Text('智慧农业 · IoT 监测管理平台')
+        .fontSize(AppFontSize.Body)
+        .fontColor('rgba(255,255,255,0.8)')
+      Text('🌱 实时监控 · 智能预警 · 精准溯源')
+        .fontSize(AppFontSize.Caption)
+        .fontColor('rgba(255,255,255,0.6)')
+        .margin({ top: AppSpacing.MD })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .linearGradient({
+      angle: 135,
+      colors: [[AppColors.GradientBannerStart, 0], [AppColors.GradientBannerEnd, 1]]
+    })
+  }
+
   build() {
     Column() {
       if (this.isAutoLoggingIn) {
-        LoadingProgress()
-          .width(80)
-          .height(80)
+        Column() {
+          LoadingProgress()
+            .width(60)
+            .height(60)
+            .color(AppColors.Primary)
+          Text('正在登录...')
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.TextTertiary)
+            .margin({ top: AppSpacing.MD })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else if (this.currentBreakpoint === 'lg') {
+        Row() {
+          // 左侧品牌区
+          Column() {
+            this.BrandPanel()
+          }
+          .width('42%')
+          .height('100%')
+
+          // 右侧表单区
+          Column() {
+            if (this.currentMode === 'login') {
+              this.LoginView()
+            } else if (this.currentMode === 'register') {
+              this.RegisterView()
+            } else if (this.currentMode === 'forgot') {
+              this.ForgotView()
+            }
+          }
+          .layoutWeight(1)
+          .height('100%')
+        }
+        .width('100%')
+        .layoutWeight(1)
       } else {
         if (this.currentMode === 'login') {
           this.LoginView()
@@ -466,7 +554,7 @@ struct LoginPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }

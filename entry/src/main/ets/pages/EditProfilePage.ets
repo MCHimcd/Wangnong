@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import { HttpService } from '../services/HttpService';
 import { UserProfile } from '../models/UserData';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -27,30 +28,29 @@ struct EditProfilePage {
     Column() {
       // 头部导航
       Row() {
-        Text('<')
-          .fontSize(24)
-          .fontWeight(FontWeight.Medium)
-          .margin({ right: 16 })
-          .fontColor('#333333')
-          .onClick(() => {
-            router.back();
-          })
+        Image($r('sys.media.ohos_ic_back'))
+          .width(24).height(24)
+          .margin({ right: AppSpacing.MD })
+          .fillColor(AppColors.TextPrimary)
+          .onClick(() => { router.back(); })
         Text('编辑资料')
-          .fontSize(20)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.TextPrimary)
       }
       .width('100%')
       .height(56)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(Color.White)
+      .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
+      .backgroundColor(AppColors.Surface)
       .alignItems(VerticalAlign.Center)
+      .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
 
       // 表单
       Column() {
         Row() {
           Text('姓名')
-            .fontSize(16)
-            .fontColor('#333333')
+            .fontSize(AppFontSize.Body)
+            .fontColor(AppColors.TextPrimary)
           TextInput({ text: this.userName })
             .width('70%')
             .backgroundColor(Color.Transparent)
@@ -59,36 +59,36 @@ struct EditProfilePage {
               this.userName = value;
             })
         }
-        .width('90%')
-        .height(60)
-        .padding({ left: 20, right: 20 })
-        .backgroundColor(Color.White)
-        .borderRadius({ topLeft: 12, topRight: 12 })
-        .margin({ top: 20 })
+        .width('100%')
+        .height(56)
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
+        .backgroundColor(AppColors.Surface)
+        .borderRadius({ topLeft: AppRadius.MD, topRight: AppRadius.MD })
+        .margin({ top: AppSpacing.LG })
         .justifyContent(FlexAlign.SpaceBetween)
 
-        Divider().color('#F2F6F3').width('85%')
+        Divider().color(AppColors.Divider).width('90%')
 
         Row() {
           Text('性别')
-            .fontSize(16)
-            .fontColor('#333333')
+            .fontSize(AppFontSize.Body)
+            .fontColor(AppColors.TextPrimary)
           Row() {
             Text(this.gender)
-              .fontSize(16)
-              .fontColor('#666666')
-              .margin({ right: 8 })
-            Text('>')
-              .fontSize(16)
-              .fontColor('#999999')
+              .fontSize(AppFontSize.Body)
+              .fontColor(AppColors.TextSecondary)
+              .margin({ right: AppSpacing.SM })
+            Text('›')
+              .fontSize(20)
+              .fontColor(AppColors.TextTertiary)
           }
           .onClick(() => {
             promptAction.showActionMenu({
                title: '选择性别',
                buttons: [
-                 { text: '男', color: '#4CAF50' },
-                 { text: '女', color: '#4CAF50' },
-                 { text: '保密', color: '#4CAF50' }
+                 { text: '男', color: AppColors.Primary },
+                 { text: '女', color: AppColors.Primary },
+                 { text: '保密', color: AppColors.Primary }
                ]
             }).then(data => {
                const options = ['男', '女', '保密'];
@@ -96,26 +96,26 @@ struct EditProfilePage {
             });
           })
         }
-        .width('90%')
-        .height(60)
-        .padding({ left: 20, right: 20 })
-        .backgroundColor(Color.White)
+        .width('100%')
+        .height(56)
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
+        .backgroundColor(AppColors.Surface)
         .justifyContent(FlexAlign.SpaceBetween)
 
-        Divider().color('#F2F6F3').width('85%')
+        Divider().color(AppColors.Divider).width('90%')
 
         Row() {
           Text('出生日期')
-            .fontSize(16)
-            .fontColor('#333333')
+            .fontSize(AppFontSize.Body)
+            .fontColor(AppColors.TextPrimary)
           Row() {
             Text(this.birthDate)
-              .fontSize(16)
-              .fontColor('#666666')
-              .margin({ right: 8 })
-            Text('>')
-              .fontSize(16)
-              .fontColor('#999999')
+              .fontSize(AppFontSize.Body)
+              .fontColor(AppColors.TextSecondary)
+              .margin({ right: AppSpacing.SM })
+            Text('›')
+              .fontSize(20)
+              .fontColor(AppColors.TextTertiary)
           }
           .onClick(() => {
             DatePickerDialog.show({
@@ -128,18 +128,20 @@ struct EditProfilePage {
             })
           })
         }
-        .width('90%')
-        .height(60)
-        .padding({ left: 20, right: 20 })
-        .backgroundColor(Color.White)
-        .borderRadius({ bottomLeft: 12, bottomRight: 12 })
+        .width('100%')
+        .height(56)
+        .padding({ left: AppSpacing.LG, right: AppSpacing.LG })
+        .backgroundColor(AppColors.Surface)
+        .borderRadius({ bottomLeft: AppRadius.MD, bottomRight: AppRadius.MD })
         .justifyContent(FlexAlign.SpaceBetween)
 
         Button('保存修改')
-          .width('90%')
-          .height(50)
-          .backgroundColor('#4CAF50')
-          .margin({ top: 40 })
+          .width('100%')
+          .height(AppSize.ButtonHeight)
+          .backgroundColor(AppColors.Primary)
+          .borderRadius(AppRadius.MD)
+          .fontSize(AppFontSize.Body)
+          .margin({ top: 36 })
           .onClick(async () => {
              let newProfile: UserProfile = {
                userId: this.originalProfile ? this.originalProfile.userId : '',
@@ -162,10 +164,10 @@ struct EditProfilePage {
       }
       .width('100%')
       .layoutWeight(1)
-      .alignItems(HorizontalAlign.Center)
+      .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }

@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import { AlertData } from '../models/AlertData';
 import { AlertSyncService } from '../services/AlertSyncService';
 import { promptAction } from '@kit.ArkUI';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -40,9 +41,15 @@ struct AlertDetailPage {
   }
 
   getLevelColor(level: string): string {
-    if (level === 'critical') return '#F44336';
-    if (level === 'warning') return '#FF9800';
-    return '#2196F3';
+    if (level === 'critical') return AppColors.AlertCritical;
+    if (level === 'warning') return AppColors.AlertWarning;
+    return AppColors.AlertInfo;
+  }
+
+  getLevelBg(level: string): string {
+    if (level === 'critical') return AppColors.AlertCriticalBg;
+    if (level === 'warning') return AppColors.AlertWarningBg;
+    return AppColors.AlertInfoBg;
   }
 
   async markAsHandled() {
@@ -61,40 +68,42 @@ struct AlertDetailPage {
       // Header
       Row() {
         Image($r('sys.media.ohos_ic_back'))
-          .width(28).height(28).margin({ right: 15 }).fillColor('#2C3E50')
+          .width(24).height(24).margin({ right: AppSpacing.MD }).fillColor(AppColors.TextPrimary)
           .onClick(() => { router.back(); })
         Text('告警详情')
-          .fontSize(20).fontWeight(FontWeight.Bold).fontColor('#2C3E50').layoutWeight(1)
+          .fontSize(AppFontSize.H2).fontWeight(FontWeight.Bold).fontColor(AppColors.TextPrimary).layoutWeight(1)
       }
-      .width('100%').height(56).padding({ left: 15, right: 15 })
-      .backgroundColor('#FFFFFF')
-      .shadow({ radius: 5, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
+      .width('100%').height(56).padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
+      .backgroundColor(AppColors.Surface)
+      .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
 
       if (!this.loaded) {
         Column() {
-          Blank()
-          Text('告警数据未找到').fontSize(16).fontColor('#90A4AE')
-          Blank()
+          Text('🔔').fontSize(48).margin({ bottom: AppSpacing.MD })
+          Text('告警数据未找到').fontSize(AppFontSize.Body).fontColor(AppColors.TextTertiary)
         }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
       } else {
         Scroll() {
           Column() {
-            // Level badge
+            // Level badge bar
             Row() {
-              Circle({ width: 12, height: 12 }).fill(this.getLevelColor(this.alert.level)).margin({ right: 8 })
+              Row() {}
+                .width(4).height(20).borderRadius(2)
+                .backgroundColor(this.getLevelColor(this.alert.level))
+                .margin({ right: AppSpacing.SM })
               Text(this.getLevelText(this.alert.level))
-                .fontSize(16).fontWeight(FontWeight.Bold)
+                .fontSize(AppFontSize.Body).fontWeight(FontWeight.Bold)
                 .fontColor(this.getLevelColor(this.alert.level))
               Blank()
-              Text(this.alert.is_handled ? '已处理' : '待处理')
-                .fontSize(13)
-                .fontColor(this.alert.is_handled ? '#4CAF50' : '#F44336')
-                .backgroundColor(this.alert.is_handled ? '#E8F5E9' : '#FFEBEE')
-                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                .borderRadius(12)
+              Text(this.alert.is_handled ? '✓ 已处理' : '● 待处理')
+                .fontSize(AppFontSize.Caption)
+                .fontColor(this.alert.is_handled ? AppColors.Success : AppColors.AlertCritical)
+                .backgroundColor(this.alert.is_handled ? AppColors.SuccessBg : AppColors.AlertCriticalBg)
+                .padding({ left: AppSpacing.MD, right: AppSpacing.MD, top: AppSpacing.XS, bottom: AppSpacing.XS })
+                .borderRadius(AppRadius.Full)
             }
-            .width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
-            .margin({ top: 15 })
+            .width('100%').padding(AppSpacing.LG).backgroundColor(AppColors.Surface).borderRadius(AppRadius.MD)
+            .margin({ top: AppSpacing.MD })
 
             // Details card
             Column() {
@@ -106,44 +115,44 @@ struct AlertDetailPage {
                 this.DetailRow('处理时间', this.formatDate(this.alert.handle_time))
               }
             }
-            .width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
-            .margin({ top: 10 })
+            .width('100%').padding(AppSpacing.LG).backgroundColor(AppColors.Surface).borderRadius(AppRadius.MD)
+            .margin({ top: AppSpacing.SM })
 
             // Message
             Column() {
-              Text('告警详情').fontSize(15).fontWeight(FontWeight.Medium).fontColor('#2C3E50')
-                .margin({ bottom: 10 })
+              Text('告警详情').fontSize(AppFontSize.H3).fontWeight(FontWeight.Medium).fontColor(AppColors.TextPrimary)
+                .margin({ bottom: AppSpacing.SM })
               Text(this.alert.message)
-                .fontSize(14).fontColor('#546E7A').lineHeight(22)
+                .fontSize(AppFontSize.Body).fontColor(AppColors.TextSecondary).lineHeight(22)
             }
-            .width('100%').padding(20).backgroundColor('#FFFFFF').borderRadius(12)
-            .margin({ top: 10 })
+            .width('100%').padding(AppSpacing.LG).backgroundColor(AppColors.Surface).borderRadius(AppRadius.MD)
+            .margin({ top: AppSpacing.SM })
             .alignItems(HorizontalAlign.Start)
 
             // Action button
             if (!this.alert.is_handled) {
               Button('标记为已处理', { type: ButtonType.Capsule })
-                .width('80%').height(44).fontSize(16)
-                .backgroundColor('#4CAF50')
-                .margin({ top: 30 })
+                .width('80%').height(AppSize.ButtonHeight).fontSize(AppFontSize.Body)
+                .backgroundColor(AppColors.Primary)
+                .margin({ top: AppSpacing.XXL })
                 .onClick(() => { this.markAsHandled(); })
             }
           }
           .width('100%')
-          .padding({ left: 15, right: 15, bottom: 40 })
+          .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, bottom: 40 })
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
       }
     }
-    .width('100%').height('100%').backgroundColor('#F2F6F3')
+    .width('100%').height('100%').backgroundColor(AppColors.Background)
   }
 
   @Builder DetailRow(label: string, value: string) {
     Row() {
-      Text(label).fontSize(14).fontColor('#90A4AE').width(80)
-      Text(value).fontSize(14).fontColor('#2C3E50').layoutWeight(1)
+      Text(label).fontSize(AppFontSize.Body).fontColor(AppColors.TextTertiary).width(80)
+      Text(value).fontSize(AppFontSize.Body).fontColor(AppColors.TextPrimary).layoutWeight(1)
     }
-    .width('100%').padding({ top: 8, bottom: 8 })
+    .width('100%').padding({ top: AppSpacing.SM, bottom: AppSpacing.SM })
   }
 }

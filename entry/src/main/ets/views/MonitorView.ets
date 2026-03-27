@@ -6,6 +6,7 @@ import { LiveStreamInfo } from '../models/VideoMonitorData';
 import { VideoMonitorService } from '../services/VideoMonitorService';
 import { MqttClientService } from '../services/MqttClientService';
 import { HttpService } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 import { promptAction } from '@kit.ArkUI';
 import router from '@ohos.router';
 
@@ -16,6 +17,7 @@ export struct MonitorView {
   @ObjectLink nodeState: NodeState;
   @Prop sensorMeta: SensorMetaItem[] = [];
   @Prop equipmentMeta: EquipmentMetaItem[] = [];
+  @StorageLink('currentBreakpoint') currentBreakpoint: string = 'sm';
 
   @State liveInfo: LiveStreamInfo = {
     cameraId: '',
@@ -65,7 +67,6 @@ export struct MonitorView {
     this.nodeState.controlStateBootstrapped = true;
   }
 
-  /** 传感器卡片 isWarning 判定 */
   private isWarning(meta: SensorMetaItem, value: number): boolean {
     if (meta.warningMax !== undefined && value > meta.warningMax) {
       return true;
@@ -77,77 +78,125 @@ export struct MonitorView {
   }
 
   @Builder
+  SectionTitle(title: string, icon: string) {
+    Row() {
+      Text(icon).fontSize(18).margin({ right: AppSpacing.SM })
+      Text(title)
+        .fontSize(AppFontSize.H2)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.TextPrimary)
+    }
+    .width('100%')
+    .margin({ bottom: AppSpacing.MD })
+  }
+
+  @Builder
   SensorSection() {
     Column() {
-      Text('环境数据')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#2C3E50')
-        .width('100%')
-        .margin({ bottom: 12 })
+      this.SectionTitle('环境数据', '🌡️')
 
       // 触发依赖
       Text('').visibility(Visibility.None).fontSize(this.sensorData.revision)
 
       if (this.sensorMeta.length === 0) {
         Text('暂无传感器配置')
-          .fontSize(14)
-          .fontColor('#90A4AE')
-          .margin({ top: 8, bottom: 8 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
-        List({ space: 12 }) {
-          ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
-            ListItem() {
-              this.SensorCard(meta)
-            }
-          }, (meta: SensorMetaItem) => meta.key)
+        if (this.currentBreakpoint === 'lg') {
+          // 大屏: Grid 铺满
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
+            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+              Column() {
+                this.SensorCard(meta)
+              }
+              .width('25%')
+              .padding(AppSpacing.XS)
+            }, (meta: SensorMetaItem) => meta.key)
+          }
+          .width('100%')
+        } else if (this.currentBreakpoint === 'md') {
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
+            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+              Column() {
+                this.SensorCard(meta)
+              }
+              .width('33.33%')
+              .padding(AppSpacing.XS)
+            }, (meta: SensorMetaItem) => meta.key)
+          }
+          .width('100%')
+        } else {
+          // 小屏: 横向滚动
+          List({ space: AppSpacing.MD }) {
+            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+              ListItem() {
+                this.SensorCard(meta)
+              }
+            }, (meta: SensorMetaItem) => meta.key)
+          }
+          .listDirection(Axis.Horizontal)
+          .width('100%')
+          .height(130)
+          .scrollBar(BarState.Off)
         }
-        .listDirection(Axis.Horizontal)
-        .width('100%')
-        .height(140)
-        .scrollBar(BarState.Off)
       }
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
-    .borderRadius(20)
-    .padding(16)
-    .shadow({ radius: 12, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.XL)
+    .padding(AppSpacing.CardPadding)
+    .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
   }
 
   @Builder
   SensorCard(meta: SensorMetaItem) {
     Column() {
+      // 图标圆形底色
       Row() {
-        Text(meta.icon).fontSize(18).margin({ right: 6 })
-        Text(meta.name).fontSize(14).fontWeight(FontWeight.Medium).fontColor('#546E7A')
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(meta.icon).fontSize(20)
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      .margin({ bottom: 12 })
+      .width(36)
+      .height(36)
+      .borderRadius(18)
+      .backgroundColor(meta.bgColor || AppColors.PrimaryBg)
+      .justifyContent(FlexAlign.Center)
+      .margin({ bottom: AppSpacing.SM })
+
+      Text(meta.name)
+        .fontSize(AppFontSize.Caption)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(AppColors.TextSecondary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ bottom: AppSpacing.SM })
 
       Row() {
         Text(this.formatValue(meta))
-          .fontSize(28)
-          .fontWeight(FontWeight.Bolder)
-          .fontColor(this.isWarning(meta, this.sensorData.getValue(meta.key)) ? '#D32F2F' : '#263238')
+          .fontSize(AppFontSize.H1)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.isWarning(meta, this.sensorData.getValue(meta.key)) ?
+            AppColors.AlertCritical : AppColors.TextPrimary)
         if (meta.unit.length > 0) {
           Text(meta.unit)
-            .fontSize(13)
-            .fontColor(this.isWarning(meta, this.sensorData.getValue(meta.key)) ? '#E57373' : '#78909C')
-            .margin({ left: 3, bottom: 4 })
+            .fontSize(AppFontSize.Mini)
+            .fontColor(this.isWarning(meta, this.sensorData.getValue(meta.key)) ?
+              AppColors.AlertCritical : AppColors.TextTertiary)
+            .margin({ left: 2, bottom: 3 })
         }
       }
       .alignItems(VerticalAlign.Bottom)
     }
-    .width(140)
-    .height(110)
-    .backgroundColor(Color.White)
-    .borderRadius(16)
-    .padding(14)
+    .width(this.currentBreakpoint === 'sm' ? 130 : '100%')
+    .height(this.currentBreakpoint === 'sm' ? 120 : undefined)
+    .constraintSize({ minHeight: 110 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.LG)
+    .padding(AppSpacing.MD)
     .justifyContent(FlexAlign.Center)
-    .shadow({ radius: 10, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .alignItems(HorizontalAlign.Start)
+    .border({ width: 1, color: AppColors.Divider })
     .onClick(() => {
       router.pushUrl({
         url: 'pages/SensorDetailPage',
@@ -181,53 +230,56 @@ export struct MonitorView {
   VideoSection() {
     Column() {
       Row() {
-        Text('实时监控')
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#2C3E50')
+        this.SectionTitle('实时监控', '📹')
         Blank()
-        Text(this.liveInfo.status === 'online' ? '在线' : '离线')
-          .fontSize(12)
-          .fontColor(this.liveInfo.status === 'online' ? '#2E7D32' : '#C62828')
-          .backgroundColor(this.liveInfo.status === 'online' ? '#E8F5E9' : '#FFEBEE')
-          .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-          .borderRadius(10)
+        Text(this.liveInfo.status === 'online' ? '● 在线' : '● 离线')
+          .fontSize(AppFontSize.Caption)
+          .fontColor(this.liveInfo.status === 'online' ? AppColors.Success : AppColors.AlertCritical)
+          .backgroundColor(this.liveInfo.status === 'online' ? AppColors.SuccessBg : AppColors.AlertCriticalBg)
+          .padding({ left: AppSpacing.SM, right: AppSpacing.MD, top: AppSpacing.XS, bottom: AppSpacing.XS })
+          .borderRadius(AppRadius.Full)
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .alignItems(VerticalAlign.Center)
 
       if (this.liveInfo.status === 'online' && this.liveInfo.streamUrl.length > 0) {
         Video({ src: this.liveInfo.streamUrl, controller: this.videoController })
           .width('100%')
           .aspectRatio(16 / 9)
-          .borderRadius(16)
+          .borderRadius(AppRadius.MD)
           .controls(true)
       } else {
         Stack({ alignContent: Alignment.Center }) {
-          Row() {}.width('100%').aspectRatio(16 / 9).borderRadius(16).backgroundColor('#1F2A37')
-          Text('视频流不可用')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#FFFFFF')
+          Row() {}
+            .width('100%')
+            .aspectRatio(16 / 9)
+            .borderRadius(AppRadius.MD)
+            .backgroundColor('#1A2332')
+          Column() {
+            Text('📡').fontSize(32).margin({ bottom: AppSpacing.SM })
+            Text('视频流不可用')
+              .fontSize(AppFontSize.Body)
+              .fontColor('rgba(255,255,255,0.6)')
+          }
         }
       }
 
       Row() {
         Column() {
           Text(this.liveInfo.cameraName)
-            .fontSize(15)
+            .fontSize(AppFontSize.Body)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#2C3E50')
+            .fontColor(AppColors.TextPrimary)
           Text(`${this.liveInfo.streamTag} · ${this.liveInfo.resolution}`)
-            .fontSize(12)
-            .fontColor('#78909C')
-            .margin({ top: 4 })
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.TextTertiary)
+            .margin({ top: AppSpacing.XS })
         }
         Blank()
-        Button('查看回放')
-          .height(32)
-          .fontSize(13)
-          .backgroundColor('#4CAF50')
+        Button('查看回放', { type: ButtonType.Capsule })
+          .height(AppSize.ButtonHeightSM)
+          .fontSize(AppFontSize.Caption)
+          .backgroundColor(AppColors.Primary)
           .onClick(() => {
             router.pushUrl({
               url: 'pages/VideoDetailPage',
@@ -236,30 +288,31 @@ export struct MonitorView {
           })
       }
       .width('100%')
-      .margin({ top: 12 })
+      .margin({ top: AppSpacing.MD })
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
-    .borderRadius(20)
-    .padding(16)
-    .shadow({ radius: 12, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.XL)
+    .padding(AppSpacing.CardPadding)
+    .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
   }
 
   @Builder
   ControlSection() {
     Column() {
       Row() {
+        Text('⚙️').fontSize(18).margin({ right: AppSpacing.SM })
         Text('设备控制')
-          .fontSize(20)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C3E50')
+          .fontColor(AppColors.TextPrimary)
         Blank()
         Text('智能模式')
-          .fontSize(14)
-          .fontColor('#34495E')
-          .margin({ right: 8 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextSecondary)
+          .margin({ right: AppSpacing.SM })
         Toggle({ type: ToggleType.Switch, isOn: this.nodeState.smartMode })
-          .selectedColor('#4CAF50')
+          .selectedColor(AppColors.Primary)
           .onChange((isOn: boolean) => {
             this.nodeState.smartMode = isOn;
             MqttClientService.getInstance().publishCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
@@ -267,93 +320,109 @@ export struct MonitorView {
           })
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: AppSpacing.MD })
 
       // 触发依赖
       Text('').visibility(Visibility.None).fontSize(this.nodeState.revision)
 
       if (this.equipmentMeta.length === 0) {
         Text('暂无设备配置')
-          .fontSize(14)
-          .fontColor('#90A4AE')
-          .margin({ top: 8, bottom: 8 })
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
-        List({ space: 12 }) {
-          ForEach(this.equipmentMeta, (meta: EquipmentMetaItem) => {
-            ListItem() {
-              this.EquipmentCard(meta)
-            }
-          }, (meta: EquipmentMetaItem) => meta.key)
+        if (this.currentBreakpoint === 'lg' || this.currentBreakpoint === 'md') {
+          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
+            ForEach(this.equipmentMeta, (meta: EquipmentMetaItem) => {
+              Column() {
+                this.EquipmentCard(meta)
+              }
+              .width(this.currentBreakpoint === 'lg' ? '25%' : '33.33%')
+              .padding(AppSpacing.XS)
+            }, (meta: EquipmentMetaItem) => meta.key)
+          }
+          .width('100%')
+        } else {
+          List({ space: AppSpacing.MD }) {
+            ForEach(this.equipmentMeta, (meta: EquipmentMetaItem) => {
+              ListItem() {
+                this.EquipmentCard(meta)
+              }
+            }, (meta: EquipmentMetaItem) => meta.key)
+          }
+          .listDirection(Axis.Horizontal)
+          .width('100%')
+          .height(150)
+          .scrollBar(BarState.Off)
         }
-        .listDirection(Axis.Horizontal)
-        .width('100%')
-        .height(160)
-        .scrollBar(BarState.Off)
       }
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
-    .borderRadius(20)
-    .padding(16)
-    .shadow({ radius: 12, color: 'rgba(76,175,80,0.08)', offsetY: 4 })
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.XL)
+    .padding(AppSpacing.CardPadding)
+    .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
   }
 
   @Builder
   EquipmentCard(meta: EquipmentMetaItem) {
-    Column() {
-      Text(meta.icon)
-        .fontSize(32)
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .margin({ bottom: 8 })
+    Row() {
+      // 左侧状态竖条
+      Row() {}
+        .width(3)
+        .height(48)
+        .borderRadius(2)
+        .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : 'transparent')
 
-      Text(meta.name)
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#212B25')
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .margin({ bottom: 8 })
+      Column() {
+        Text(meta.icon)
+          .fontSize(28)
+          .margin({ bottom: AppSpacing.SM })
 
-      Button({ type: ButtonType.Capsule }) {
-        Row() {
-          Circle({ width: 8, height: 8 })
-            .fill(this.nodeState.getState(meta.key) ? '#2E7D32' : '#B0B7B0')
-            .margin({ right: 6 })
-          Text(this.nodeState.getState(meta.key) ? '运行中' : '已停止')
-            .fontSize(13)
-            .fontColor(this.nodeState.getState(meta.key) ? '#2E7D32' : '#7B847D')
+        Text(meta.name)
+          .fontSize(AppFontSize.Body)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.TextPrimary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ bottom: AppSpacing.SM })
+
+        Button({ type: ButtonType.Capsule }) {
+          Row() {
+            Circle({ width: AppSize.StatusDotSize, height: AppSize.StatusDotSize })
+              .fill(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
+              .margin({ right: AppSpacing.XS })
+            Text(this.nodeState.getState(meta.key) ? '运行中' : '已停止')
+              .fontSize(AppFontSize.Caption)
+              .fontColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
+          }
         }
+        .height(28)
+        .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.DeviceOffBg)
+        .border({ width: 1, color: this.nodeState.getState(meta.key) ? AppColors.DeviceOnBorder : AppColors.DeviceOffBorder })
+        .opacity(this.nodeState.smartMode ? 0.5 : 1.0)
+        .onClick(() => {
+          if (this.nodeState.smartMode) {
+            return;
+          }
+          const newState = !this.nodeState.getState(meta.key);
+          MqttClientService.getInstance().publishCommand(
+            this.nodeId, meta.key, newState ? 'turn_on' : 'turn_off'
+          );
+          promptAction.showToast({ message: `已发送${newState ? '开启' : '关闭'}指令` });
+        })
       }
-      .width('82%')
-      .height(32)
-      .backgroundColor(this.nodeState.getState(meta.key) ? '#E5F3E7' : '#F4F5F4')
-      .border({
-        width: 1,
-        color: this.nodeState.getState(meta.key) ? '#92C69A' : '#D9DFDA'
-      })
-      .opacity(this.nodeState.smartMode ? 0.6 : 1.0)
-      .onClick(() => {
-        if (this.nodeState.smartMode) {
-          return;
-        }
-        const newState = !this.nodeState.getState(meta.key);
-        MqttClientService.getInstance().publishCommand(
-          this.nodeId, meta.key, newState ? 'turn_on' : 'turn_off'
-        );
-        promptAction.showToast({ message: `已发送${newState ? '开启' : '关闭'}指令` });
-      })
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Center)
+      .justifyContent(FlexAlign.Center)
     }
-    .width(140)
-    .height(140)
-    .backgroundColor(this.nodeState.getState(meta.key) ? '#EAF4EA' : '#FFFFFF')
-    .border({ width: 2, color: this.nodeState.getState(meta.key) ? '#6AAA71' : '#D8DEDA' })
-    .borderRadius(16)
-    .padding(10)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
+    .width(this.currentBreakpoint === 'sm' ? 140 : '100%')
+    .height(this.currentBreakpoint === 'sm' ? 140 : undefined)
+    .constraintSize({ minHeight: 130 })
+    .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.Surface)
+    .border({ width: 1, color: this.nodeState.getState(meta.key) ? AppColors.DeviceOnBorder : AppColors.Divider })
+    .borderRadius(AppRadius.LG)
+    .padding({ left: 0, right: AppSpacing.SM, top: AppSpacing.MD, bottom: AppSpacing.MD })
     .onClick(() => {
       router.pushUrl({
         url: 'pages/DeviceDetailPage',
@@ -363,13 +432,14 @@ export struct MonitorView {
   }
 
   build() {
-    Column({ space: 14 }) {
+    Column({ space: AppSpacing.SectionGap }) {
       this.VideoSection()
       this.SensorSection()
       this.ControlSection()
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 26 })
-    .backgroundColor('#F2F6F3')
+    .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding,
+      top: AppSpacing.SectionGap, bottom: AppSpacing.XXL })
+    .backgroundColor(AppColors.Background)
   }
 }

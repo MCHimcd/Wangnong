@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { AppColors, AppFontSize, AppSpacing, AppShadow } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -23,36 +24,37 @@ struct AgreementPage {
     Column() {
       // 头部导航
       Row() {
-        Text('<')
-          .fontSize(24)
-          .fontWeight(FontWeight.Medium)
-          .margin({ right: 16 })
-          .fontColor('#333333')
+        Image($r('sys.media.ohos_ic_back'))
+          .width(24).height(24)
+          .fillColor(AppColors.TextPrimary)
+          .margin({ right: AppSpacing.MD })
           .onClick(() => {
             router.back();
           })
         Text(this.title)
-          .fontSize(20)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.TextPrimary)
       }
       .width('100%')
       .height(56)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(Color.White)
+      .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
+      .backgroundColor(AppColors.Surface)
+      .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
       .alignItems(VerticalAlign.Center)
 
       Scroll() {
         Text(this.content)
-          .fontSize(16)
-          .fontColor('#333333')
+          .fontSize(AppFontSize.H3)
+          .fontColor(AppColors.TextPrimary)
           .lineHeight(26)
-          .padding(20)
+          .padding(AppSpacing.XL)
           .width('100%')
       }
       .layoutWeight(1)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(AppColors.Surface)
   }
 }

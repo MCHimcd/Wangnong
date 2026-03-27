@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import { HttpService } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 @Entry
 @Component
@@ -42,22 +43,23 @@ struct TraceabilityScanPage {
   build() {
     Column() {
       Row() {
-        Text('<')
-          .fontSize(24)
-          .fontWeight(FontWeight.Medium)
-          .margin({ right: 16 })
-          .fontColor('#333333')
+        Image($r('sys.media.ohos_ic_back'))
+          .width(24).height(24)
+          .fillColor(AppColors.TextPrimary)
+          .margin({ right: AppSpacing.MD })
           .onClick(() => {
             router.back();
           })
         Text('溯源码扫码')
-          .fontSize(20)
+          .fontSize(AppFontSize.H2)
           .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.TextPrimary)
       }
       .width('100%')
       .height(56)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(Color.White)
+      .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding })
+      .backgroundColor(AppColors.Surface)
+      .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
       .alignItems(VerticalAlign.Center)
 
       Scroll() {
@@ -71,13 +73,13 @@ struct TraceabilityScanPage {
 
             Column() {
               Text('扫码测试界面')
-                .fontSize(22)
+                .fontSize(AppFontSize.H2)
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#E2E8F0')
               Text('当前为模拟扫码，可手动编辑内容后上传后端')
-                .fontSize(13)
+                .fontSize(AppFontSize.Caption)
                 .fontColor('#94A3B8')
-                .margin({ top: 10 })
+                .margin({ top: AppSpacing.SM })
             }
           }
           .width('100%')
@@ -85,8 +87,9 @@ struct TraceabilityScanPage {
 
           TextInput({ placeholder: '扫描结果（测试可手动输入）', text: this.scanText })
             .width('90%')
-            .height(50)
-            .margin({ top: 18 })
+            .height(48)
+            .borderRadius(AppRadius.MD)
+            .margin({ top: AppSpacing.LG })
             .onChange((value: string) => {
               this.scanText = value;
             })
@@ -94,8 +97,9 @@ struct TraceabilityScanPage {
           Row() {
             Button('模拟重新扫码')
               .width('44%')
-              .height(46)
-              .backgroundColor('#334155')
+              .height(44)
+              .borderRadius(AppRadius.MD)
+              .backgroundColor(AppColors.TextSecondary)
               .onClick(() => {
                 this.generateMockScanCode();
                 promptAction.showToast({ message: '已生成新的测试二维码内容' });
@@ -103,8 +107,9 @@ struct TraceabilityScanPage {
 
             Button(this.isSubmitting ? '上传中...' : '上传后端')
               .width('44%')
-              .height(46)
-              .backgroundColor('#4CAF50')
+              .height(44)
+              .borderRadius(AppRadius.MD)
+              .backgroundColor(AppColors.Primary)
               .enabled(!this.isSubmitting)
               .onClick(() => {
                 this.submitScanResult();
@@ -117,23 +122,24 @@ struct TraceabilityScanPage {
           if (this.resultText.length > 0) {
             Column() {
               Text('作物信息返回（后端）')
-                .fontSize(16)
+                .fontSize(AppFontSize.H3)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#1E293B')
+                .fontColor(AppColors.TextPrimary)
                 .width('100%')
 
               Text(this.resultText)
-                .fontSize(15)
-                .fontColor('#334155')
+                .fontSize(AppFontSize.Body)
+                .fontColor(AppColors.TextSecondary)
                 .lineHeight(24)
-                .margin({ top: 10 })
+                .margin({ top: AppSpacing.SM })
                 .width('100%')
             }
             .width('90%')
-            .padding(16)
-            .backgroundColor('#FFFFFF')
-            .borderRadius(12)
-            .margin({ top: 18, bottom: 24 })
+            .padding(AppSpacing.PagePadding)
+            .backgroundColor(AppColors.Surface)
+            .borderRadius(AppRadius.MD)
+            .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
+            .margin({ top: AppSpacing.LG, bottom: AppSpacing.XXL })
           }
         }
         .width('100%')
@@ -144,6 +150,6 @@ struct TraceabilityScanPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }

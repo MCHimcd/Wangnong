@@ -9,6 +9,8 @@ import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
 import { AlertData } from '../models/AlertData';
 import { AppConfig } from '../common/AppConfig';
+import { AppColors, AppFontSize, AppSpacing, AppRadius } from '../common/DesignToken';
+import { BreakpointSystem } from '../common/BreakpointSystem';
 import { promptAction } from '@kit.ArkUI';
 import router from '@ohos.router';
 
@@ -58,6 +60,7 @@ struct Index {
   }
 
   async aboutToAppear() {
+    BreakpointSystem.getInstance().register();
     await this.loadNodesFromServer();
     HttpService.getInstance().setNodeId(this.nodes[this.currentNodeIndex].id);
     await this.loadMetaForAllNodes();
@@ -111,8 +114,8 @@ struct Index {
         title: '新告警提示',
         message: `检测到新告警（最新：${alert.type_name}），是否立即查看？`,
         buttons: [
-          { text: '稍后处理', color: '#90A4AE' },
-          { text: '立即查看', color: '#D84315' }
+          { text: '稍后处理', color: AppColors.TextTertiary },
+          { text: '立即查看', color: AppColors.AlertCritical }
         ]
       }).then((res) => {
         if (res.index === 1) {
@@ -124,12 +127,30 @@ struct Index {
   }
 
   aboutToDisappear() {
+    BreakpointSystem.getInstance().unregister();
     AlertSyncService.getInstance().stopRealtimeSync();
     MqttClientService.getInstance().disconnect();
   }
 
   @StorageLink('currentTabIndex') currentTabIndex: number = 0;
   private tabsController: TabsController = new TabsController();
+
+  @Builder
+  TabLabel(title: string, icon: string, index: number) {
+    Column() {
+      Text(icon)
+        .fontSize(22)
+        .margin({ bottom: 2 })
+      Text(title)
+        .fontSize(AppFontSize.Mini)
+        .fontWeight(this.currentTabIndex === index ? FontWeight.Bold : FontWeight.Normal)
+        .fontColor(this.currentTabIndex === index ? AppColors.Primary : AppColors.TextTertiary)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+  }
 
   build() {
     Column() {
@@ -148,26 +169,27 @@ struct Index {
             }
           })
         }
-        .tabBar(SubTabBarStyle.of('首页').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+        .tabBar(this.TabLabel('首页', '🏠', 0))
 
         TabContent() {
           AlertView()
         }
-        .tabBar(SubTabBarStyle.of('消息').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+        .tabBar(this.TabLabel('消息', '🔔', 1))
 
         TabContent() {
           ProfileView()
         }
-        .tabBar(SubTabBarStyle.of('我的').labelStyle({ selectedColor: '#4CAF50', unselectedColor: '#90A4AE' }))
+        .tabBar(this.TabLabel('我的', '👤', 2))
       }
-      .animationDuration(300)
+      .animationDuration(250)
       .layoutWeight(1)
+      .barHeight(56)
       .onChange((index: number) => {
         this.currentTabIndex = index;
       })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }

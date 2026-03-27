@@ -1,6 +1,7 @@
 ﻿import { AlertData } from '../models/AlertData';
 import { promptAction } from '@kit.ArkUI';
 import { AlertSyncService } from '../services/AlertSyncService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 import router from '@ohos.router';
 
 @Component
@@ -9,6 +10,7 @@ export struct AlertView {
   @State sortBy: string = 'timestamp';
   @State order: string = 'desc';
   @State highlightedAlertId: string = '';
+  @StorageLink('currentBreakpoint') currentBreakpoint: string = 'sm';
 
   private onDataChange = () => {
     this.alerts = AlertSyncService.getInstance().getAllAlerts();
@@ -58,27 +60,40 @@ export struct AlertView {
 
   getLevelColor(level: string): string {
     if (level === 'critical') {
-      return '#F44336';
-    } 
+      return AppColors.AlertCritical;
+    }
     if (level === 'warning') {
-      return '#FF9800';
-    } 
-    return '#2196F3'; 
+      return AppColors.AlertWarning;
+    }
+    return AppColors.AlertInfo;
+  }
+
+  getLevelBg(level: string): string {
+    if (level === 'critical') {
+      return AppColors.AlertCriticalBg;
+    }
+    if (level === 'warning') {
+      return AppColors.AlertWarningBg;
+    }
+    return AppColors.AlertInfoBg;
   }
 
   build() {
     Column() {
+      // 标题
       Text('告警消息')
-        .fontSize(28)
-        .fontWeight(FontWeight.Bolder)
-        .fontColor('#2C3E50')
-        .margin({ top: 30, bottom: 20 })
+        .fontSize(AppFontSize.H1)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.TextPrimary)
         .width('100%')
-        .textAlign(TextAlign.Center)
+        .margin({ top: AppSpacing.XL, bottom: AppSpacing.LG })
+        .padding({ left: AppSpacing.PagePadding })
 
+      // 排序工具条（使用 Select 组件，保证交互可靠）
       Row() {
         Text('排序:')
-          .fontSize(14).fontColor('#666')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextSecondary)
         Select([{ value: '时间' }, { value: '类型' }])
           .selected(this.sortBy === 'timestamp' ? 0 : 1)
           .value(this.sortBy === 'timestamp' ? '时间' : '类型')
@@ -86,8 +101,8 @@ export struct AlertView {
             this.sortBy = index === 0 ? 'timestamp' : 'type';
             this.sortAlertsLocally();
           })
-          .height(30)
-          .margin({ left: 8 })
+          .height(32)
+          .margin({ left: AppSpacing.SM })
 
         Select([{ value: '降序' }, { value: '升序' }])
           .selected(this.order === 'desc' ? 0 : 1)
@@ -96,105 +111,110 @@ export struct AlertView {
             this.order = index === 0 ? 'desc' : 'asc';
             this.sortAlertsLocally();
           })
-          .height(30)
-          .margin({ left: 8 })
+          .height(32)
+          .margin({ left: AppSpacing.SM })
 
         Blank()
-
-        Text('实时更新中')
-          .fontSize(14)
-          .fontColor('#2E7D32')
+        Row() {
+          Circle({ width: 6, height: 6 })
+            .fill(AppColors.Success)
+            .margin({ right: AppSpacing.XS })
+          Text('实时同步')
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.Success)
+        }
       }
       .width('100%')
-      .padding(15)
-      .backgroundColor('#FFFFFF')
-      .shadow({ radius: 5, color: 'rgba(0,0,0,0.05)', offsetY: 2 })
+      .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM, bottom: AppSpacing.SM })
+      .backgroundColor(AppColors.Surface)
+      .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
 
-      List({ space: 10 }) {
-        ForEach(this.alerts, (alert: AlertData) => {
-          ListItem() {
-            Column() {
-              Row() {
-                Circle({ width: 10, height: 10 }).fill(this.getLevelColor(alert.level)).margin({ right: 8 })
-                Text(alert.type_name)
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor('#333')
-                Text(alert.source_name)
-                  .fontSize(11)
-                  .fontColor('#546E7A')
-                  .backgroundColor('#ECEFF1')
-                  .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                  .borderRadius(8)
-                  .margin({ left: 8 })
-                Blank()
-                Text(this.formatDate(alert.timestamp))
-                  .fontSize(12)
-                  .fontColor('#999')
-              }.width('100%')
+      if (this.alerts.length === 0) {
+        Column() {
+          Text('🔔').fontSize(48).margin({ bottom: AppSpacing.MD })
+          Text('暂无告警消息')
+            .fontSize(AppFontSize.H3)
+            .fontColor(AppColors.TextTertiary)
+        }
+        .layoutWeight(1).width('100%').justifyContent(FlexAlign.Center)
+      } else {
+        List({ space: AppSpacing.MD }) {
+          ForEach(this.alerts, (alert: AlertData) => {
+            ListItem() {
+              Column() {
+                Row() {
+                  Circle({ width: 10, height: 10 })
+                    .fill(this.getLevelColor(alert.level))
+                    .margin({ right: AppSpacing.SM })
+                  Text(alert.type_name)
+                    .fontSize(AppFontSize.H3)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor(AppColors.TextPrimary)
+                  Text(alert.source_name)
+                    .fontSize(AppFontSize.Mini)
+                    .fontColor(AppColors.TextSecondary)
+                    .backgroundColor(AppColors.Divider)
+                    .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: 2, bottom: 2 })
+                    .borderRadius(AppRadius.SM)
+                    .margin({ left: AppSpacing.SM })
+                  Blank()
+                  Text(this.formatDate(alert.timestamp))
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(AppColors.TextTertiary)
+                }.width('100%')
 
-              Text(alert.message)
-                .fontSize(14)
-                .fontColor('#666')
-                .margin({ top: 10, bottom: 10 })
-                .lineHeight(20)
+                Text(alert.message)
+                  .fontSize(AppFontSize.Body)
+                  .fontColor(AppColors.TextSecondary)
+                  .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
+                  .lineHeight(20)
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-              Row() {
-                Text(alert.is_handled ? '已处理' : '待处理')
-                  .fontSize(12)
-                  .fontColor(alert.is_handled ? '#4CAF50' : '#F44336')
-                  .padding({
-                    left: 6,
-                    right: 6,
-                    top: 2,
-                    bottom: 2
-                  })
-                  .backgroundColor(alert.is_handled ? '#E8F5E9' : '#FFEBEE')
-                  .borderRadius(4)
+                Row() {
+                  Text(alert.is_handled ? '✓ 已处理' : '● 待处理')
+                    .fontSize(AppFontSize.Caption)
+                    .fontColor(alert.is_handled ? AppColors.Success : AppColors.AlertCritical)
+                    .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: 2, bottom: 2 })
+                    .backgroundColor(alert.is_handled ? AppColors.SuccessBg : AppColors.AlertCriticalBg)
+                    .borderRadius(AppRadius.SM)
 
-                Blank()
+                  Blank()
 
-                if (!alert.is_handled) {
-                  Button('标记处理')
-                    .height(28)
-                    .fontSize(12)
-                    .backgroundColor('#4CAF50')
-                    .onClick(() => {
-                      this.markAsHandled(alert.alert_id);
-                    })
-                } else if (alert.handle_time) {
-                  Text(`处理时间: ${this.formatDate(alert.handle_time)}`)
-                    .fontSize(12)
-                    .fontColor('#999')
-                }
-              }.width('100%').alignItems(VerticalAlign.Center)
+                  if (!alert.is_handled) {
+                    Button('标记处理', { type: ButtonType.Capsule })
+                      .height(26)
+                      .fontSize(AppFontSize.Caption)
+                      .backgroundColor(AppColors.Primary)
+                      .onClick(() => {
+                        this.markAsHandled(alert.alert_id);
+                      })
+                  } else if (alert.handle_time) {
+                    Text(`处理于 ${this.formatDate(alert.handle_time)}`)
+                      .fontSize(AppFontSize.Caption)
+                      .fontColor(AppColors.TextTertiary)
+                  }
+                }.width('100%').alignItems(VerticalAlign.Center)
+              }
+              .padding(AppSpacing.LG)
+              .backgroundColor(alert.alert_id === this.highlightedAlertId ? '#FFF8E1' : AppColors.Surface)
+              .borderRadius(AppRadius.MD)
+              .border({ width: { left: 4 }, color: { left: this.getLevelColor(alert.level) } })
+              .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
+              .width('100%')
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/AlertDetailPage', params: { alertId: alert.alert_id } });
+              })
             }
-            .padding(15)
-            .backgroundColor(alert.alert_id === this.highlightedAlertId ? '#FFF8E1' : '#FFF')
-            .borderRadius(8)
-            .shadow({
-              radius: alert.alert_id === this.highlightedAlertId ? 8 : 4,
-              color: alert.alert_id === this.highlightedAlertId ? 'rgba(255,193,7,0.35)' : 'rgba(0,0,0,0.05)',
-              offsetY: 2
-            })
-            .width('100%')
-            .onClick(() => {
-              router.pushUrl({ url: 'pages/AlertDetailPage', params: { alertId: alert.alert_id } });
-            })
-          }
-        })
+          })
+        }
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM, bottom: AppSpacing.LG })
+        .layoutWeight(1)
+        .width('100%')
       }
-      .padding({
-        left: 15,
-        right: 15,
-        top: 15,
-        bottom: 15
-      })
-      .layoutWeight(1)
-      .width('100%')
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }

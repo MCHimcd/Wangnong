@@ -1,6 +1,7 @@
 import { promptAction } from '@kit.ArkUI';
 import picker from '@ohos.file.picker';
 import { HttpService } from '../services/HttpService';
+import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -94,15 +95,15 @@ export struct AgriQAView {
       }
       if (msg.content.length > 0) {
         Text(msg.content)
-          .fontSize(15)
-          .fontColor(msg.role === 'user' ? '#FFFFFF' : '#2C3E50')
+          .fontSize(AppFontSize.Body)
+          .fontColor(msg.role === 'user' ? AppColors.TextOnPrimary : AppColors.TextPrimary)
           .lineHeight(22)
       }
     }
-    .padding(12)
-    .backgroundColor(msg.role === 'user' ? '#4CAF50' : '#FFFFFF')
-    .borderRadius(16)
-    .shadow({ radius: 4, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    .padding(AppSpacing.MD)
+    .backgroundColor(msg.role === 'user' ? AppColors.Primary : AppColors.Surface)
+    .borderRadius(AppRadius.LG)
+    .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
     .constraintSize({ maxWidth: '75%' })
   }
 
@@ -131,13 +132,13 @@ export struct AgriQAView {
           ListItem() {
             Row() {
               Row() {
-                LoadingProgress().width(20).height(20).color('#4CAF50').margin({ right: 8 })
-                Text('思考中...').fontSize(14).fontColor('#78909C')
+                LoadingProgress().width(20).height(20).color(AppColors.Primary).margin({ right: AppSpacing.SM })
+                Text('思考中...').fontSize(AppFontSize.Body).fontColor(AppColors.TextTertiary)
               }
-              .padding(12)
-              .backgroundColor('#FFFFFF')
-              .borderRadius(16)
-              .shadow({ radius: 4, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+              .padding(AppSpacing.MD)
+              .backgroundColor(AppColors.Surface)
+              .borderRadius(AppRadius.LG)
+              .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
               Blank()
             }
             .width('100%')
@@ -160,16 +161,16 @@ export struct AgriQAView {
             .borderRadius(8)
           Text('✕')
             .fontSize(18)
-            .fontColor('#F44336')
-            .margin({ left: 8 })
+            .fontColor(AppColors.AlertCritical)
+            .margin({ left: AppSpacing.SM })
             .onClick(() => {
               this.selectedImageUri = '';
             })
           Blank()
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 6, bottom: 6 })
-        .backgroundColor('#F5F5F5')
+        .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: 6, bottom: 6 })
+        .backgroundColor(AppColors.Divider)
       }
 
       // 底部输入栏
@@ -184,8 +185,8 @@ export struct AgriQAView {
         TextInput({ placeholder: '请输入农业问题...', text: this.inputText })
           .layoutWeight(1)
           .height(40)
-          .borderRadius(20)
-          .backgroundColor('#F5F5F5')
+          .borderRadius(AppRadius.Full)
+          .backgroundColor(AppColors.Divider)
           .onChange((value: string) => {
             this.inputText = value;
           })
@@ -195,21 +196,22 @@ export struct AgriQAView {
 
         Button('发送')
           .height(38)
-          .fontSize(15)
-          .backgroundColor('#4CAF50')
-          .margin({ left: 8 })
+          .fontSize(AppFontSize.Body)
+          .borderRadius(AppRadius.MD)
+          .backgroundColor(AppColors.Primary)
+          .margin({ left: AppSpacing.SM })
           .enabled(!this.isSending)
           .onClick(() => {
             void this.sendMessage();
           })
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-      .backgroundColor('#FFFFFF')
-      .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: -2 })
+      .padding({ left: AppSpacing.MD, right: AppSpacing.MD, top: AppSpacing.SM, bottom: AppSpacing.SM })
+      .backgroundColor(AppColors.Surface)
+      .shadow({ radius: AppShadow.ElevatedRadius, color: AppShadow.CardColor, offsetY: -2 })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F6F3')
+    .backgroundColor(AppColors.Background)
   }
 }
