@@ -1,6 +1,6 @@
 # 鸿蒙慧田 (Wangnong)
 
-HarmonyOS 智能温室管理系统 —— 通过手机/平板实时监控温室环境、远程控制设备、接收告警推送，并集成农业知识问答 AI。
+OpenHarmony 智能温室管理系统 —— 通过手机/平板实时监控温室环境、远程控制设备、接收告警推送，并集成农业知识问答 AI。
 
 | 属性 | 值 |
 |------|-----|
@@ -8,7 +8,7 @@ HarmonyOS 智能温室管理系统 —— 通过手机/平板实时监控温室�
 | 版本 | 1.0.0 |
 | 目标设备 | Phone, Tablet |
 | 目标 SDK | API 22 (6.0.2)；最终需兼容 API 11 |
-| 运行时 | HarmonyOS (Stage 模型) |
+| 运行时 | OpenHarmony (Stage 模型) |
 
 ---
 
@@ -16,7 +16,7 @@ HarmonyOS 智能温室管理系统 —— 通过手机/平板实时监控温室�
 
 | 层 | 技术 |
 |----|------|
-| 前端框架 | HarmonyOS ArkUI (ArkTS) |
+| 前端框架 | OpenHarmony ArkUI (ArkTS) |
 | 实时通信 | `@ohos/mqtt` ^2.0.25 |
 | 图表 | `@ohos/mpchart` ^3.0.26 |
 | 测试 | `@ohos/hypium` 1.0.25 / `@ohos/hamock` 1.0.0 |
@@ -354,3 +354,4 @@ python server.py
 9. **导航** — 页面跳转使用 `router.pushUrl({ url, params })`
 10. **API 兼容** — 当前使用 API 22 测试，最终需兼容 API 11，避免使用仅 API 12+ 的新接口
 11. **测试先行** — 所有增删改操作必须先编写/更新测试用例，再实现业务逻辑
+12. **禁止使用 HarmonyOS 特有功能** — 项目以 OpenHarmony 为目标平台，禁止使用仅在 HarmonyOS 平台可用的专有 API、模块或运行时特性，确保代码在 OpenHarmony 平台可编译运行。
