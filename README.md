@@ -36,7 +36,7 @@ Wangnong/
 │       │   ├── entryability/        # 应用入口 (EntryAbility)
 │       │   ├── pages/               # 14 个页面
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
-│       │   ├── services/            # 4 个单例服务
+│       │   ├── services/            # 5 个单例服务
 │       │   ├── models/              # 8 个数据模型
 │       │   └── common/              # 公用配置与工具
 │       │       ├── AppConfig.ets
@@ -124,11 +124,12 @@ Index (底部 Tab 容器)
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
 | `ProfileView.ets` | 个人中心卡片 (头像、角色、登出) |
 
-### 服务清单 (4 × Singleton)
+### 服务清单 (5 × Singleton)
 
 | 服务 | 说明 |
 |------|------|
 | `HttpService.ets` | HTTP REST 客户端 (40+ 方法)，统一 Bearer Token 鉴权 |
+| `ServerAvailabilityService.ets` | 服务器可用性探测：启动前检查、登录后会话探活、连续失败阈值判定 |
 | `MqttClientService.ets` | MQTT 实时通信：订阅遥测/告警，发布控制命令，维护 60 点趋势缓存 |
 | `AlertSyncService.ets` | 告警状态聚合：启动时 HTTP 拉取 + 运行时 MQTT 推送，全局弹窗通知 |
 | `VideoMonitorService.ets` | 视频流封装：直播、回放、关键帧 |
@@ -208,6 +209,7 @@ Index (底部 Tab 容器)
 
 | 分类 | 前缀 | 主要端点 |
 |------|------|---------|
+| 基础设施 | `/api/v1/` | health |
 | 认证 | `/api/v1/auth/` | login, register, forgot-password, send-verification-code, password (PUT), profile, logout, avatar/use-fixed |
 | 节点 | `/api/v1/devices/` | 列表, 详情, sensor-meta, equipment-meta |
 | 传感器 | `/api/v1/sensors/` | `{device_id}/history` (24h/7d/30d) |
@@ -279,15 +281,16 @@ Index (底部 Tab 容器)
 
 ### 覆盖范围
 
-**本地单元测试 (11 个测试套件)**:
+**本地单元测试 (12 个测试套件)**:
 
 | 层 | 测试套件 | 测试点 |
 |----|---------|--------|
 | 模型 | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
-| 服务 | HttpService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询 |
+| 服务 | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
 | 公用 | BreakpointSystem, AppConfig, DesignToken | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性 |
 
-**OHOS 仪器测试 (4 个冒烟测试)**:
+**OHOS 仪器测试 (5 个冒烟测试)**:
+- Ability.test (基础测试能力校验)
 - LoginPage, Index (页面可渲染)
 - AlertView, MonitorView (视图可渲染)
 
@@ -310,7 +313,33 @@ $env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
 - 覆盖率报告：`entry/.test/default/outputs/test/reports/index.html`
 - `exit code 1` 由 WARN 导致，只要 `BUILD SUCCESSFUL` 且 `Failure: 0, Error: 0` 即视为通过
 
-**OHOS 仪器测试 (需设备/模拟器)**：通过 DevEco Studio Test Runner 运行 `entry/src/ohosTest/`。
+**OHOS 仪器测试 (需设备/模拟器)**：
+
+方式一（DevEco Studio）：通过 Test Runner 运行 `entry/src/ohosTest/`。
+
+方式二（CLI，适合自动化与排查）：
+
+```powershell
+$hdc = "D:\software\Huawei\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe"
+$env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
+
+# 1) 设备连通性
+& $hdc list targets
+
+# 2) 构建 ohosTest 测试包
+& "D:\software\Huawei\DevEco Studio\tools\hvigor\bin\hvigorw.bat" `
+  --mode module -p module=entry@ohosTest -p product=default assembleHap --no-daemon
+
+# 3) 安装测试包
+& $hdc install -r "entry/build/default/outputs/ohosTest/entry-ohosTest-unsigned.hap"
+
+# 4) 运行仪器测试
+& $hdc shell aa test -b ww.wangwang.wangnong -m entry_test -s unittest OpenHarmonyTestRunner
+```
+
+- 包名：`ww.wangwang.wangnong`（来自 `AppScope/app.json5` 的 `bundleName`）
+- 模块名：`entry_test`（来自 `entry/src/ohosTest/module.json5` 的 `module.name`）
+- 成功标志：`OHOS_REPORT_RESULT: stream=Tests run: N, Failure: 0, Error: 0, Pass: N, Ignore: 0` 且 `TestFinished-ResultCode: 0`
 
 ---
 

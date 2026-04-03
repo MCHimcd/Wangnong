@@ -6,6 +6,7 @@ import alertDataTest from './models/AlertData.test';
 import nodeTest from './models/Node.test';
 // --- Services ---
 import httpServiceTest from './services/HttpService.test';
+import serverAvailabilityServiceTest from './services/ServerAvailabilityService.test';
 import mqttClientServiceTest from './services/MqttClientService.test';
 import alertSyncServiceTest from './services/AlertSyncService.test';
 import videoMonitorServiceTest from './services/VideoMonitorService.test';
@@ -23,6 +24,7 @@ export default function testsuite() {
   nodeTest();
   // Services
   httpServiceTest();
+  serverAvailabilityServiceTest();
   mqttClientServiceTest();
   alertSyncServiceTest();
   videoMonitorServiceTest();

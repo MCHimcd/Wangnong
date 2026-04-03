@@ -2,6 +2,7 @@ import { router, promptAction } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { HttpService } from '../services/HttpService';
+import { ServerAvailabilityMode, ServerAvailabilityService } from '../services/ServerAvailabilityService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppSize } from '../common/DesignToken';
 
 @Entry
@@ -13,8 +14,9 @@ struct LoginPage {
   @State rememberPassword: boolean = false;
   @State autoLogin: boolean = false;
   @State isAutoLoggingIn: boolean = true;
+  @State isCheckingServer: boolean = true;
+  @State serverAvailable: boolean = false;
   @State agreedToTerms: boolean = false;
-  @StorageLink('currentBreakpoint') currentBreakpoint: string = 'sm';
 
   // 注册/找回专用
   @State phone: string = '';
@@ -24,15 +26,64 @@ struct LoginPage {
   @State codeCountdown: number = 0;
 
   private codeTimerId: number = -1;
+  private pendingAutoLoginAfterRecovery: boolean = true;
 
   private readonly PREF_NAME: string = 'AppPreferences';
+  private readonly availabilityService: ServerAvailabilityService = ServerAvailabilityService.getInstance();
+  private readonly onServerStatusChanged = (available: boolean): void => {
+    this.serverAvailable = available;
+    if (!available) {
+      return;
+    }
+    if (this.pendingAutoLoginAfterRecovery && !this.isAutoLoggingIn && !this.isCheckingServer) {
+      this.pendingAutoLoginAfterRecovery = false;
+      this.isAutoLoggingIn = true;
+      void this.checkAutoLogin();
+    }
+  };
 
   async aboutToAppear() {
-    await this.checkAutoLogin();
+    this.availabilityService.addStatusListener(this.onServerStatusChanged);
+    await this.initializePage();
   }
 
   aboutToDisappear(): void {
     this.stopCodeTimer();
+    this.availabilityService.removeStatusListener(this.onServerStatusChanged);
+    this.availabilityService.stopPolling();
+  }
+
+  private async initializePage(): Promise<void> {
+    this.isCheckingServer = true;
+    this.isAutoLoggingIn = false;
+    this.pendingAutoLoginAfterRecovery = true;
+
+    const available = await this.availabilityService.startStartupPolling();
+    this.serverAvailable = available;
+    this.isCheckingServer = false;
+
+    if (!available) {
+      this.isAutoLoggingIn = false;
+      promptAction.showToast({ message: '服务器不可用，登录相关功能已禁用' });
+      return;
+    }
+
+    this.pendingAutoLoginAfterRecovery = false;
+    this.isAutoLoggingIn = true;
+    await this.checkAutoLogin();
+  }
+
+  async onRetryServerClick() {
+    if (this.isCheckingServer) {
+      return;
+    }
+    this.isCheckingServer = true;
+    const available = await this.availabilityService.retryNow(ServerAvailabilityMode.STARTUP);
+    this.serverAvailable = available;
+    this.isCheckingServer = false;
+    if (!available) {
+      promptAction.showToast({ message: '服务器仍不可用，请稍后重试' });
+    }
   }
 
   private stopCodeTimer(): void {
@@ -56,6 +107,10 @@ struct LoginPage {
   }
 
   async onSendVerifyCodeClick() {
+    if (!this.serverAvailable) {
+      promptAction.showToast({ message: '服务器不可用，暂时无法发送验证码' });
+      return;
+    }
     const phone = this.phone.trim();
     if (phone.length === 0) {
       promptAction.showToast({ message: '请先输入手机号' });
@@ -79,6 +134,10 @@ struct LoginPage {
   }
 
   async checkAutoLogin() {
+    if (!this.serverAvailable) {
+      this.isAutoLoggingIn = false;
+      return;
+    }
     try {
       let context = getContext(this) as common.UIAbilityContext;
       let dataPreferences = await preferences.getPreferences(context, this.PREF_NAME);
@@ -116,6 +175,10 @@ struct LoginPage {
   }
 
   async onLoginClick() {
+    if (!this.serverAvailable) {
+      promptAction.showToast({ message: '服务器不可用，暂时无法登录' });
+      return;
+    }
     if (!this.agreedToTerms) {
       promptAction.showToast({ message: '请先阅读并同意用户协议与隐私政策' });
       return;
@@ -154,6 +217,10 @@ struct LoginPage {
   }
 
   async onRegisterClick() {
+    if (!this.serverAvailable) {
+      promptAction.showToast({ message: '服务器不可用，暂时无法注册' });
+      return;
+    }
     if (!this.agreedToTerms) {
       promptAction.showToast({ message: '请先同意用户协议与隐私政策' });
       return;
@@ -186,6 +253,10 @@ struct LoginPage {
   }
 
   async onForgotPasswordClick() {
+    if (!this.serverAvailable) {
+      promptAction.showToast({ message: '服务器不可用，暂时无法找回密码' });
+      return;
+    }
     if (!this.phone || !this.verifyCode || !this.newPassword) {
       promptAction.showToast({ message: '请填写完整信息' });
       return;
@@ -250,6 +321,10 @@ struct LoginPage {
         .fontColor(AppColors.TextTertiary)
         .margin({ bottom: 36 })
 
+      if (!this.serverAvailable) {
+        this.ServerUnavailableHint()
+      }
+
       TextInput({ placeholder: '请输入用户名或手机号', text: this.username })
         .type(InputType.Normal)
         .width('80%')
@@ -301,6 +376,7 @@ struct LoginPage {
         .backgroundColor(AppColors.Primary)
         .borderRadius(AppRadius.MD)
         .fontSize(AppFontSize.Body)
+        .enabled(this.serverAvailable)
         .onClick(() => {
           this.onLoginClick();
         })
@@ -309,11 +385,21 @@ struct LoginPage {
         Text('新用户注册')
           .fontSize(AppFontSize.Body)
           .fontColor(AppColors.Primary)
-          .onClick(() => this.currentMode = 'register')
+          .opacity(this.serverAvailable ? 1 : 0.5)
+          .onClick(() => {
+            if (this.serverAvailable) {
+              this.currentMode = 'register';
+            }
+          })
         Text('忘记密码?')
           .fontSize(AppFontSize.Body)
           .fontColor(AppColors.TextTertiary)
-          .onClick(() => this.currentMode = 'forgot')
+          .opacity(this.serverAvailable ? 1 : 0.5)
+          .onClick(() => {
+            if (this.serverAvailable) {
+              this.currentMode = 'forgot';
+            }
+          })
       }
       .width('80%')
       .margin({ top: AppSpacing.LG })
@@ -347,6 +433,10 @@ struct LoginPage {
         .width('80%')
         .textAlign(TextAlign.Start)
 
+      if (!this.serverAvailable) {
+        this.ServerUnavailableHint()
+      }
+
       TextInput({ placeholder: '请输入手机号', text: this.phone })
         .type(InputType.PhoneNumber)
         .width('80%')
@@ -367,7 +457,7 @@ struct LoginPage {
           .height(AppSize.InputHeight)
           .backgroundColor(AppColors.Primary)
           .borderRadius(AppRadius.MD)
-          .enabled(!this.isSendingCode && this.codeCountdown === 0)
+          .enabled(this.serverAvailable && !this.isSendingCode && this.codeCountdown === 0)
           .onClick(() => {
             void this.onSendVerifyCodeClick();
           })
@@ -390,6 +480,7 @@ struct LoginPage {
         .backgroundColor(AppColors.Primary)
         .borderRadius(AppRadius.MD)
         .fontSize(AppFontSize.Body)
+        .enabled(this.serverAvailable)
         .onClick(() => {
           this.onRegisterClick();
         })
@@ -422,6 +513,10 @@ struct LoginPage {
         .width('80%')
         .textAlign(TextAlign.Start)
 
+      if (!this.serverAvailable) {
+        this.ServerUnavailableHint()
+      }
+
       TextInput({ placeholder: '请输入手机号', text: this.phone })
         .type(InputType.PhoneNumber)
         .width('80%')
@@ -442,7 +537,7 @@ struct LoginPage {
           .height(AppSize.InputHeight)
           .backgroundColor(AppColors.Primary)
           .borderRadius(AppRadius.MD)
-          .enabled(!this.isSendingCode && this.codeCountdown === 0)
+          .enabled(this.serverAvailable && !this.isSendingCode && this.codeCountdown === 0)
           .onClick(() => {
             void this.onSendVerifyCodeClick();
           })
@@ -465,6 +560,7 @@ struct LoginPage {
         .backgroundColor(AppColors.Primary)
         .borderRadius(AppRadius.MD)
         .fontSize(AppFontSize.Body)
+        .enabled(this.serverAvailable)
         .onClick(() => {
           this.onForgotPasswordClick();
         })
@@ -473,38 +569,46 @@ struct LoginPage {
     .height('100%')
   }
 
-  @Builder BrandPanel() {
-    Column() {
-      Image($r('app.media.app_icon'))
-        .width(120)
-        .height(120)
-        .borderRadius(AppRadius.LG)
-        .margin({ bottom: AppSpacing.XL })
-      Text('鸿蒙慧田')
-        .fontSize(40)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(AppColors.TextOnPrimary)
-        .margin({ bottom: AppSpacing.SM })
-      Text('智慧农业 · IoT 监测管理平台')
-        .fontSize(AppFontSize.Body)
-        .fontColor('rgba(255,255,255,0.8)')
-      Text('🌱 实时监控 · 智能预警 · 精准溯源')
+  @Builder ServerUnavailableHint() {
+    Row() {
+      Text('服务器连接不可用，登录相关功能暂不可用')
         .fontSize(AppFontSize.Caption)
-        .fontColor('rgba(255,255,255,0.6)')
-        .margin({ top: AppSpacing.MD })
+        .fontColor(AppColors.AlertCritical)
+        .layoutWeight(1)
+
+      Button(this.isCheckingServer ? '检查中' : '重试')
+        .height(AppSize.ButtonHeightSM)
+        .backgroundColor(AppColors.AlertWarning)
+        .fontSize(AppFontSize.Caption)
+        .enabled(!this.isCheckingServer)
+        .onClick(() => {
+          void this.onRetryServerClick();
+        })
     }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .linearGradient({
-      angle: 135,
-      colors: [[AppColors.GradientBannerStart, 0], [AppColors.GradientBannerEnd, 1]]
-    })
+    .width('80%')
+    .padding({ left: AppSpacing.MD, right: AppSpacing.MD, top: AppSpacing.SM, bottom: AppSpacing.SM })
+    .margin({ bottom: AppSpacing.MD })
+    .backgroundColor(AppColors.AlertCriticalBg)
+    .borderRadius(AppRadius.MD)
   }
 
   build() {
     Column() {
-      if (this.isAutoLoggingIn) {
+      if (this.isCheckingServer) {
+        Column() {
+          LoadingProgress()
+            .width(60)
+            .height(60)
+            .color(AppColors.Primary)
+          Text('正在检查服务器...')
+            .fontSize(AppFontSize.Caption)
+            .fontColor(AppColors.TextTertiary)
+            .margin({ top: AppSpacing.MD })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else if (this.isAutoLoggingIn) {
         Column() {
           LoadingProgress()
             .width(60)
@@ -518,30 +622,6 @@ struct LoginPage {
         .width('100%')
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
-      } else if (this.currentBreakpoint === 'lg') {
-        Row() {
-          // 左侧品牌区
-          Column() {
-            this.BrandPanel()
-          }
-          .width('42%')
-          .height('100%')
-
-          // 右侧表单区
-          Column() {
-            if (this.currentMode === 'login') {
-              this.LoginView()
-            } else if (this.currentMode === 'register') {
-              this.RegisterView()
-            } else if (this.currentMode === 'forgot') {
-              this.ForgotView()
-            }
-          }
-          .layoutWeight(1)
-          .height('100%')
-        }
-        .width('100%')
-        .layoutWeight(1)
       } else {
         if (this.currentMode === 'login') {
           this.LoginView()

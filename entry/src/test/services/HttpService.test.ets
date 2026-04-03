@@ -15,6 +15,7 @@ import { HttpService,
   SendVerificationCodeRequest, ChangePasswordRequest, LogoutRequest,
   TraceabilityScanRequest, ApiQueryPayload, ApiDataPayload, AppApiPayload,
   AdminCreateNodeRequest, AdminUpdateNodeRequest, AdminUpdateRoleRequest,
+  HealthStatusData,
   SetUserNodesRequest, CreateTaskRequest, UpdateTaskRequest, ThresholdUpdateItem
 } from '../../main/ets/services/HttpService';
 
@@ -135,6 +136,16 @@ export default function httpServiceTest() {
       expect(item.warningMax).assertNull();
     });
 
+    it('HealthStatusData_defaults', 0, () => {
+      let data = new HealthStatusData();
+      expect(data.available).assertFalse();
+      expect(data.mqttConnected).assertFalse();
+      expect(data.application).assertEqual('');
+      expect(data.mode).assertEqual('');
+      expect(data.dataSimulated).assertFalse();
+      expect(data.time).assertEqual('');
+    });
+
     // ===== Token / NodeId 设置 =====
     it('setToken_does_not_throw', 0, () => {
       let svc = HttpService.getInstance();
@@ -147,6 +158,11 @@ export default function httpServiceTest() {
       let svc = HttpService.getInstance();
       svc.setNodeId('A03_Node_02');
       expect(true).assertTrue();
+    });
+
+    it('checkServerHealth_method_exists', 0, () => {
+      let svc = HttpService.getInstance();
+      expect(svc.checkServerHealth !== undefined).assertTrue();
     });
 
     // ===== Request 数据类可赋值 =====

@@ -99,6 +99,30 @@ class RouterParam { url: string = ''; params: Record<string, string> = {}; }
 }
 ```
 
+### arkts-no-intersection-types
+
+ArkTS 不支持交叉类型（`A & B`），尤其在测试中常见于“临时扩展类型”写法。
+
+```typescript
+// ❌ 编译错误
+let svc = HttpService.getInstance() as HttpService & Record<string, Object>;
+
+// ✅ 正确方式：直接使用已声明类型，或定义显式继承类/接口
+let svc = HttpService.getInstance();
+```
+
+### arkts-no-props-by-index
+
+ArkTS 不支持通过索引访问对象字段（如 `obj['field']`）读取类成员。
+
+```typescript
+// ❌ 编译错误
+let ok = typeof svc['checkServerHealth'] === 'function';
+
+// ✅ 正确方式：使用点语法
+let ok = svc.checkServerHealth !== undefined;
+```
+
 ## 设计规范引用
 
 **始终使用 DesignToken 中的常量**，不要硬编码数值：

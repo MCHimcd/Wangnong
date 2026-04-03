@@ -37,6 +37,15 @@ export class ChangePasswordRequest {
 export class LogoutRequest {
 }
 
+export class HealthStatusData {
+  available: boolean = false;
+  mqttConnected: boolean = false;
+  application: string = '';
+  mode: string = '';
+  dataSimulated: boolean = false;
+  time: string = '';
+}
+
 export class TraceabilityScanRequest {
   code: string = "";
 }
@@ -356,6 +365,21 @@ export class HttpService {
       return true;
     }
     return false;
+  }
+
+  public async checkServerHealth(): Promise<boolean> {
+    let res = await this.request<BaseResponse<HealthStatusData>>(
+      '/api/v1/health',
+      http.RequestMethod.GET,
+      undefined,
+      1000,
+      1000
+    );
+
+    if (!res || res.code !== 200 || !res.data) {
+      return false;
+    }
+    return res.data.available === true;
   }
 
   public async getUserProfile(): Promise<UserProfile | null> {

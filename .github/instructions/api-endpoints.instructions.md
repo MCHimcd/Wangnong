@@ -59,6 +59,7 @@ private async request<T>(method: string, url: string, body?: object): Promise<Ba
 ### 其他
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/api/v1/health` | 服务器可用性检查（启动前/会话探活） |
 | POST | `/api/v1/agri-qa/chat` | 农业问答 (文本+图片, 60s 超时) |
 | POST | `/api/v1/traceability/scan` | 溯源扫码 |
 | CRUD | `/api/v1/scheduled-tasks/` | 定时任务 |

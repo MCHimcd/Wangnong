@@ -199,6 +199,20 @@ channels:
       message:
         $ref: '#/components/messages/GenericSuccessResponse'
 
+  /api/v1/health:
+    description: 服务器可用性检查，用于应用启动前检查与登录后探活
+    bindings:
+      http:
+        type: request
+    subscribe:
+      operationId: serverHealth
+      summary: 服务器可用性检查 (GET)
+      bindings:
+        http:
+          method: GET
+      message:
+        $ref: '#/components/messages/HealthCheckResponse'
+
   /api/v1/nodes:
     description: 获取当前账号下的节点列表
     bindings:
@@ -910,6 +924,26 @@ components:
               birthDate: "1990-01-01"
               avatarSrc: https://example.com/avatar.jpg
               role: user
+
+    HealthCheckResponse:
+      messageId: HealthCheckResponse
+      name: HealthCheckResponse
+      title: 服务可用性检查响应
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ApiResponseHealth'
+      examples:
+        - name: success
+          payload:
+            code: 200
+            message: success
+            data:
+              available: true
+              mqttConnected: true
+              application: HMHT
+              mode: mock
+              dataSimulated: true
+              time: "2026-04-03T12:00:00+08:00"
 
     AdminNodeRequest:
       messageId: AdminNodeRequest
@@ -1633,6 +1667,40 @@ components:
           example: success
         data:
           description: 业务数据，失败时可为 null
+
+    ApiResponseHealth:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthStatusData'
+
+    HealthStatusData:
+      type: object
+      required: [available, mqttConnected, application, mode, dataSimulated, time]
+      properties:
+        available:
+          type: boolean
+          description: HTTP 服务是否可用
+          example: true
+        mqttConnected:
+          type: boolean
+          description: MQTT 客户端连接状态
+          example: true
+        application:
+          type: string
+          example: HMHT
+        mode:
+          type: string
+          example: mock
+        dataSimulated:
+          type: boolean
+          example: true
+        time:
+          type: string
+          description: 服务器时间（ISO-8601）
+          example: "2026-04-03T12:00:00+08:00"
 
     TelemetryPayload:
       type: object

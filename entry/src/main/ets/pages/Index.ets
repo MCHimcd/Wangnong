@@ -7,6 +7,7 @@ import { ProfileView } from '../views/ProfileView';
 import { NodeListItem, HttpService } from '../services/HttpService';
 import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
+import { ServerAvailabilityService } from '../services/ServerAvailabilityService';
 import { AlertData } from '../models/AlertData';
 import { AppConfig } from '../common/AppConfig';
 import { AppColors, AppFontSize, AppSpacing, AppRadius } from '../common/DesignToken';
@@ -28,6 +29,11 @@ struct Index {
   @Provide autoCooling: boolean = false;
   
   @Provide connectionStatus: 'connected' | 'disconnected' = 'disconnected';
+  private isForceLogoutHandling: boolean = false;
+  private readonly availabilityService: ServerAvailabilityService = ServerAvailabilityService.getInstance();
+  private readonly onForceLogout = () => {
+    void this.handleServerDisconnect();
+  };
 
   private async loadNodesFromServer() {
     const remoteNodes = await HttpService.getInstance().getNodes();
@@ -60,6 +66,10 @@ struct Index {
   }
 
   async aboutToAppear() {
+    this.isForceLogoutHandling = false;
+    this.availabilityService.addForceLogoutListener(this.onForceLogout);
+    await this.availabilityService.startSessionMonitoring();
+
     BreakpointSystem.getInstance().register();
     await this.loadNodesFromServer();
     HttpService.getInstance().setNodeId(this.nodes[this.currentNodeIndex].id);
@@ -127,9 +137,28 @@ struct Index {
   }
 
   aboutToDisappear() {
+    this.availabilityService.removeForceLogoutListener(this.onForceLogout);
+    this.availabilityService.stopPolling();
     BreakpointSystem.getInstance().unregister();
     AlertSyncService.getInstance().stopRealtimeSync();
     MqttClientService.getInstance().disconnect();
+  }
+
+  private async handleServerDisconnect(): Promise<void> {
+    if (this.isForceLogoutHandling) {
+      return;
+    }
+
+    this.isForceLogoutHandling = true;
+    this.availabilityService.stopPolling();
+    AlertSyncService.getInstance().stopRealtimeSync();
+    MqttClientService.getInstance().disconnect();
+
+    HttpService.getInstance().setToken('');
+    AppStorage.setOrCreate('isLoggedIn', false);
+
+    promptAction.showToast({ message: '服务器连接已断开，请重新登录' });
+    router.replaceUrl({ url: 'pages/LoginPage' });
   }
 
   @StorageLink('currentTabIndex') currentTabIndex: number = 0;

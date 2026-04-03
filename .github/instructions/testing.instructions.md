@@ -208,8 +208,32 @@ $env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
 - 覆盖率报告：`entry/.test/default/outputs/test/reports/index.html`
 - `exit code 1` 由 WARN 导致，只要 `BUILD SUCCESSFUL` 且 `Failure: 0, Error: 0` 即视为通过
 
-**OHOS 仪器测试** — 需要真机/模拟器，通过 DevEco Studio Test Runner 运行：
-- 右键 `entry/src/ohosTest/` → Run Tests
+**OHOS 仪器测试** — 需要真机/模拟器，支持 DevEco Studio 与 CLI 两种方式：
+- DevEco Studio：右键 `entry/src/ohosTest/` → Run Tests
+- CLI（推荐用于可复现调试）：
+
+```powershell
+$hdc = "D:\software\Huawei\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe"
+$env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
+
+# 1) 确认设备连接
+& $hdc list targets
+
+# 2) 构建测试 HAP
+& "D:\software\Huawei\DevEco Studio\tools\hvigor\bin\hvigorw.bat" `
+  --mode module -p module=entry@ohosTest -p product=default assembleHap --no-daemon
+
+# 3) 安装测试包
+& $hdc install -r "entry/build/default/outputs/ohosTest/entry-ohosTest-unsigned.hap"
+
+# 4) 执行仪器测试
+& $hdc shell aa test -b ww.wangwang.wangnong -m entry_test -s unittest OpenHarmonyTestRunner
+```
+
+- 成功标志：终端输出 `OHOS_REPORT_RESULT: stream=Tests run: N, Failure: 0, Error: 0, Pass: N, Ignore: 0` 且 `TestFinished-ResultCode: 0`
+- 失败排查：
+1. `hdc list targets` 无设备时先连真机/启动模拟器
+2. `aa test` 报 `option [-s] is incorrect` 时，检查是否遗漏 runner 参数 `OpenHarmonyTestRunner`
 
 **所有测试用例必须全部通过 (PASS)，不允许存在 FAIL 或 ERROR 状态。**
 

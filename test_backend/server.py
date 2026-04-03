@@ -384,6 +384,21 @@ def handle_alert_state(alert_id, action):
 
 # ================= Flask HTTP 路由 =================
 
+@app.route('/api/v1/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": {
+            "available": True,
+            "mqttConnected": MQTT_AVAILABLE,
+            "application": "WangnongTestBackend",
+            "mode": "mock",
+            "dataSimulated": True,
+            "time": datetime.now().isoformat()
+        }
+    })
+
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
     req_data = request.get_json(silent=True) or {}
