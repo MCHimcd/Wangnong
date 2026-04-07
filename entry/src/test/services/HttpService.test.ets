@@ -16,8 +16,25 @@ import { HttpService,
   TraceabilityScanRequest, ApiQueryPayload, ApiDataPayload, AppApiPayload,
   AdminCreateNodeRequest, AdminUpdateNodeRequest, AdminUpdateRoleRequest,
   HealthStatusData,
+  normalizeUploadFilePath, inferUploadImageContentType, buildAvatarUploadPart,
+  normalizeAvatarSrcForDisplay,
   SetUserNodesRequest, CreateTaskRequest, UpdateTaskRequest, ThresholdUpdateItem
 } from '../../main/ets/services/HttpService';
+import { AppConfig } from '../../main/ets/common/AppConfig';
+
+function serverOrigin(): string {
+  if (AppConfig.BASE_URL.endsWith('/api')) {
+    return AppConfig.BASE_URL.substring(0, AppConfig.BASE_URL.length - 4);
+  }
+  return AppConfig.BASE_URL;
+}
+
+function apiBase(): string {
+  if (AppConfig.BASE_URL.endsWith('/api')) {
+    return AppConfig.BASE_URL;
+  }
+  return `${AppConfig.BASE_URL}/api`;
+}
 
 export default function httpServiceTest() {
   describe('HttpService', () => {
@@ -163,6 +180,52 @@ export default function httpServiceTest() {
     it('checkServerHealth_method_exists', 0, () => {
       let svc = HttpService.getInstance();
       expect(svc.checkServerHealth !== undefined).assertTrue();
+    });
+
+    it('uploadAvatar_method_exists', 0, () => {
+      let svc = HttpService.getInstance();
+      expect(svc.uploadAvatar !== undefined).assertTrue();
+    });
+
+    it('normalizeUploadFilePath_file_uri_strips_prefix', 0, () => {
+      let normalized = normalizeUploadFilePath('file://C:/temp/avatar.png');
+      expect(normalized).assertEqual('C:/temp/avatar.png');
+    });
+
+    it('inferUploadImageContentType_png_jpeg', 0, () => {
+      expect(inferUploadImageContentType('/cache/avatar.png')).assertEqual('image/png');
+      expect(inferUploadImageContentType('/cache/avatar.jpg')).assertEqual('image/jpeg');
+      expect(inferUploadImageContentType('/cache/avatar.jpeg')).assertEqual('image/jpeg');
+      expect(inferUploadImageContentType('/cache/avatar.bin')).assertEqual('image/jpeg');
+    });
+
+    it('buildAvatarUploadPart_populates_required_fields', 0, () => {
+      let part = buildAvatarUploadPart('file://C:/temp/avatar.png');
+      expect(part.name).assertEqual('file');
+      expect(part.contentType).assertEqual('image/png');
+      expect(part.remoteFileName).assertEqual('avatar.png');
+      expect(part.filePath).assertEqual('C:/temp/avatar.png');
+    });
+
+    it('normalizeAvatarSrcForDisplay_localhost_url_maps_to_server_base', 0, () => {
+      let normalized = normalizeAvatarSrcForDisplay('http://localhost:8080/api/uploads/avatars/u1.png');
+      expect(normalized).assertEqual(`${serverOrigin()}/api/uploads/avatars/u1.png`);
+    });
+
+    it('normalizeAvatarSrcForDisplay_relative_paths_are_mapped', 0, () => {
+      let apiRelative = normalizeAvatarSrcForDisplay('/api/uploads/avatars/u2.png');
+      let uploadsRelative = normalizeAvatarSrcForDisplay('/uploads/avatars/u3.png');
+      let plainRelative = normalizeAvatarSrcForDisplay('uploads/avatars/u4.png');
+
+      expect(apiRelative).assertEqual(`${serverOrigin()}/api/uploads/avatars/u2.png`);
+      expect(uploadsRelative).assertEqual(`${apiBase()}/uploads/avatars/u3.png`);
+      expect(plainRelative).assertEqual(`${apiBase()}/uploads/avatars/u4.png`);
+    });
+
+    it('normalizeAvatarSrcForDisplay_public_url_keeps_original', 0, () => {
+      let original = 'https://cdn.example.com/avatars/u5.png';
+      let normalized = normalizeAvatarSrcForDisplay(original);
+      expect(normalized).assertEqual(original);
     });
 
     // ===== Request 数据类可赋值 =====

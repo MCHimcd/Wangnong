@@ -10,6 +10,7 @@
     "pages/ChangePasswordPage",
     "pages/AgreementPage",
     "pages/TraceabilityScanPage",
+    "pages/AvatarCropPage",
     "pages/AdminPage",
     "pages/AlertDetailPage",
     "pages/ScheduledTaskPage"

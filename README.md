@@ -34,7 +34,7 @@ Wangnong/
 │   └── src/
 │       ├── main/ets/
 │       │   ├── entryability/        # 应用入口 (EntryAbility)
-│       │   ├── pages/               # 14 个页面
+│       │   ├── pages/               # 15 个页面
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
 │       │   ├── services/            # 5 个单例服务
 │       │   ├── models/              # 8 个数据模型
@@ -83,6 +83,7 @@ Index (底部 Tab 容器)
   ├─ Tab 1: AlertView (告警列表)
   │   └─ → AlertDetailPage
   └─ Tab 2: ProfileView (个人中心)
+      ├─ → AvatarCropPage (拍照/相册后头像圆形裁剪)
       ├─ → SettingsPage → EditProfilePage / ChangePasswordPage / AgreementPage
       └─ → AdminPage (管理员可见)
 
@@ -94,7 +95,7 @@ Index (底部 Tab 容器)
   - TraceabilityScanPage(溯源扫码)
 ```
 
-### 页面清单 (14)
+### 页面清单 (15)
 
 | 页面 | 文件 | 说明 |
 |------|------|------|
@@ -109,6 +110,7 @@ Index (底部 Tab 容器)
 | 设置 | `SettingsPage.ets` | 设置菜单入口 |
 | 协议 | `AgreementPage.ets` | 用户协议 / 隐私政策 (参数化) |
 | 溯源扫码 | `TraceabilityScanPage.ets` | 二维码扫描查询产品溯源 |
+| 头像裁剪 | `AvatarCropPage.ets` | 头像拖拽/缩放裁剪，生成圆形头像并上传 |
 | 修改密码 | `ChangePasswordPage.ets` | 旧密码 → 新密码 |
 | 编辑资料 | `EditProfilePage.ets` | 用户名、性别、生日 |
 | 测试页 | `TestTabs.ets` | UI 原型测试 |
@@ -122,7 +124,7 @@ Index (底部 Tab 容器)
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
 | `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
-| `ProfileView.ets` | 个人中心卡片 (头像、角色、登出) |
+| `ProfileView.ets` | 个人中心卡片 (头像拍照/相册选择、角色、登出) |
 
 ### 服务清单 (5 × Singleton)
 
@@ -210,7 +212,7 @@ Index (底部 Tab 容器)
 | 分类 | 前缀 | 主要端点 |
 |------|------|---------|
 | 基础设施 | `/api/v1/` | health |
-| 认证 | `/api/v1/auth/` | login, register, forgot-password, send-verification-code, password (PUT), profile, logout, avatar/use-fixed |
+| 认证 | `/api/v1/auth/` | login, register, forgot-password, send-verification-code, password (PUT), profile, logout, avatar/use-fixed, avatar/upload (multipart) |
 | 节点 | `/api/v1/devices/` | 列表, 详情, sensor-meta, equipment-meta |
 | 传感器 | `/api/v1/sensors/` | `{device_id}/history` (24h/7d/30d) |
 | 设备 | `/api/v1/equipment/` | stats |
@@ -281,18 +283,18 @@ Index (底部 Tab 容器)
 
 ### 覆盖范围
 
-**本地单元测试 (12 个测试套件)**:
+**本地单元测试 (14 个测试套件)**:
 
 | 层 | 测试套件 | 测试点 |
 |----|---------|--------|
 | 模型 | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
 | 服务 | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
-| 公用 | BreakpointSystem, AppConfig, DesignToken | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性 |
+| 公用 | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程与裁剪区域计算 |
 
-**OHOS 仪器测试 (5 个冒烟测试)**:
+**OHOS 仪器测试 (8 个冒烟测试)**:
 - Ability.test (基础测试能力校验)
-- LoginPage, Index (页面可渲染)
-- AlertView, MonitorView (视图可渲染)
+- LoginPage, Index, TraceabilityScanPage, AvatarCropPage (页面可渲染)
+- AlertView, MonitorView, ProfileView (视图可渲染)
 
 ### 测试辅助
 

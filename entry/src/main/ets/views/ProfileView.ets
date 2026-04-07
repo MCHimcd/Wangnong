@@ -1,7 +1,12 @@
 import { promptAction, router } from '@kit.ArkUI';
 import { preferences } from '@kit.ArkData';
-import { common } from '@kit.AbilityKit';
+import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
+import { BusinessError } from '@ohos.base';
+import picker from '@ohos.file.picker';
+import fs from '@ohos.file.fs';
+import { camera, cameraPicker } from '@kit.CameraKit';
 import { HttpService } from '../services/HttpService';
+import { AvatarCaptureHelper } from '../common/AvatarCaptureHelper';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
 @Component
@@ -34,6 +39,96 @@ export struct ProfileView {
 
   async aboutToAppear() {
     await this.refreshProfile();
+  }
+
+  private async ensureCameraPermission(): Promise<boolean> {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const atManager = abilityAccessCtrl.createAtManager();
+      const permissionList: Array<Permissions> = ['ohos.permission.CAMERA' as Permissions];
+      const grantResult = await atManager.requestPermissionsFromUser(context, permissionList);
+
+      let granted = false;
+      let i = 0;
+      while (i < grantResult.authResults.length) {
+        if (grantResult.authResults[i] === 0) {
+          granted = true;
+          break;
+        }
+        i++;
+      }
+      return granted;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  private copyUriToSandbox(sourceUri: string): string {
+    const context = getContext(this) as common.UIAbilityContext;
+    const timestamp = Date.now();
+    const destPath = `${context.cacheDir}/avatar_source_${timestamp}.jpg`;
+
+    let srcFile: fs.File | null = null;
+    let destFile: fs.File | null = null;
+    try {
+      srcFile = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
+      destFile = fs.openSync(destPath, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+      fs.copyFileSync(srcFile.fd, destFile.fd);
+      return destPath;
+    } finally {
+      if (srcFile !== null) {
+        fs.closeSync(srcFile);
+      }
+      if (destFile !== null) {
+        fs.closeSync(destFile);
+      }
+    }
+  }
+
+  private async pickAvatarFromAlbum(): Promise<string> {
+    try {
+      let photoSelectOptions = new picker.PhotoSelectOptions();
+      photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+      photoSelectOptions.maxSelectNumber = 1;
+      let photoPicker = new picker.PhotoViewPicker();
+      const selected = await photoPicker.select(photoSelectOptions);
+      if (!selected || selected.photoUris.length === 0) {
+        return '';
+      }
+      return selected.photoUris[0];
+    } catch (err) {
+      promptAction.showToast({ message: '打开相册失败' });
+      return '';
+    }
+  }
+
+  private async pickAvatarFromCamera(): Promise<string> {
+    try {
+      const granted = await this.ensureCameraPermission();
+      if (!granted) {
+        promptAction.showToast({ message: '未授予相机权限，请在系统设置中允许后重试' });
+        return '';
+      }
+
+      const context = getContext(this) as common.UIAbilityContext;
+      let profile = new cameraPicker.PickerProfile();
+      profile.cameraPosition = camera.CameraPosition.CAMERA_POSITION_BACK;
+      const result = await cameraPicker.pick(context, [cameraPicker.PickerMediaType.PHOTO], profile);
+      if (!result || result.resultUri.length === 0) {
+        return '';
+      }
+      return result.resultUri;
+    } catch (err) {
+      const businessError = err as BusinessError;
+      const errorCode: number = businessError.code ?? 0;
+      const errorMessage: string = businessError.message ?? '';
+      const friendlyMessage = AvatarCaptureHelper.messageForCameraError(errorCode, errorMessage);
+      if (friendlyMessage.length > 0) {
+        promptAction.showToast({ message: friendlyMessage });
+      }
+      console.error(`Camera pick failed. Code:${errorCode}, message:${errorMessage}`);
+      return '';
+    }
   }
 
   @Builder
@@ -99,21 +194,38 @@ export struct ProfileView {
                   return;
                 }
 
-                let profile = await HttpService.getInstance().useFixedAvatar();
-                if (!profile) {
-                  promptAction.showToast({ message: '头像更新失败，请检查后端连接' });
+                let pickedUri: string = '';
+                if (menuResult.index === 0) {
+                  pickedUri = await this.pickAvatarFromCamera();
+                } else {
+                  pickedUri = await this.pickAvatarFromAlbum();
+                }
+
+                if (pickedUri.length === 0) {
                   return;
                 }
 
-                this.profileAvatarSrc = profile.avatarSrc || '';
-                if (profile.userName) {
-                  this.userName = profile.userName;
+                // 复制到应用沙盒，确保裁剪页能正确读取
+                let sandboxPath: string = '';
+                try {
+                  sandboxPath = this.copyUriToSandbox(pickedUri);
+                } catch (copyErr) {
+                  console.error(`Copy to sandbox failed: ${JSON.stringify(copyErr)}`);
+                  promptAction.showToast({ message: '读取图片失败，请重试' });
+                  return;
                 }
-                AppStorage.setOrCreate('profileAvatarSrc', this.profileAvatarSrc);
-                AppStorage.setOrCreate('profileUserName', this.userName);
-                promptAction.showToast({ message: '头像已更新' });
+
+                // Image组件需要 file:// 前缀才能正确读取沙盒文件
+                const imageUri = sandboxPath.startsWith('file://') ? sandboxPath : `file://${sandboxPath}`;
+                router.pushUrl({
+                  url: 'pages/AvatarCropPage',
+                  params: {
+                    imageUri: imageUri
+                  }
+                });
               } catch (err) {
-                console.error(`Update avatar failed. Code:${err.code},message:${err.message}`);
+                const bizErr = err as BusinessError;
+                console.error(`Update avatar failed. Code:${bizErr.code},message:${bizErr.message}`);
                 promptAction.showToast({ message: '头像更新失败' });
               }
             })

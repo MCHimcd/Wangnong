@@ -11,6 +11,14 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "permission_camera_reason",
+      "value": "用于扫码识别与拍照上传头像"
+    },
+    {
+      "name": "permission_read_imagevideo_reason",
+      "value": "用于从相册选择图片进行二维码识别和头像裁剪"
     }
   ]
 }

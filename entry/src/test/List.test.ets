@@ -14,6 +14,9 @@ import videoMonitorServiceTest from './services/VideoMonitorService.test';
 import breakpointSystemTest from './common/BreakpointSystem.test';
 import appConfigTest from './common/AppConfig.test';
 import designTokenTest from './common/DesignToken.test';
+import traceabilityFlowHelperTest from './common/TraceabilityFlowHelper.test';
+import avatarCropMathTest from './common/AvatarCropMath.test';
+import avatarCaptureHelperTest from './common/AvatarCaptureHelper.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -32,4 +35,7 @@ export default function testsuite() {
   breakpointSystemTest();
   appConfigTest();
   designTokenTest();
+  traceabilityFlowHelperTest();
+  avatarCropMathTest();
+  avatarCaptureHelperTest();
 }

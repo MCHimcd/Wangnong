@@ -178,6 +178,25 @@ channels:
       message:
         $ref: '#/components/messages/ProfileResponse'
 
+  /api/v1/auth/avatar/upload:
+    description: 上传裁剪后的头像文件（multipart/form-data）
+    bindings:
+      http:
+        type: request
+    publish:
+      operationId: uploadAvatar
+      summary: 上传头像 (POST)
+      bindings:
+        http:
+          method: POST
+      message:
+        $ref: '#/components/messages/AvatarUploadRequest'
+    subscribe:
+      operationId: uploadAvatarResponse
+      summary: 上传头像响应
+      message:
+        $ref: '#/components/messages/ProfileResponse'
+
   /api/v1/auth/logout:
     description: 注销当前登录会话
     bindings:
@@ -924,6 +943,20 @@ components:
               birthDate: "1990-01-01"
               avatarSrc: https://example.com/avatar.jpg
               role: user
+
+    AvatarUploadRequest:
+      messageId: AvatarUploadRequest
+      name: AvatarUploadRequest
+      title: 头像上传请求体
+      contentType: multipart/form-data
+      payload:
+        type: object
+        required: [file]
+        properties:
+          file:
+            type: string
+            format: binary
+            description: 裁剪后的 PNG/JPEG 头像文件
 
     HealthCheckResponse:
       messageId: HealthCheckResponse

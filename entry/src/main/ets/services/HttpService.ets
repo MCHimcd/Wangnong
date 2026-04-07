@@ -8,6 +8,110 @@ import { AppConfig } from '../common/AppConfig';
 const BASE_URL = AppConfig.BASE_URL;
 const APP_ID = AppConfig.APP_ID;
 
+function trimTrailingSlash(text: string): string {
+  if (text.endsWith('/')) {
+    return text.substring(0, text.length - 1);
+  }
+  return text;
+}
+
+function getServerOriginFromBaseUrl(): string {
+  const base = trimTrailingSlash(BASE_URL);
+  if (base.endsWith('/api')) {
+    return base.substring(0, base.length - 4);
+  }
+  return base;
+}
+
+function getApiBaseUrl(): string {
+  const base = trimTrailingSlash(BASE_URL);
+  if (base.endsWith('/api')) {
+    return base;
+  }
+  return `${base}/api`;
+}
+
+export function normalizeAvatarSrcForDisplay(rawAvatarSrc: string): string {
+  if (!rawAvatarSrc || rawAvatarSrc.trim().length === 0) {
+    return '';
+  }
+
+  const src = rawAvatarSrc.trim();
+  const serverOrigin = getServerOriginFromBaseUrl();
+  const apiBase = getApiBaseUrl();
+
+  if (src.startsWith('http://localhost') || src.startsWith('https://localhost') ||
+    src.startsWith('http://127.0.0.1') || src.startsWith('https://127.0.0.1')) {
+    const apiIndex = src.indexOf('/api/');
+    if (apiIndex >= 0) {
+      return `${serverOrigin}${src.substring(apiIndex)}`;
+    }
+    const uploadsIndex = src.indexOf('/uploads/');
+    if (uploadsIndex >= 0) {
+      return `${apiBase}${src.substring(uploadsIndex)}`;
+    }
+  }
+
+  if (src.startsWith('/api/')) {
+    return `${serverOrigin}${src}`;
+  }
+
+  if (src.startsWith('/uploads/')) {
+    return `${apiBase}${src}`;
+  }
+
+  if (src.startsWith('uploads/')) {
+    return `${apiBase}/${src}`;
+  }
+
+  return src;
+}
+
+function normalizeProfileAvatar(profile: UserProfile | null): UserProfile | null {
+  if (profile === null) {
+    return null;
+  }
+  profile.avatarSrc = normalizeAvatarSrcForDisplay(profile.avatarSrc);
+  return profile;
+}
+
+export function normalizeUploadFilePath(pathOrUri: string): string {
+  return pathOrUri.startsWith('file://') ? pathOrUri.substring(7) : pathOrUri;
+}
+
+export function inferUploadImageContentType(pathOrUri: string): string {
+  let lowerPath = pathOrUri.toLowerCase();
+  if (lowerPath.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  return 'image/jpeg';
+}
+
+function extractUploadFileName(normalizedPath: string, contentType: string): string {
+  let splitIndex = Math.max(normalizedPath.lastIndexOf('/'), normalizedPath.lastIndexOf('\\'));
+  let candidate = splitIndex >= 0 ? normalizedPath.substring(splitIndex + 1) : normalizedPath;
+  if (candidate.length > 0) {
+    return candidate;
+  }
+  return contentType === 'image/png' ? 'avatar.png' : 'avatar.jpg';
+}
+
+export function buildAvatarUploadPart(pathOrUri: string): http.MultiFormData {
+  let normalizedPath = normalizeUploadFilePath(pathOrUri);
+  let contentType = inferUploadImageContentType(normalizedPath);
+  let remoteFileName = extractUploadFileName(normalizedPath, contentType);
+  let filePart: http.MultiFormData = {
+    name: 'file',
+    contentType: contentType,
+    remoteFileName: remoteFileName,
+    filePath: normalizedPath
+  };
+  return filePart;
+}
+
 export class LoginRequest {
   username: string = "";
   password: string = "";
@@ -287,6 +391,43 @@ export class HttpService {
     }
   }
 
+  private async requestMultipart<T>(path: string, multiFormDataList: http.MultiFormData[],
+    connectTimeoutMs: number = 5000, readTimeoutMs: number = 15000): Promise<T | null> {
+    let httpRequest = http.createHttp();
+    let url = `${BASE_URL}${path}`;
+
+    // SDK 默认请求头是 application/json，multipart 必须显式覆盖。
+    let header: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
+    if (this.token) {
+      header['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    console.info(`[HttpService] POST multipart ${url}`);
+    console.info(`[HttpService] multiFormDataList: ${JSON.stringify(multiFormDataList)}`);
+
+    try {
+      let options: http.HttpRequestOptions = {
+        method: http.RequestMethod.POST,
+        header: header,
+        multiFormDataList: multiFormDataList,
+        connectTimeout: connectTimeoutMs,
+        readTimeout: readTimeoutMs
+      };
+
+      let response = await httpRequest.request(url, options);
+      console.info(`[HttpService] Response: ${response.responseCode}, body: ${response.result}`);
+      if (response.responseCode === 200 || response.responseCode === 201) {
+        return JSON.parse(response.result as string) as T;
+      }
+      throw new Error(`HTTP ${response.responseCode}`);
+    } catch (e) {
+      console.warn(`[HttpService] Multipart request to ${path} failed. Cause: ${e}`);
+      return null;
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
   public async login(username: string, password: string): Promise<LoginResponse | null> {
     let req = new LoginRequest();
     req.username = username;
@@ -387,7 +528,7 @@ export class HttpService {
       '/api/v1/auth/profile',
       http.RequestMethod.GET
     );
-    return res ? res.data : null;
+    return res ? normalizeProfileAvatar(res.data) : null;
   }
 
   public async updateUserProfile(profile: UserProfile): Promise<boolean> {
@@ -404,7 +545,18 @@ export class HttpService {
       '/api/v1/auth/avatar/use-fixed',
       http.RequestMethod.POST
     );
-    return res ? res.data : null;
+    return res ? normalizeProfileAvatar(res.data) : null;
+  }
+
+  public async uploadAvatar(filePath: string): Promise<UserProfile | null> {
+    let filePart = buildAvatarUploadPart(filePath);
+
+    let res = await this.requestMultipart<BaseResponse<UserProfile>>(
+      '/api/v1/auth/avatar/upload',
+      [filePart]
+    );
+
+    return res ? normalizeProfileAvatar(res.data) : null;
   }
 
   public async uploadTraceCode(traceCode: string): Promise<string | null> {
