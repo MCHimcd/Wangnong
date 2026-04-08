@@ -16,6 +16,8 @@ export struct HomeView {
   @ObjectLink node: Node;
   @Prop nodesList: string[] = [];
   @Prop currentNodeIndex: number = 0;
+  @Prop connectionStatus: 'connected' | 'disconnected' = 'disconnected';
+  @Prop mqttHeartbeatOffline: boolean = false;
   @StorageLink('currentBreakpoint') currentBreakpoint: string = 'sm';
 
   onSwitchNode: ((index: number) => void) | null = null;
@@ -268,6 +270,8 @@ export struct HomeView {
             if (this.currentSidebarIndex === 0) {
               MonitorView({
                 nodeId: this.node.id,
+                nodeStatus: this.node.status,
+                mqttHeartbeatOffline: this.mqttHeartbeatOffline || this.connectionStatus === 'disconnected',
                 sensorData: this.node.sensorData,
                 nodeState: this.node.nodeState,
                 sensorMeta: this.node.sensorMeta,

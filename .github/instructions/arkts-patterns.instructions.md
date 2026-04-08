@@ -41,7 +41,7 @@ ForEach(this.sensorMeta, (item: SensorMetaItem) => {
   SensorCard({ meta: item })
 }, (item: SensorMetaItem) => item.key)
 
-// ❌ 错误：缺少 key 函数，列表更新时可能出现 UI 异常
+// ❌ 缺少 key 函数，列表更新时可能 UI 异常
 ForEach(this.sensorMeta, (item: SensorMetaItem) => {
   SensorCard({ meta: item })
 })
@@ -68,64 +68,9 @@ ForEach(this.sensorMeta, (item: SensorMetaItem) => {
 }
 ```
 
-## 常见编译错误修正
-
-### arkts-no-untyped-obj-literals
-
-ArkTS 不允许无类型对象字面量。
-
-```typescript
-// ❌ 编译错误
-router.pushUrl({ url: 'pages/DetailPage', params: { id: '123' } });
-
-// ✅ 正确：定义 class 并实例化
-class RouterParam { url: string = ''; params: Record<string, string> = {}; }
-// 或直接使用 router API 已定义的类型
-```
-
-### @Observed + Record 深度响应
-
-修改 Record 内部值不会自动触发 UI 刷新，需通过额外的 `revision` 计数器驱动：
-
-```typescript
-@Observed class NodeState {
-  private equipmentStates: Record<string, boolean> = {};
-  revision: number = 0;
-
-  setState(key: string, on: boolean): void {
-    this.equipmentStates[key] = on;
-    this.revision++;  // 触发 UI 更新
-  }
-}
-```
-
-### arkts-no-intersection-types
-
-ArkTS 不支持交叉类型（`A & B`），尤其在测试中常见于“临时扩展类型”写法。
-
-```typescript
-// ❌ 编译错误
-let svc = HttpService.getInstance() as HttpService & Record<string, Object>;
-
-// ✅ 正确方式：直接使用已声明类型，或定义显式继承类/接口
-let svc = HttpService.getInstance();
-```
-
-### arkts-no-props-by-index
-
-ArkTS 不支持通过索引访问对象字段（如 `obj['field']`）读取类成员。
-
-```typescript
-// ❌ 编译错误
-let ok = typeof svc['checkServerHealth'] === 'function';
-
-// ✅ 正确方式：使用点语法
-let ok = svc.checkServerHealth !== undefined;
-```
-
 ## 设计规范引用
 
-**始终使用 DesignToken 中的常量**，不要硬编码数值：
+始终使用 `DesignToken.ets` 中的常量，不要硬编码数值：
 
 ```typescript
 // ✅
@@ -148,11 +93,84 @@ let ok = svc.checkServerHealth !== undefined;
 
 build() {
   if (this.bp === 'lg') {
-    // 平板横屏布局：侧边栏 + 内容
-    Row() { Sidebar(); Content(); }
+    Row() { Sidebar(); Content(); }   // 平板横屏：侧边栏 + 内容
   } else {
-    // 手机布局：纯内容
-    Column() { Content(); }
+    Column() { Content(); }            // 手机：纯内容
   }
 }
 ```
+
+---
+
+## 编译错误修正 (arkts-* 规则)
+
+> 此节是所有 ArkTS 编译期约束违规的**唯一参考**。运行时调试参见 `debugging.instructions.md`。
+
+### arkts-no-untyped-obj-literals
+
+ArkTS 不允许无类型对象字面量 `{ key: value }`。
+
+```typescript
+// ❌ 编译错误
+let data = { name: 'test', value: 123 };
+
+// ✅ 定义 class 并实例化
+class MyData { name: string = ''; value: number = 0; }
+let data = new MyData();
+data.name = 'test';
+data.value = 123;
+
+// ✅ 使用 Record 类型 (适合动态 KV 场景)
+let map: Record<string, number> = {};
+map['temperature'] = 25.3;
+```
+
+### arkts-no-intersection-types
+
+ArkTS 不支持交叉类型 `A & B`，常见于测试中"临时扩展类型"写法。
+
+```typescript
+// ❌ 编译错误
+let svc = HttpService.getInstance() as HttpService & Record<string, Object>;
+
+// ✅ 使用已声明类型，或定义显式继承类/接口
+let svc = HttpService.getInstance();
+```
+
+### arkts-no-props-by-index
+
+ArkTS 不支持通过索引访问类成员 `obj['field']`。
+
+```typescript
+// ❌ 编译错误
+let ok = typeof svc['checkServerHealth'] === 'function';
+
+// ✅ 使用点语法
+let ok = svc.checkServerHealth !== undefined;
+```
+
+### @Observed + Record 深度响应
+
+修改 Record 内部值不会自动触发 UI 刷新，需通过 `revision` 计数器驱动：
+
+```typescript
+@Observed class NodeState {
+  private equipmentStates: Record<string, boolean> = {};
+  revision: number = 0;
+
+  setState(key: string, on: boolean): void {
+    this.equipmentStates[key] = on;
+    this.revision++;  // 触发 UI 更新
+  }
+}
+```
+
+### ForEach 不更新
+
+列表数据变化后 `ForEach` 不重新渲染 — 确保提供唯一 key 生成函数（见上方 ForEach 节）。
+
+### 循环导入
+
+**症状**：运行时 `undefined` 错误，类型在运行时为 `undefined`。
+
+**修复**：使用 `import type` 或重构文件依赖链，消除循环。

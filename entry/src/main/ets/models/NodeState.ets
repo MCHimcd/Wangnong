@@ -10,6 +10,10 @@ export class NodeState {
     return this.equipmentStates[key] ?? false;
   }
 
+  hasState(key: string): boolean {
+    return this.equipmentStates[key] !== undefined;
+  }
+
   setState(key: string, val: boolean): void {
     this.equipmentStates[key] = val;
     this.revision++;

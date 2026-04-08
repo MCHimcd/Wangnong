@@ -38,16 +38,19 @@ Wangnong/
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
 │       │   ├── services/            # 5 个单例服务
 │       │   ├── models/              # 8 个数据模型
-│       │   └── common/              # 公用配置与工具
+│       │   └── common/              # 公用配置与工具 (6)
 │       │       ├── AppConfig.ets
 │       │       ├── DesignToken.ets
-│       │       └── BreakpointSystem.ets
+│       │       ├── BreakpointSystem.ets
+│       │       ├── AvatarCaptureHelper.ets
+│       │       ├── AvatarCropMath.ets
+│       │       └── TraceabilityFlowHelper.ets
 │       ├── test/                    # 本地单元测试
 │       │   ├── List.test.ets        # 测试入口
 │       │   ├── testutils/           # 测试工厂 & 辅助
 │       │   ├── models/              # 模型层测试 (4)
-│       │   ├── services/            # 服务层测试 (4)
-│       │   └── common/              # 公用工具测试 (3)
+│       │   ├── services/            # 服务层测试 (5)
+│       │   └── common/              # 公用工具测试 (6)
 │       ├── ohosTest/                # OHOS 仪器测试 (设备/模拟器)
 │       │   └── ets/test/
 │       │       ├── pages/           # 页面冒烟测试
@@ -58,8 +61,8 @@ Wangnong/
 ├── docs/asyncapi/
 │   └── asyncapi.yaml                # HTTP + MQTT 协议规范
 └── .github/
-    ├── copilot-instructions.md      # AI 编码指令
-    ├── instructions/                # 按需 AI 指令 (含测试/调试指南)
+    ├── copilot-instructions.md      # AI 编码指令 (枢纽)
+    ├── instructions/                # 按领域拆分的 AI 指令 (7 个)
     └── workflows/asyncapi-pages.yml # CI: 文档自动部署
 ```
 
@@ -120,7 +123,7 @@ Index (底部 Tab 容器)
 | 视图 | 说明 |
 |------|------|
 | `HomeView.ets` | 侧边栏 + 内容路由 (MonitorView / AgriQAView / ScheduledTaskView) |
-| `MonitorView.ets` | 传感器卡片网格 + 设备控制 + 视频入口 |
+| `MonitorView.ets` | 传感器卡片网格 + 设备控制 + 视频入口；仅展示有有效状态的数据类型，硬件未连接时整页显示统一提示 |
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
 | `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
@@ -145,7 +148,7 @@ Index (底部 Tab 容器)
 | `SensorMeta.ets` | `SensorMetaItem {key, name, unit, icon, warningMin?, warningMax?}` | — |
 | `EquipmentMeta.ets` | `EquipmentMetaItem {key, name, icon, controllable}` | — |
 | `AlertData.ets` | `alert_id, type, level, timestamp, message, is_handled` | — |
-| `Node.ets` | `id, name, sensorData, nodeState, sensorMeta[], equipmentMeta[]` | @Observed |
+| `Node.ets` | `id, name, status, sensorData, nodeState, sensorMeta[], equipmentMeta[]` | @Observed |
 | `NodeState.ets` | `smartMode, equipmentStates: Record<string, boolean>` | @Observed |
 | `VideoMonitorData.ets` | `LiveStreamInfo`, `PlaybackItem`, `KeyframeImageItem` | — |
 
@@ -153,7 +156,7 @@ Index (底部 Tab 容器)
 
 ## MQTT 协议
 
-**Broker**: `tcp://47.109.27.231:1883` (测试环境；生产应替换为自托管 Broker)
+**Broker**: `tcp://broker.emqx.io:1883` (测试环境；生产应替换为自托管 Broker)
 
 ### 主题设计
 
@@ -283,13 +286,13 @@ Index (底部 Tab 容器)
 
 ### 覆盖范围
 
-**本地单元测试 (14 个测试套件)**:
+**本地单元测试 (15 个测试套件)**:
 
 | 层 | 测试套件 | 测试点 |
 |----|---------|--------|
-| 模型 | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
-| 服务 | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
-| 公用 | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程与裁剪区域计算 |
+| 模型 (4) | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
+| 服务 (5) | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
+| 公用 (6) | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath, AvatarCaptureHelper | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程、裁剪区域计算、头像拍摄辅助 |
 
 **OHOS 仪器测试 (8 个冒烟测试)**:
 - Ability.test (基础测试能力校验)
@@ -310,79 +313,52 @@ $env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
   --mode module -p module=entry@default -p product=default test --no-daemon
 ```
 
-- 成功标志：`BUILD SUCCESSFUL` 且 `Tests run: N, Failure: 0, Error: 0, Pass: N, Ignore: 0`
-- 测试结果：`entry/.test/default/intermediates/test/coverage_data/test_result.txt`
-- 覆盖率报告：`entry/.test/default/outputs/test/reports/index.html`
-- `exit code 1` 由 WARN 导致，只要 `BUILD SUCCESSFUL` 且 `Failure: 0, Error: 0` 即视为通过
+- 成功标志：`BUILD SUCCESSFUL` 且 `Tests run: N, Failure: 0, Error: 0`
+- `exit code 1` 由 WARN 导致，只要上述条件满足即视为通过
 
-**OHOS 仪器测试 (需设备/模拟器)**：
-
-方式一（DevEco Studio）：通过 Test Runner 运行 `entry/src/ohosTest/`。
-
-方式二（CLI，适合自动化与排查）：
-
-```powershell
-$hdc = "D:\software\Huawei\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe"
-$env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
-
-# 1) 设备连通性
-& $hdc list targets
-
-# 2) 构建 ohosTest 测试包
-& "D:\software\Huawei\DevEco Studio\tools\hvigor\bin\hvigorw.bat" `
-  --mode module -p module=entry@ohosTest -p product=default assembleHap --no-daemon
-
-# 3) 安装测试包
-& $hdc install -r "entry/build/default/outputs/ohosTest/entry-ohosTest-unsigned.hap"
-
-# 4) 运行仪器测试
-& $hdc shell aa test -b ww.wangwang.wangnong -m entry_test -s unittest OpenHarmonyTestRunner
-```
-
-- 包名：`ww.wangwang.wangnong`（来自 `AppScope/app.json5` 的 `bundleName`）
-- 模块名：`entry_test`（来自 `entry/src/ohosTest/module.json5` 的 `module.name`）
-- 成功标志：`OHOS_REPORT_RESULT: stream=Tests run: N, Failure: 0, Error: 0, Pass: N, Ignore: 0` 且 `TestFinished-ResultCode: 0`
+**OHOS 仪器测试 (需设备/模拟器)**：通过 DevEco Studio Test Runner 运行 `entry/src/ohosTest/`，或使用 CLI（详见 `.github/instructions/build-and-verify.instructions.md`）。
 
 ---
 
 ## 构建与运行
 
-### 前端编译 (PowerShell)
+### 前端编译
 
 ```powershell
 $env:DEVECO_SDK_HOME = "D:\software\Huawei\DevEco Studio\sdk"
-cd D:\DevEcoStudioProjects\Wangnong
 & "D:\software\Huawei\DevEco Studio\tools\hvigor\bin\hvigorw.bat" `
   --mode module -p module=entry@default -p product=default assembleHap --no-daemon
 ```
 
-- 成功: 输出 `BUILD SUCCESSFUL`
-- 失败: 搜索 `ERROR:` 查看具体错误；`WARN` 通常可忽略
+- 成功: `BUILD SUCCESSFUL` / 失败: 搜索 `ERROR:`
 
-### 测试后端 (仅开发调试，生产不使用)
+> 完整构建命令、输出解读、验证流程详见 `.github/instructions/build-and-verify.instructions.md`。
+
+### 测试后端 (仅开发调试)
 
 ```bash
-cd test_backend
-pip install flask flask-cors paho-mqtt
-python server.py
-# 监听 http://localhost:8080
+cd test_backend && pip install flask flask-cors paho-mqtt && python server.py
 ```
 
-> `test_backend/` 为测试后端模块，现有独立后端已可用时不再使用，但代码保留不删除。
+`test_backend/` 为开发测试用 Flask 后端，代码保留不删除，生产环境使用独立后端。
 
 ---
 
 ## 代码约定
 
-1. **ArkTS 严格模式** — 不允许无类型对象字面量 `{ key: value }`，必须定义 class 并实例化
-2. **服务层 Singleton** — 所有服务使用 `static getInstance()` 模式
-3. **HTTP 统一入口** — 所有网络请求通过 `HttpService`，不直接调用 `@ohos.net.http`
-4. **MQTT 统一入口** — 所有实时通信通过 `MqttClientService`，不直接创建 MQTT 客户端
-5. **设计规范** — 颜色/字号/间距/圆角使用 `DesignToken.ets` 常量，禁止硬编码
-6. **响应式布局** — 利用 `@StorageLink('currentBreakpoint')` 适配 sm/md/lg
-7. **生命周期清理** — `aboutToDisappear()` 中清除 timer、取消 MQTT 监听、释放资源
-8. **@Observed 深度更新** — 对 Record 类型使用 `revision++` 触发 UI 刷新
-9. **导航** — 页面跳转使用 `router.pushUrl({ url, params })`
-10. **API 兼容** — 当前使用 API 22 测试，最终需兼容 API 11，避免使用仅 API 12+ 的新接口
-11. **测试先行** — 所有增删改操作必须先编写/更新测试用例，再实现业务逻辑
-12. **禁止使用 HarmonyOS 特有功能** — 项目以 OpenHarmony 为目标平台，禁止使用仅在 HarmonyOS 平台可用的专有 API、模块或运行时特性，确保代码在 OpenHarmony 平台可编译运行。
+| # | 约定 | 说明 |
+|---|------|------|
+| 1 | ArkTS 严格模式 | 禁止无类型对象字面量、交叉类型、索引访问类成员 |
+| 2 | 服务层 Singleton | 所有 Service 使用 `static getInstance()` 模式 |
+| 3 | HTTP 统一入口 | 所有网络请求通过 `HttpService`，禁止直接调用 `@ohos.net.http` |
+| 4 | MQTT 统一入口 | 所有实时通信通过 `MqttClientService`，禁止直接创建 MQTT 客户端 |
+| 5 | 设计规范 | 颜色/字号/间距/圆角使用 `DesignToken.ets` 常量，禁止硬编码 |
+| 6 | 响应式布局 | `@StorageLink('currentBreakpoint')` 适配 sm/md/lg |
+| 7 | 生命周期清理 | `aboutToDisappear()` 中清除 timer、取消 MQTT 监听、释放资源 |
+| 8 | @Observed 深度更新 | Record 类型使用 `revision++` 触发 UI 刷新 |
+| 9 | 页面导航 | `router.pushUrl()` 跳转，`router.getParams()` 接收参数 |
+| 10 | API 兼容 | API 22 测试，最终需兼容 API 11；高版本 API 标注 `// TODO: API 11 兼容` |
+| 11 | 测试先行 | 所有增删改必须先编写/更新测试用例，再实现业务逻辑 |
+| 12 | OpenHarmony 平台 | 禁止使用 HarmonyOS 专有 API，确保 OpenHarmony 可编译运行 |
+
+> 详细编码模式与示例参见 `.github/instructions/arkts-patterns.instructions.md`

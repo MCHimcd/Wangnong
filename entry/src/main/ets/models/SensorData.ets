@@ -9,6 +9,10 @@ export class SensorData {
     return this.values[key] ?? 0;
   }
 
+  hasValue(key: string): boolean {
+    return this.values[key] !== undefined;
+  }
+
   setValue(key: string, val: number): void {
     this.values[key] = val;
     this.revision++;

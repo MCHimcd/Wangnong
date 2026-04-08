@@ -29,6 +29,7 @@ struct Index {
   @Provide autoCooling: boolean = false;
   
   @Provide connectionStatus: 'connected' | 'disconnected' = 'disconnected';
+  @State mqttHeartbeatOffline: boolean = false;
   private isForceLogoutHandling: boolean = false;
   private readonly availabilityService: ServerAvailabilityService = ServerAvailabilityService.getInstance();
   private readonly onForceLogout = () => {
@@ -42,7 +43,7 @@ struct Index {
     }
 
     this.nodes = remoteNodes.map((item: NodeListItem) => {
-      return new Node(item.id, item.name);
+      return new Node(item.id, item.name, item.status);
     });
 
     if (this.currentNodeIndex >= this.nodes.length) {
@@ -85,6 +86,8 @@ struct Index {
             const data = payload['data'] as Record<string, Object | string | number | boolean>;
             this.nodes.forEach(node => {
               if (node.id === nodeId) {
+                node.status = 'online';
+                this.mqttHeartbeatOffline = false;
                 if (data['environment']) {
                   const env = data['environment'] as Record<string, number>;
                   const envKeys = Object.keys(env);
@@ -116,9 +119,18 @@ struct Index {
       },
       (status, debugInfo) => {
         this.connectionStatus = status;
+        if (status === 'disconnected') {
+          this.mqttHeartbeatOffline = true;
+        }
         console.info(`[Index] MQTT status changed: ${status}, info: ${debugInfo || ''}`);
       }
     );
+    MqttClientService.getInstance().setOnOfflineCallback(() => {
+      this.mqttHeartbeatOffline = true;
+      if (this.currentNodeIndex >= 0 && this.currentNodeIndex < this.nodes.length) {
+        this.nodes[this.currentNodeIndex].status = 'offline';
+      }
+    });
     AlertSyncService.getInstance().setAlertDialogCallback((alert: AlertData) => {
       promptAction.showDialog({
         title: '新告警提示',
@@ -141,6 +153,7 @@ struct Index {
     this.availabilityService.stopPolling();
     BreakpointSystem.getInstance().unregister();
     AlertSyncService.getInstance().stopRealtimeSync();
+    MqttClientService.getInstance().setOnOfflineCallback(() => {});
     MqttClientService.getInstance().disconnect();
   }
 
@@ -187,6 +200,8 @@ struct Index {
         TabContent() {
           HomeView({ 
             node: this.nodes[this.currentNodeIndex],
+            connectionStatus: this.connectionStatus,
+            mqttHeartbeatOffline: this.mqttHeartbeatOffline,
             nodesList: this.nodes.map(d => d.name),
             currentNodeIndex: this.currentNodeIndex,
             onSwitchNode: (idx: number) => {

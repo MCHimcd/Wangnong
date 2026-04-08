@@ -7,14 +7,16 @@ import { EquipmentMetaItem } from './EquipmentMeta';
 export class Node {
   id: string;
   name: string;
+  status: string = 'offline';
   sensorData: SensorData;
   nodeState: NodeState;
   sensorMeta: SensorMetaItem[] = [];
   equipmentMeta: EquipmentMetaItem[] = [];
 
-  constructor(id: string, name: string) {
+  constructor(id: string, name: string, status: string = 'offline') {
     this.id = id;
     this.name = name;
+    this.status = status;
     this.sensorData = new SensorData();
     this.nodeState = new NodeState();
   }

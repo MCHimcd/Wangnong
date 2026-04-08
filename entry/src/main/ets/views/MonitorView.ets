@@ -13,6 +13,8 @@ import router from '@ohos.router';
 @Component
 export struct MonitorView {
   @Prop nodeId: string = '';
+  @Prop nodeStatus: string = 'offline';
+  @Prop mqttHeartbeatOffline: boolean = false;
   @ObjectLink sensorData: SensorData;
   @ObjectLink nodeState: NodeState;
   @Prop sensorMeta: SensorMetaItem[] = [];
@@ -30,6 +32,30 @@ export struct MonitorView {
   };
   @State videoLoading: boolean = false;
   private videoController: VideoController = new VideoController();
+
+  private isNodeConnected(): boolean {
+    return this.nodeStatus === 'online' && !this.mqttHeartbeatOffline;
+  }
+
+  private getDisplaySensorMeta(): SensorMetaItem[] {
+    let visibleMeta: SensorMetaItem[] = [];
+    for (let i = 0; i < this.sensorMeta.length; i++) {
+      if (this.sensorData.hasValue(this.sensorMeta[i].key)) {
+        visibleMeta.push(this.sensorMeta[i]);
+      }
+    }
+    return visibleMeta;
+  }
+
+  private getDisplayEquipmentMeta(): EquipmentMetaItem[] {
+    let visibleMeta: EquipmentMetaItem[] = [];
+    for (let i = 0; i < this.equipmentMeta.length; i++) {
+      if (this.nodeState.hasState(this.equipmentMeta[i].key)) {
+        visibleMeta.push(this.equipmentMeta[i]);
+      }
+    }
+    return visibleMeta;
+  }
 
   aboutToAppear(): void {
     void this.loadVideoInfo();
@@ -103,11 +129,16 @@ export struct MonitorView {
           .fontSize(AppFontSize.Body)
           .fontColor(AppColors.TextTertiary)
           .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
+      } else if (this.getDisplaySensorMeta().length === 0) {
+        Text('暂无有效传感器数据，请等待设备上报')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
         if (this.currentBreakpoint === 'lg') {
           // 大屏: Grid 铺满
           Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+            ForEach(this.getDisplaySensorMeta(), (meta: SensorMetaItem) => {
               Column() {
                 this.SensorCard(meta)
               }
@@ -118,7 +149,7 @@ export struct MonitorView {
           .width('100%')
         } else if (this.currentBreakpoint === 'md') {
           Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+            ForEach(this.getDisplaySensorMeta(), (meta: SensorMetaItem) => {
               Column() {
                 this.SensorCard(meta)
               }
@@ -130,7 +161,7 @@ export struct MonitorView {
         } else {
           // 小屏: 横向滚动
           List({ space: AppSpacing.MD }) {
-            ForEach(this.sensorMeta, (meta: SensorMetaItem) => {
+            ForEach(this.getDisplaySensorMeta(), (meta: SensorMetaItem) => {
               ListItem() {
                 this.SensorCard(meta)
               }
@@ -330,10 +361,15 @@ export struct MonitorView {
           .fontSize(AppFontSize.Body)
           .fontColor(AppColors.TextTertiary)
           .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
+      } else if (this.getDisplayEquipmentMeta().length === 0) {
+        Text('暂无有效设备状态数据，请等待设备上报')
+          .fontSize(AppFontSize.Body)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ top: AppSpacing.SM, bottom: AppSpacing.SM })
       } else {
         if (this.currentBreakpoint === 'lg' || this.currentBreakpoint === 'md') {
           Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
-            ForEach(this.equipmentMeta, (meta: EquipmentMetaItem) => {
+            ForEach(this.getDisplayEquipmentMeta(), (meta: EquipmentMetaItem) => {
               Column() {
                 this.EquipmentCard(meta)
               }
@@ -344,7 +380,7 @@ export struct MonitorView {
           .width('100%')
         } else {
           List({ space: AppSpacing.MD }) {
-            ForEach(this.equipmentMeta, (meta: EquipmentMetaItem) => {
+            ForEach(this.getDisplayEquipmentMeta(), (meta: EquipmentMetaItem) => {
               ListItem() {
                 this.EquipmentCard(meta)
               }
@@ -431,11 +467,44 @@ export struct MonitorView {
     })
   }
 
+  @Builder
+  OfflineSection() {
+    Column() {
+      Text('🔌')
+        .fontSize(44)
+        .margin({ bottom: AppSpacing.MD })
+
+      Text('硬件未连接')
+        .fontSize(AppFontSize.H2)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.TextPrimary)
+        .margin({ bottom: AppSpacing.SM })
+
+      Text('当前无法获取实时传感器与设备状态，请检查设备连接后重试')
+        .fontSize(AppFontSize.Body)
+        .fontColor(AppColors.TextSecondary)
+        .textAlign(TextAlign.Center)
+        .lineHeight(22)
+    }
+    .width('100%')
+    .height(300)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .padding(AppSpacing.CardPadding)
+    .backgroundColor(AppColors.Surface)
+    .borderRadius(AppRadius.XL)
+    .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
+  }
+
   build() {
     Column({ space: AppSpacing.SectionGap }) {
-      this.VideoSection()
-      this.SensorSection()
-      this.ControlSection()
+      if (this.isNodeConnected()) {
+        this.VideoSection()
+        this.SensorSection()
+        this.ControlSection()
+      } else {
+        this.OfflineSection()
+      }
     }
     .width('100%')
     .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding,

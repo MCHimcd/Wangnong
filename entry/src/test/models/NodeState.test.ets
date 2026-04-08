@@ -13,9 +13,18 @@ export default function nodeStateTest() {
       expect(nodeState.getState('nonexistent')).assertFalse();
     });
 
+    it('hasState_returns_false_for_unknown_key', 0, () => {
+      expect(nodeState.hasState('nonexistent')).assertFalse();
+    });
+
     it('setState_and_getState_roundtrip_true', 0, () => {
       nodeState.setState('water_pump', true);
       expect(nodeState.getState('water_pump')).assertTrue();
+    });
+
+    it('hasState_returns_true_after_setState', 0, () => {
+      nodeState.setState('water_pump', true);
+      expect(nodeState.hasState('water_pump')).assertTrue();
     });
 
     it('setState_and_getState_roundtrip_false', 0, () => {

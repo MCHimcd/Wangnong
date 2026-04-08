@@ -16,6 +16,15 @@ export default function nodeTest() {
       expect(node.name).assertEqual('温室一号');
     });
 
+    it('status_defaults_to_offline', 0, () => {
+      expect(node.status).assertEqual('offline');
+    });
+
+    it('constructor_accepts_status', 0, () => {
+      let onlineNode = new Node('A03_Node_02', '温室二号', 'online');
+      expect(onlineNode.status).assertEqual('online');
+    });
+
     it('constructor_creates_sensorData_instance', 0, () => {
       expect(node.sensorData instanceof SensorData).assertTrue();
     });

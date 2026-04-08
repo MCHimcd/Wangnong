@@ -13,9 +13,18 @@ export default function sensorDataTest() {
       expect(sensorData.getValue('nonexistent')).assertEqual(0);
     });
 
+    it('hasValue_returns_false_for_unknown_key', 0, () => {
+      expect(sensorData.hasValue('nonexistent')).assertFalse();
+    });
+
     it('setValue_and_getValue_roundtrip', 0, () => {
       sensorData.setValue('temperature', 25.3);
       expect(sensorData.getValue('temperature')).assertEqual(25.3);
+    });
+
+    it('hasValue_returns_true_after_setValue', 0, () => {
+      sensorData.setValue('temperature', 25.3);
+      expect(sensorData.hasValue('temperature')).assertTrue();
     });
 
     it('setValue_increments_revision', 0, () => {
@@ -48,6 +57,15 @@ export default function sensorDataTest() {
       expect(sensorData.getValue('temperature')).assertEqual(25.3);
       expect(sensorData.getValue('humidity')).assertEqual(68);
       expect(sensorData.getValue('co2')).assertEqual(420);
+    });
+
+    it('hasValue_returns_true_after_setValues', 0, () => {
+      let kvs: Record<string, number> = {};
+      kvs['temperature'] = 25.3;
+      sensorData.setValues(kvs);
+
+      expect(sensorData.hasValue('temperature')).assertTrue();
+      expect(sensorData.hasValue('humidity')).assertFalse();
     });
 
     it('setValues_increments_revision_once', 0, () => {
