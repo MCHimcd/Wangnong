@@ -55,9 +55,18 @@ class ControlMessage {
   action?: ControlAction;
 }
 
+class PendingCommand {
+  nodeId: string = '';
+  targetDevice: string = '';
+  action: string = '';
+  paramDuration: number = 15;
+}
+
 export class MqttClientService {
   private static instance: MqttClientService;
   private static readonly MAX_TREND_POINTS: number = 60;
+  private static readonly RECONNECT_DELAY_MS: number = 3000;
+  private static readonly MAX_RECONNECT_DELAY_MS: number = 30000;
   private onTelemetryDataListeners: Array<(nodeId: string, msgStr: string) => void> = [];
   private onAlertDataListeners: Array<(nodeId: string, msgStr: string) => void> = [];
   private onOfflineCallback: (() => void) | null = null;
@@ -65,8 +74,17 @@ export class MqttClientService {
   private connected: boolean = false;
   private client: MqttClient | null = null;
   private trendCache: Record<string, CachedTrendPoint[]> = {};
+  private reconnectTimerId: number = -1;
+  private reconnectDelay: number = MqttClientService.RECONNECT_DELAY_MS;
+  private cachedBrokerUrl: string = '';
+  private cachedClientId: string = '';
+  private onStatusChangeCallback: ((status: 'connected' | 'disconnected', debugInfo?: string) => void) | null = null;
+  private pendingCommands: PendingCommand[] = [];
+  private drainRunning: boolean = false;
+  private drainSeq: number = 0;
 
   private constructor() {
+    this.kickDrain();
   }
 
   public static getInstance(): MqttClientService {
@@ -174,15 +192,25 @@ export class MqttClientService {
     onTelemetryData: (nodeId: string, msgStr: string) => void,
     onStatusChange?: (status: 'connected' | 'disconnected', debugInfo?: string) => void) {
     this.addTelemetryListener(onTelemetryData);
-    console.info(`[MQTT] Connecting to ${brokerUrl}`);
+    this.cachedBrokerUrl = brokerUrl;
+    this.cachedClientId = clientId;
     if (onStatusChange) {
-      onStatusChange('disconnected', 'Init connection...');
+      this.onStatusChangeCallback = onStatusChange;
+    }
+    console.info(`[MQTT] Connecting to ${brokerUrl}`);
+    if (this.onStatusChangeCallback) {
+      this.onStatusChangeCallback('disconnected', 'Init connection...');
     }
 
+    this.doConnect();
+  }
+
+  private doConnect() {
+    let brokerUrl = this.cachedBrokerUrl;
     try {
       let createOpts: MqttClientOptions = {
         url: brokerUrl,
-        clientId: clientId,
+        clientId: this.cachedClientId,
         persistenceType: 1,
       };
       this.client = MqttAsync.createMqtt(createOpts);
@@ -197,21 +225,32 @@ export class MqttClientService {
           if (err) {
             console.error(`[MQTT] Failed to connect: ${JSON.stringify(err)}`);
             this.connected = false;
-            if (onStatusChange) {
-              onStatusChange('disconnected', `Connect failed: ${JSON.stringify(err)}`);
+            if (this.onStatusChangeCallback) {
+              this.onStatusChangeCallback('disconnected', `Connect failed: ${JSON.stringify(err)}`);
             }
+            this.scheduleReconnect();
             return;
           }
 
           console.info(`[MQTT] Connected to ${brokerUrl}`);
           this.connected = true;
-          if (onStatusChange) {
-            onStatusChange('connected', `Success connected to ${brokerUrl}`);
+          this.reconnectDelay = MqttClientService.RECONNECT_DELAY_MS;
+          if (this.onStatusChangeCallback) {
+            this.onStatusChangeCallback('connected', `Success connected to ${brokerUrl}`);
           }
 
           if (this.client) {
             let telemetrySubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/telemetry', qos: 1 };
             let alertSubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/alert', qos: 1 };
+
+            this.client.connectLost((err: Error, data: MqttResponse) => {
+              console.warn(`[MQTT] Connection lost: ${JSON.stringify(data)}`);
+              this.connected = false;
+              if (this.onStatusChangeCallback) {
+                this.onStatusChangeCallback('disconnected', `Connection lost`);
+              }
+              this.scheduleReconnect();
+            });
 
             this.client.messageArrived((err, mqttMessage: MqttMessage) => {
               if (err) {
@@ -240,8 +279,8 @@ export class MqttClientService {
                 }
               } catch (e) {
                 console.error('[MQTT] Parse error', e);
-                if (onStatusChange) {
-                  onStatusChange('connected', `Msg arrived but parse fail: ${e}.`);
+                if (this.onStatusChangeCallback) {
+                  this.onStatusChangeCallback('connected', `Msg arrived but parse fail: ${e}.`);
                 }
               }
             });
@@ -267,13 +306,126 @@ export class MqttClientService {
     } catch (e) {
       console.error(`[MQTT] Library load failed: ${e}`);
       this.connected = false;
-      if (onStatusChange) {
-        onStatusChange('disconnected', `Catch error: ${e.message || e}`);
+      if (this.onStatusChangeCallback) {
+        this.onStatusChangeCallback('disconnected', `Catch error: ${e.message || e}`);
       }
+      this.scheduleReconnect();
     }
   }
 
-  public publishCommand(nodeId: string, targetDevice: string, action: string, param?: Record<string, number>) {
+  private scheduleReconnect() {
+    if (this.reconnectTimerId !== -1) {
+      clearTimeout(this.reconnectTimerId);
+    }
+    console.info(`[MQTT] Scheduling reconnect in ${this.reconnectDelay}ms`);
+    this.reconnectTimerId = setTimeout(() => {
+      this.reconnectTimerId = -1;
+      console.info('[MQTT] Attempting reconnect...');
+      this.doConnect();
+    }, this.reconnectDelay);
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, MqttClientService.MAX_RECONNECT_DELAY_MS);
+  }
+
+  public isConnected(): boolean {
+    return this.connected;
+  }
+
+  public getCommandQueueLength(): number {
+    return this.pendingCommands.length;
+  }
+
+  public clearCommandQueue(): void {
+    this.pendingCommands.splice(0, this.pendingCommands.length);
+  }
+
+  /**
+   * UI 调用入口：只存原始参数（纯字符串/数字），不创建任何 @ohos/mqtt 对象
+   */
+  public enqueueCommand(nodeId: string, targetDevice: string, action: string, param?: Record<string, number>) {
+    let cmd = new PendingCommand();
+    cmd.nodeId = nodeId;
+    cmd.targetDevice = targetDevice;
+    cmd.action = action;
+    if (param) {
+      let dur = param['duration_seconds'];
+      if (dur !== undefined) {
+        cmd.paramDuration = dur;
+      }
+    }
+    this.pendingCommands.push(cmd);
+    console.info(`[MQTT] Command enqueued: node=${nodeId} dev=${targetDevice} act=${action} queueLen=${this.pendingCommands.length}`);
+  }
+
+  /**
+   * 递归 setTimeout 驱动。
+   * 关键：MqttPublishOptions / ControlMessage / JSON 全部在此 timer 回调内构造，
+   * 完全复刻 debug loop 成功时的执行上下文。
+   */
+  private kickDrain() {
+    if (this.drainRunning) {
+      return;
+    }
+    this.drainRunning = true;
+    const tick = () => {
+      this.drainSeq++;
+      if (this.pendingCommands.length > 0 && this.client && this.connected) {
+        let batch = this.pendingCommands.splice(0, this.pendingCommands.length);
+        let client = this.client;
+        console.info(`[MQTT] drain tick #${this.drainSeq}: publishing ${batch.length} command(s)`);
+        for (let i = 0; i < batch.length; i++) {
+          let cmd = batch[i];
+          // ---- 在 timer 回调内构造全部对象 ----
+          let ctrlAction = new ControlAction();
+          ctrlAction.target_device = cmd.targetDevice;
+          ctrlAction.command = cmd.action;
+          let paramMap: Record<string, number> = {};
+          paramMap['duration_seconds'] = cmd.paramDuration;
+          ctrlAction.parameters = paramMap;
+
+          let ctrlMsg = new ControlMessage();
+          ctrlMsg.cmd_id = "app_" + new Date().getTime().toString();
+          ctrlMsg.timestamp = new Date().getTime();
+          ctrlMsg.msg_type = "control";
+          ctrlMsg.action = ctrlAction;
+
+          let payloadStr = JSON.stringify(ctrlMsg);
+          let topic = `/wangnong_2026/node/${cmd.nodeId}/command`;
+
+          let pubOpts: MqttPublishOptions = {
+            topic: topic,
+            payload: payloadStr,
+            qos: 1,
+            retained: false
+          };
+          try {
+            let promise: Promise<MqttResponse> = client.publish(pubOpts);
+            promise.then((data: MqttResponse) => {
+              console.info(`[MQTT] <<< drain Publish OK topic=${topic}`);
+            }).catch((err: Error) => {
+              console.error(`[MQTT] <<< drain Publish REJECTED topic=${topic} err=${JSON.stringify(err)}`);
+            });
+            console.info(`[MQTT] >>> drain publish fired: topic=${topic}`);
+          } catch (e) {
+            console.error(`[MQTT] >>> drain publish THREW: topic=${topic} err=${JSON.stringify(e)}`);
+          }
+        }
+      }
+      let delay = this.pendingCommands.length > 0 ? 200 : 2000;
+      setTimeout(tick, delay);
+    };
+    setTimeout(tick, 500);
+  }
+
+  public publishCommand(nodeId: string, targetDevice: string, action: string, param?: Record<string, number>): string {
+    if (!this.client) {
+      console.warn(`[MQTT] publishCommand blocked: client is null`);
+      return 'MQTT客户端未初始化';
+    }
+    if (!this.connected) {
+      console.warn(`[MQTT] publishCommand blocked: connected=false`);
+      return 'MQTT未连接(connected=false)';
+    }
+
     let ctrlAction = new ControlAction();
     ctrlAction.target_device = targetDevice;
     ctrlAction.command = action;
@@ -287,30 +439,37 @@ export class MqttClientService {
 
     let payloadStr = JSON.stringify(ctrlMsg);
 
-    if (!this.client || !this.connected) {
-      console.warn(`[MQTT] Cannot publish to ${nodeId}, not connected.`);
-      return;
-    }
-
     let topic = `/wangnong_2026/node/${nodeId}/command`;
-    console.info(`[MQTT] Publish to ${topic}: ${payloadStr}`);
-    if (this.client.publish) {
-      let pubOpts: MqttPublishOptions = {
-        topic: topic,
-        payload: payloadStr,
-        qos: 1,
-        retained: false
-      };
-      this.client.publish(pubOpts, (err, res) => {
-        if (err) {
-          console.error('[MQTT] Publish error', err);
-        }
+    console.info(`[MQTT] >>> Publish START topic=${topic} payload=${payloadStr}`);
+    let pubOpts: MqttPublishOptions = {
+      topic: topic,
+      payload: payloadStr,
+      qos: 1,
+      retained: false
+    };
+    let client = this.client;
+    try {
+      let promise: Promise<MqttResponse> = client.publish(pubOpts);
+      promise.then((data: MqttResponse) => {
+        console.info(`[MQTT] <<< Publish OK topic=${topic} response=${JSON.stringify(data)}`);
+      }).catch((err: Error) => {
+        console.error(`[MQTT] <<< Publish REJECTED topic=${topic} error=${JSON.stringify(err)}`);
       });
+      console.info(`[MQTT] >>> Publish CALLED (promise qos1) topic=${topic}`);
+    } catch (e) {
+      console.error(`[MQTT] >>> Publish THREW topic=${topic} error=${JSON.stringify(e)}`);
+      return `publish异常: ${e}`;
     }
+    return '';
   }
 
   public disconnect() {
     this.connected = false;
+    this.drainRunning = false;
+    if (this.reconnectTimerId !== -1) {
+      clearTimeout(this.reconnectTimerId);
+      this.reconnectTimerId = -1;
+    }
     if (this.client && this.client.disconnect) {
       try {
         this.client.disconnect();
@@ -320,4 +479,5 @@ export class MqttClientService {
     }
     console.info('[MQTT] Disconnected');
   }
+
 }

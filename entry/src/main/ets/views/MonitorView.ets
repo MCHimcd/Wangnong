@@ -78,16 +78,21 @@ export struct MonitorView {
       return;
     }
     const detail = await HttpService.getInstance().getNodeDetail(this.nodeId);
-    if (!detail || !detail.nodeState) {
-      return;
+    if (detail && detail.nodeState) {
+      const st: Record<string, boolean | undefined> = detail.nodeState;
+      const keys = Object.keys(st);
+      for (let i = 0; i < keys.length; i++) {
+        if (keys[i] === 'smartMode') {
+          this.nodeState.smartMode = Boolean(st[keys[i]]);
+        } else {
+          this.nodeState.setState(keys[i], Boolean(st[keys[i]]));
+        }
+      }
     }
-    const st: Record<string, boolean | undefined> = detail.nodeState;
-    const keys = Object.keys(st);
-    for (let i = 0; i < keys.length; i++) {
-      if (keys[i] === 'smartMode') {
-        this.nodeState.smartMode = Boolean(st[keys[i]]);
-      } else {
-        this.nodeState.setState(keys[i], Boolean(st[keys[i]]));
+    // Pre-populate equipment states from meta so cards render immediately (default off)
+    for (let i = 0; i < this.equipmentMeta.length; i++) {
+      if (!this.nodeState.hasState(this.equipmentMeta[i].key)) {
+        this.nodeState.setState(this.equipmentMeta[i].key, false);
       }
     }
     this.nodeState.controlStateBootstrapped = true;
@@ -346,7 +351,7 @@ export struct MonitorView {
           .selectedColor(AppColors.Primary)
           .onChange((isOn: boolean) => {
             this.nodeState.smartMode = isOn;
-            MqttClientService.getInstance().publishCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
+            MqttClientService.getInstance().enqueueCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
             promptAction.showToast({ message: `已切换至${isOn ? '智能' : '手动'}模式` });
           })
       }
@@ -402,69 +407,67 @@ export struct MonitorView {
 
   @Builder
   EquipmentCard(meta: EquipmentMetaItem) {
-    Row() {
-      // 左侧状态竖条
-      Row() {}
-        .width(3)
-        .height(48)
-        .borderRadius(2)
-        .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : 'transparent')
+    Column() {
+      // 状态指示 + 图标
+      Text(meta.icon)
+        .fontSize(28)
+        .margin({ bottom: AppSpacing.SM })
 
-      Column() {
-        Text(meta.icon)
-          .fontSize(28)
-          .margin({ bottom: AppSpacing.SM })
+      Text(meta.name)
+        .fontSize(AppFontSize.Body)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.TextPrimary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ bottom: AppSpacing.SM })
 
-        Text(meta.name)
-          .fontSize(AppFontSize.Body)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(AppColors.TextPrimary)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ bottom: AppSpacing.SM })
-
-        Button({ type: ButtonType.Capsule }) {
-          Row() {
-            Circle({ width: AppSize.StatusDotSize, height: AppSize.StatusDotSize })
-              .fill(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
-              .margin({ right: AppSpacing.XS })
-            Text(this.nodeState.getState(meta.key) ? '运行中' : '已停止')
-              .fontSize(AppFontSize.Caption)
-              .fontColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
-          }
-        }
-        .height(28)
-        .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.DeviceOffBg)
-        .border({ width: 1, color: this.nodeState.getState(meta.key) ? AppColors.DeviceOnBorder : AppColors.DeviceOffBorder })
-        .opacity(this.nodeState.smartMode ? 0.5 : 1.0)
-        .onClick(() => {
-          if (this.nodeState.smartMode) {
-            return;
-          }
-          const newState = !this.nodeState.getState(meta.key);
-          MqttClientService.getInstance().publishCommand(
-            this.nodeId, meta.key, newState ? 'turn_on' : 'turn_off'
-          );
-          promptAction.showToast({ message: `已发送${newState ? '开启' : '关闭'}指令` });
-        })
+      // 状态标签
+      Row() {
+        Circle({ width: AppSize.StatusDotSize, height: AppSize.StatusDotSize })
+          .fill(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
+          .margin({ right: AppSpacing.XS })
+        Text(this.nodeState.getState(meta.key) ? '运行中' : '已停止')
+          .fontSize(AppFontSize.Caption)
+          .fontColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Center)
-      .justifyContent(FlexAlign.Center)
+      .margin({ bottom: AppSpacing.SM })
+
+      // 控制按钮
+      Row({ space: AppSpacing.XS }) {
+        Button('开')
+          .type(ButtonType.Capsule)
+          .height(26)
+          .fontSize(AppFontSize.Caption)
+          .fontColor(AppColors.DeviceOn)
+          .backgroundColor(AppColors.DeviceOnBg)
+          .border({ width: 1, color: AppColors.DeviceOnBorder })
+          .onClick(() => {
+            MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key, 'turn_on');
+            promptAction.showToast({ message: `开启 ${meta.name} → 已入队` });
+          })
+
+        Button('关')
+          .type(ButtonType.Capsule)
+          .height(26)
+          .fontSize(AppFontSize.Caption)
+          .fontColor(AppColors.DeviceOff)
+          .backgroundColor(AppColors.DeviceOffBg)
+          .border({ width: 1, color: AppColors.DeviceOffBorder })
+          .onClick(() => {
+            MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key, 'turn_off');
+            promptAction.showToast({ message: `关闭 ${meta.name} → 已入队` });
+          })
+      }
     }
     .width(this.currentBreakpoint === 'sm' ? 140 : '100%')
     .height(this.currentBreakpoint === 'sm' ? 140 : undefined)
-    .constraintSize({ minHeight: 130 })
+    .constraintSize({ minHeight: 140 })
+    .alignItems(HorizontalAlign.Center)
+    .justifyContent(FlexAlign.Center)
     .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.Surface)
     .border({ width: 1, color: this.nodeState.getState(meta.key) ? AppColors.DeviceOnBorder : AppColors.Divider })
     .borderRadius(AppRadius.LG)
-    .padding({ left: 0, right: AppSpacing.SM, top: AppSpacing.MD, bottom: AppSpacing.MD })
-    .onClick(() => {
-      router.pushUrl({
-        url: 'pages/DeviceDetailPage',
-        params: { type: meta.key, title: meta.name, isOn: this.nodeState.getState(meta.key) }
-      });
-    })
+    .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: AppSpacing.MD, bottom: AppSpacing.MD })
   }
 
   @Builder
