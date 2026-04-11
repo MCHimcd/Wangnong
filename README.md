@@ -93,8 +93,8 @@ Index (底部 Tab 容器)
 
 独立页面:
   - SensorDetailPage    (传感器趋势图)
-  - DeviceDetailPage    (设备历史统计)
-  - VideoDetailPage     (直播 / 回放 / 关键帧)
+  - DeviceDetailPage    (设备开关操作记录)
+  - VideoDetailPage     (已迁移至 MonitorView)
   - ScheduledTaskPage   (定时任务 CRUD)
   - TraceabilityScanPage(溯源扫码)
 ```
@@ -105,10 +105,10 @@ Index (底部 Tab 容器)
 |------|------|------|
 | 登录 | `LoginPage.ets` | 手机号 + 验证码/密码登录，支持注册与找回 |
 | 主页 | `Index.ets` | Tab 容器，加载节点列表、连接 MQTT、初始化告警同步 |
-| 设备详情 | `DeviceDetailPage.ets` | 设备运行统计与控制 |
+| 设备详情 | `DeviceDetailPage.ets` | 设备开关操作记录时间线 (DEVICE_CONTROL 日志) |
 | 传感器详情 | `SensorDetailPage.ets` | 实时 + 历史趋势图 (MPChart)，支持阈值编辑 |
 | 告警详情 | `AlertDetailPage.ets` | 告警详情查看与处理 |
-| 视频监控 | `VideoDetailPage.ets` | 直播、回放、关键帧三个 Tab |
+| 视频监控 | `VideoDetailPage.ets` | 占位页 (功能已迁移至 MonitorView) |
 | 定时任务 | `ScheduledTaskPage.ets` | 定时任务创建/编辑/删除 |
 | 管理后台 | `AdminPage.ets` | 节点管理、用户管理、操作日志、节点访问控制 |
 | 设置 | `SettingsPage.ets` | 设置菜单入口 |
@@ -124,7 +124,7 @@ Index (底部 Tab 容器)
 | 视图 | 说明 |
 |------|------|
 | `HomeView.ets` | 侧边栏 + 内容路由 (MonitorView / AgriQAView / ScheduledTaskView) |
-| `MonitorView.ets` | 传感器卡片网格 + 设备控制 + 视频入口；仅展示有有效状态的数据类型，硬件未连接时整页显示统一提示 |
+| `MonitorView.ets` | 响应式综合监控面板：lg 左55%右45% / md 左50%右50% 分栏整页可滚动，sm 三Tab切换(监控/数据/控制)；左列=实时视频+监控回放+AI异常关键帧(原VideoDetailPage功能)，右列=环境数据+设备控制；设备卡片点击→开关记录页；字号随断点缩放；Toggle式设备开关；离线统一提示 |
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
 | `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入)，支持 Markdown 格式渲染 (标题、列表、代码块、加粗、斜体、引用) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |

@@ -155,11 +155,11 @@ export class MqttClientService {
       clearTimeout(this.offlineTimerId);
     }
     this.offlineTimerId = setTimeout(() => {
-      console.warn('[MQTT] Device heartbeat timeout (10s)! Status: Offline.');
+      console.warn('[MQTT] Device heartbeat timeout (30s)! Status: Offline.');
       if (this.onOfflineCallback) {
         this.onOfflineCallback();
       }
-    }, 10000);
+    }, 30000);
   }
 
   public addTelemetryListener(listener: (nodeId: string, msgStr: string) => void) {
