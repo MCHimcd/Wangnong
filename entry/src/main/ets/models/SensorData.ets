@@ -2,6 +2,8 @@
 export class SensorData {
   // 动态键值存储，key 来自后端 sensor-meta
   values: Record<string, number> = {};
+  // 硬件摄像头当前帧 Base64 编码（JPEG）
+  imageBase64: string = '';
   // 触发 UI 刷新的计数器（@Observed 不深度监听 Record）
   revision: number = 0;
 
@@ -24,6 +26,14 @@ export class SensorData {
     for (let i = 0; i < keys.length; i++) {
       this.values[keys[i]] = kvs[keys[i]];
     }
+    this.revision++;
+  }
+
+  setImageBase64(val: string): void {
+    // Strip data-URI prefix (e.g. "data:image/jpeg;base64,") if hardware sends it
+    const marker = ';base64,';
+    const idx = val.indexOf(marker);
+    this.imageBase64 = idx >= 0 ? val.substring(idx + marker.length) : val;
     this.revision++;
   }
 }

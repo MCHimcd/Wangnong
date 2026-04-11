@@ -52,6 +52,7 @@ class ControlMessage {
   cmd_id?: string;
   timestamp?: number;
   msg_type?: string;
+  source?: string;
   action?: ControlAction;
 }
 
@@ -60,6 +61,7 @@ class PendingCommand {
   targetDevice: string = '';
   action: string = '';
   paramDuration: number = 15;
+  source: string = 'manual';
 }
 
 export class MqttClientService {
@@ -341,11 +343,13 @@ export class MqttClientService {
   /**
    * UI 调用入口：只存原始参数（纯字符串/数字），不创建任何 @ohos/mqtt 对象
    */
-  public enqueueCommand(nodeId: string, targetDevice: string, action: string, param?: Record<string, number>) {
+  public enqueueCommand(nodeId: string, targetDevice: string, action: string,
+    param?: Record<string, number>, source: string = 'manual') {
     let cmd = new PendingCommand();
     cmd.nodeId = nodeId;
     cmd.targetDevice = targetDevice;
     cmd.action = action;
+    cmd.source = source;
     if (param) {
       let dur = param['duration_seconds'];
       if (dur !== undefined) {
@@ -353,7 +357,7 @@ export class MqttClientService {
       }
     }
     this.pendingCommands.push(cmd);
-    console.info(`[MQTT] Command enqueued: node=${nodeId} dev=${targetDevice} act=${action} queueLen=${this.pendingCommands.length}`);
+    console.info(`[MQTT] Command enqueued: node=${nodeId} dev=${targetDevice} act=${action} source=${source} queueLen=${this.pendingCommands.length}`);
   }
 
   /**
@@ -386,6 +390,7 @@ export class MqttClientService {
           ctrlMsg.cmd_id = "app_" + new Date().getTime().toString();
           ctrlMsg.timestamp = new Date().getTime();
           ctrlMsg.msg_type = "control";
+          ctrlMsg.source = cmd.source;
           ctrlMsg.action = ctrlAction;
 
           let payloadStr = JSON.stringify(ctrlMsg);
@@ -435,6 +440,7 @@ export class MqttClientService {
     ctrlMsg.cmd_id = "app_" + new Date().getTime();
     ctrlMsg.timestamp = new Date().getTime();
     ctrlMsg.msg_type = "control";
+    ctrlMsg.source = "manual";
     ctrlMsg.action = ctrlAction;
 
     let payloadStr = JSON.stringify(ctrlMsg);

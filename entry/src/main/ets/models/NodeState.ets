@@ -6,6 +6,10 @@ export class NodeState {
   controlStateBootstrapped: boolean = false;
   // 动态键值存储，key 来自后端 equipment-meta
   equipmentStates: Record<string, boolean> = {};
+  /** 每个设备最后一次发送命令的时间戳，用于防抖 */
+  commandTimestamps: Record<string, number> = {};
+  /** 防抖间隔（毫秒） */
+  static readonly DEBOUNCE_MS: number = 3000;
   revision: number = 0;
 
   getState(key: string): boolean {
@@ -19,5 +23,27 @@ export class NodeState {
   setState(key: string, val: boolean): void {
     this.equipmentStates[key] = val;
     this.revision++;
+  }
+
+  /** 记录设备命令发送时间 */
+  markCommandSent(key: string): void {
+    this.commandTimestamps[key] = Date.now();
+  }
+
+  /** 检查设备是否在防抖冷却期内 */
+  isDebouncing(key: string): boolean {
+    const lastCmd = this.commandTimestamps[key];
+    if (lastCmd === undefined) {
+      return false;
+    }
+    return (Date.now() - lastCmd) < NodeState.DEBOUNCE_MS;
+  }
+
+  /** 检查智能模式切换是否在防抖冷却期内 */
+  isSmartModeDebouncing(): boolean {
+    if (this.smartModeCommandAt === 0) {
+      return false;
+    }
+    return (Date.now() - this.smartModeCommandAt) < NodeState.DEBOUNCE_MS;
   }
 }

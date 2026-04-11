@@ -84,5 +84,49 @@ export default function sensorDataTest() {
     it('initial_revision_is_zero', 0, () => {
       expect(sensorData.revision).assertEqual(0);
     });
+
+    it('imageBase64_default_is_empty_string', 0, () => {
+      expect(sensorData.imageBase64).assertEqual('');
+    });
+
+    it('setImageBase64_stores_value', 0, () => {
+      sensorData.setImageBase64('/9j/4AAQSkZJRg==');
+      expect(sensorData.imageBase64).assertEqual('/9j/4AAQSkZJRg==');
+    });
+
+    it('setImageBase64_strips_dataUri_prefix', 0, () => {
+      sensorData.setImageBase64('data:image/jpeg;base64,/9j/4AAQSkZJRg==');
+      expect(sensorData.imageBase64).assertEqual('/9j/4AAQSkZJRg==');
+    });
+
+    it('setImageBase64_strips_png_dataUri_prefix', 0, () => {
+      sensorData.setImageBase64('data:image/png;base64,iVBORw0KGgoAAAA==');
+      expect(sensorData.imageBase64).assertEqual('iVBORw0KGgoAAAA==');
+    });
+
+    it('setImageBase64_increments_revision', 0, () => {
+      let before = sensorData.revision;
+      sensorData.setImageBase64('/9j/4AAQSkZJRg==');
+      expect(sensorData.revision).assertEqual(before + 1);
+    });
+
+    it('imageBase64_dataUri_format_is_valid', 0, () => {
+      const raw = '/9j/4AAQSkZJRg==';
+      sensorData.setImageBase64(raw);
+      const dataUri = 'data:image/jpeg;base64,' + sensorData.imageBase64;
+      expect(dataUri.startsWith('data:image/jpeg;base64,')).assertTrue();
+      expect(dataUri.endsWith(raw)).assertTrue();
+    });
+
+    it('imageBase64_empty_produces_no_dataUri', 0, () => {
+      expect(sensorData.imageBase64.length).assertEqual(0);
+    });
+
+    it('setImageBase64_overwrite_updates_value_and_revision', 0, () => {
+      sensorData.setImageBase64('firstImage');
+      sensorData.setImageBase64('secondImage');
+      expect(sensorData.imageBase64).assertEqual('secondImage');
+      expect(sensorData.revision).assertEqual(2);
+    });
   });
 }

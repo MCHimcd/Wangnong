@@ -8,6 +8,8 @@ import { MqttClientService } from '../services/MqttClientService';
 import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 import { promptAction } from '@kit.ArkUI';
+import image from '@ohos.multimedia.image';
+import buffer from '@ohos.buffer';
 import router from '@ohos.router';
 
 @Component
@@ -38,6 +40,11 @@ export struct MonitorView {
 
   // ───────── 内部状态：竖屏 Tab ─────────
   @State currentTab: number = 0;
+
+  // ───────── 内部状态：硬件摄像头图片 ─────────
+  @State cameraPixelMap: image.PixelMap | undefined = undefined;
+  private lastDecodeBase64: string = '';
+  private imageCheckTimer: number = -1;
 
   // ═══════════════ 工具方法 ═══════════════
 
@@ -102,6 +109,50 @@ export struct MonitorView {
     void this.loadVideoInfo();
     void this.bootstrapControlState();
     void this.loadPlaybackData();
+    this.imageCheckTimer = setInterval(() => {
+      this.tryDecodeImageBase64();
+    }, 500);
+  }
+
+  aboutToDisappear(): void {
+    if (this.imageCheckTimer !== -1) {
+      clearInterval(this.imageCheckTimer);
+      this.imageCheckTimer = -1;
+    }
+    if (this.cameraPixelMap) {
+      this.cameraPixelMap.release();
+      this.cameraPixelMap = undefined;
+    }
+  }
+
+  private tryDecodeImageBase64(): void {
+    const base64Str = this.sensorData.imageBase64;
+    if (base64Str.length === 0 || base64Str === this.lastDecodeBase64) {
+      return;
+    }
+    this.lastDecodeBase64 = base64Str;
+    void this.decodeBase64ToPixelMap(base64Str);
+  }
+
+  private async decodeBase64ToPixelMap(base64Str: string): Promise<void> {
+    try {
+      const buf: buffer.Buffer = buffer.from(base64Str, 'base64');
+      const uint8Array = new Uint8Array(buf.length);
+      for (let i = 0; i < buf.length; i++) {
+        uint8Array[i] = buf.readUInt8(i);
+      }
+      const arrayBuffer: ArrayBuffer = uint8Array.buffer as ArrayBuffer;
+      const imageSource = image.createImageSource(arrayBuffer);
+      const pixelMap = await imageSource.createPixelMap();
+      const oldPixelMap = this.cameraPixelMap;
+      this.cameraPixelMap = pixelMap;
+      if (oldPixelMap) {
+        oldPixelMap.release();
+      }
+      imageSource.release();
+    } catch (e) {
+      console.error('[MonitorView] decodeBase64ToPixelMap failed', e);
+    }
   }
 
   private async loadVideoInfo(): Promise<void> {
@@ -206,7 +257,11 @@ export struct MonitorView {
       .alignItems(VerticalAlign.Center)
       .margin({ bottom: AppSpacing.SM })
 
-      if (this.liveInfo.status === 'online' && this.liveInfo.streamUrl.length > 0) {
+      if (this.cameraPixelMap !== undefined) {
+        Image(this.cameraPixelMap)
+          .width('100%').aspectRatio(16 / 9).borderRadius(AppRadius.SM)
+          .objectFit(ImageFit.Contain).backgroundColor('#1A2332')
+      } else if (this.liveInfo.status === 'online' && this.liveInfo.streamUrl.length > 0) {
         Video({ src: this.liveInfo.streamUrl, controller: this.videoController })
           .width('100%').aspectRatio(16 / 9).borderRadius(AppRadius.SM).controls(true)
       } else {
@@ -494,11 +549,22 @@ export struct MonitorView {
 
       Toggle({ type: ToggleType.Switch, isOn: this.nodeState.getState(meta.key) })
         .selectedColor(AppColors.Primary)
+        .enabled(!this.nodeState.smartMode)
+        .opacity(this.nodeState.smartMode ? 0.5 : 1)
         .onChange((isOn: boolean) => {
           if (this.nodeState.getState(meta.key) === isOn) {
             return;
           }
+          if (this.nodeState.smartMode) {
+            promptAction.showToast({ message: '智能模式下禁止手动操作' });
+            return;
+          }
+          if (this.nodeState.isDebouncing(meta.key)) {
+            promptAction.showToast({ message: '操作过于频繁，请稍候' });
+            return;
+          }
           this.nodeState.setState(meta.key, isOn);
+          this.nodeState.markCommandSent(meta.key);
           MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key, isOn ? 'turn_on' : 'turn_off');
           promptAction.showToast({ message: (isOn ? '开启' : '关闭') + ' ' + meta.name });
         })
@@ -534,12 +600,31 @@ export struct MonitorView {
             if (this.nodeState.smartMode === isOn) {
               return;
             }
+            if (this.nodeState.isSmartModeDebouncing()) {
+              promptAction.showToast({ message: '操作过于频繁，请稍候' });
+              return;
+            }
             this.nodeState.smartMode = isOn;
             this.nodeState.smartModeCommandAt = Date.now();
             MqttClientService.getInstance().enqueueCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
             promptAction.showToast({ message: '已切换至' + (isOn ? '智能' : '手动') + '模式' });
           })
       }.width('100%').alignItems(VerticalAlign.Center).margin({ bottom: AppSpacing.SM })
+
+      if (this.nodeState.smartMode) {
+        Row() {
+          Text('🤖').fontSize(this.sf(AppFontSize.Caption))
+          Text('智能模式已开启，设备由系统自动控制')
+            .fontSize(this.sf(AppFontSize.Mini))
+            .fontColor(AppColors.Accent)
+            .margin({ left: AppSpacing.XS })
+        }
+        .width('100%')
+        .padding({ left: AppSpacing.SM, right: AppSpacing.SM, top: AppSpacing.XS, bottom: AppSpacing.SM })
+        .backgroundColor(AppColors.AccentBg)
+        .borderRadius(AppRadius.SM)
+        .margin({ bottom: AppSpacing.SM })
+      }
 
       Text('').visibility(Visibility.None).fontSize(this.nodeState.revision)
 

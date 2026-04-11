@@ -1761,6 +1761,9 @@ components:
               type: string
               enum: [smart, manual]
               example: smart
+            image_base64:
+              type: string
+              description: 摄像头当前帧 Base64 编码（JPEG），可选字段，仅硬件 V2 遥测包含
 
     AlertPayload:
       type: object

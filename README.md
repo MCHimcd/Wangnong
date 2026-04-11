@@ -124,7 +124,7 @@ Index (底部 Tab 容器)
 | 视图 | 说明 |
 |------|------|
 | `HomeView.ets` | 侧边栏 + 内容路由 (MonitorView / AgriQAView / ScheduledTaskView) |
-| `MonitorView.ets` | 响应式综合监控面板：lg 左55%右45% / md 左50%右50% 分栏整页可滚动，sm 三Tab切换(监控/数据/控制)；左列=实时视频+监控回放+AI异常关键帧(原VideoDetailPage功能)，右列=环境数据+设备控制；设备卡片点击→开关记录页；字号随断点缩放；Toggle式设备开关；离线统一提示 |
+| `MonitorView.ets` | 响应式综合监控面板：lg 左55%右45% / md 左50%右50% 分栏整页可滚动，sm 三Tab切换(监控/数据/控制)；左列=硬件 Base64 图片/实时视频+监控回放+AI异常关键帧(原VideoDetailPage功能)，右列=环境数据+设备控制；设备卡片点击→开关记录页；字号随断点缩放；Toggle式设备开关；离线统一提示 |
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
 | `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入)，支持 Markdown 格式渲染 (标题、列表、代码块、加粗、斜体、引用) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
@@ -145,7 +145,7 @@ Index (底部 Tab 容器)
 | 模型 | 关键类型 | 响应式 |
 |------|---------|--------|
 | `UserData.ets` | `LoginResponse`, `UserProfile`, `BaseResponse<T>` | — |
-| `SensorData.ets` | 动态 KV 存储 (Record<string, number>) | @Observed |
+| `SensorData.ets` | 动态 KV 存储 (Record<string, number>), imageBase64 (硬件摄像头帧) | @Observed |
 | `SensorMeta.ets` | `SensorMetaItem {key, name, unit, icon, warningMin?, warningMax?}` | — |
 | `EquipmentMeta.ets` | `EquipmentMetaItem {key, name, icon, controllable}` | — |
 | `AlertData.ets` | `alert_id, type, level, timestamp, message, is_handled` | — |
@@ -178,7 +178,8 @@ Index (底部 Tab 容器)
   "data": {
     "environment": { "temperature": 25.3, "humidity": 68, "light": 12000, "co2": 420, "soil_temperature": 22.1, "soil_humidity": 55, "ph": 6.8 },
     "equipment": { "water_pump": true, "led_light": false, "fan": true, "camera": true },
-    "mode": true
+    "mode": true,
+    "image_base64": "（可选，硬件摄像头帧 JPEG Base64）"
   }
 }
 ```

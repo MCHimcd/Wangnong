@@ -806,10 +806,20 @@ export class HttpService {
   }
 
   // ==== 操作日志 ====
-  public async getOperationLogs(page: number = 1, size: number = 20, type?: string): Promise<OperationLogPage | null> {
+  public async getOperationLogs(page: number = 1, size: number = 20, type?: string,
+    targetId?: string, startDate?: string, endDate?: string): Promise<OperationLogPage | null> {
     let url = `/api/v1/admin/logs?page=${page}&size=${size}`;
     if (type) {
       url += `&type=${type}`;
+    }
+    if (targetId) {
+      url += `&targetId=${targetId}`;
+    }
+    if (startDate) {
+      url += `&startDate=${startDate}`;
+    }
+    if (endDate) {
+      url += `&endDate=${endDate}`;
     }
     let res = await this.request<BaseResponse<OperationLogPage>>(
       url,

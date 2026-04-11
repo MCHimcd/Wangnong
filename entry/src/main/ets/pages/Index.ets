@@ -116,6 +116,9 @@ struct Index {
                     }
                   }
                 }
+                if (typeof data['image_base64'] === 'string' && (data['image_base64'] as string).length > 0) {
+                  node.sensorData.setImageBase64(data['image_base64'] as string);
+                }
               }
             });
           }
