@@ -18,6 +18,7 @@ export struct ScheduledTaskView {
   @State dNodeId: string = '';
   @State dEquipmentKey: string = 'water_pump';
   @State dAction: string = 'turn_on';
+  @State dBrightness: number = 100;
   @State dHour: number = 8;
   @State dMinute: number = 0;
   @State dRepeatDays: string = '1,2,3,4,5,6,7';
@@ -109,6 +110,7 @@ export struct ScheduledTaskView {
     this.dTaskName = '';
     this.dEquipmentKey = 'water_pump';
     this.dAction = 'turn_on';
+    this.dBrightness = 100;
     this.dHour = 8;
     this.dMinute = 0;
     this.dRepeatDays = '1,2,3,4,5,6,7';
@@ -144,7 +146,7 @@ export struct ScheduledTaskView {
             .fontSize(AppFontSize.H3)
             .fontWeight(FontWeight.Medium)
             .fontColor(AppColors.TextPrimary)
-          Text(`${this.getEquipmentName(task.equipmentKey)} · ${task.action === 'turn_on' ? '开启' : '关闭'}`)
+          Text(`${this.getEquipmentName(task.equipmentKey)} · ${task.action === 'turn_on' ? '开启' : task.action === 'set_brightness' ? '亮度调节' : '关闭'}`)
             .fontSize(AppFontSize.Caption)
             .fontColor(AppColors.TextSecondary)
             .margin({ top: AppSpacing.XS })
@@ -275,13 +277,54 @@ export struct ScheduledTaskView {
 
         Text('操作').fontSize(AppFontSize.Caption).fontColor(AppColors.TextSecondary)
           .margin({ bottom: AppSpacing.XS }).width('100%')
-        Select([{ value: '开启' } as SelectOption, { value: '关闭' } as SelectOption])
-          .selected(0)
-          .value(this.dAction === 'turn_on' ? '开启' : '关闭')
-          .onSelect((index: number) => {
-            this.dAction = index === 0 ? 'turn_on' : 'turn_off';
-          })
-          .height(40).width('100%').margin({ bottom: AppSpacing.MD })
+        if (this.dEquipmentKey === 'led_light') {
+          Select([
+            { value: '开启' } as SelectOption,
+            { value: '关闭' } as SelectOption,
+            { value: '设置亮度' } as SelectOption
+          ])
+            .selected(this.dAction === 'turn_on' ? 0 : this.dAction === 'turn_off' ? 1 : 2)
+            .value(this.dAction === 'turn_on' ? '开启' : this.dAction === 'turn_off' ? '关闭' : '设置亮度')
+            .onSelect((index: number) => {
+              if (index === 0) {
+                this.dAction = 'turn_on';
+              } else if (index === 1) {
+                this.dAction = 'turn_off';
+              } else {
+                this.dAction = 'set_brightness';
+              }
+            })
+            .height(40).width('100%').margin({ bottom: AppSpacing.MD })
+
+          if (this.dAction === 'set_brightness') {
+            Text('亮度 ' + this.dBrightness + '%')
+              .fontSize(AppFontSize.Caption).fontColor(AppColors.TextSecondary)
+              .margin({ bottom: AppSpacing.XS }).width('100%')
+            Slider({
+              value: this.dBrightness,
+              min: 1,
+              max: 100,
+              step: 1,
+              style: SliderStyle.OutSet
+            })
+              .blockColor(AppColors.Primary)
+              .trackColor(AppColors.Divider)
+              .selectedColor(AppColors.PrimaryLight)
+              .width('100%')
+              .onChange((value: number, mode: SliderChangeMode) => {
+                this.dBrightness = Math.round(value);
+              })
+              .margin({ bottom: AppSpacing.MD })
+          }
+        } else {
+          Select([{ value: '开启' } as SelectOption, { value: '关闭' } as SelectOption])
+            .selected(0)
+            .value(this.dAction === 'turn_on' ? '开启' : '关闭')
+            .onSelect((index: number) => {
+              this.dAction = index === 0 ? 'turn_on' : 'turn_off';
+            })
+            .height(40).width('100%').margin({ bottom: AppSpacing.MD })
+        }
 
         Text('执行时间').fontSize(AppFontSize.Caption).fontColor(AppColors.TextSecondary)
           .margin({ bottom: AppSpacing.XS }).width('100%')

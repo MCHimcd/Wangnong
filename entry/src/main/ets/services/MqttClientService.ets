@@ -61,6 +61,7 @@ class PendingCommand {
   targetDevice: string = '';
   action: string = '';
   paramDuration: number = 15;
+  paramBrightness: number = -1;
   source: string = 'manual';
 }
 
@@ -355,6 +356,10 @@ export class MqttClientService {
       if (dur !== undefined) {
         cmd.paramDuration = dur;
       }
+      let br = param['brightness'];
+      if (br !== undefined) {
+        cmd.paramBrightness = br;
+      }
     }
     this.pendingCommands.push(cmd);
     console.info(`[MQTT] Command enqueued: node=${nodeId} dev=${targetDevice} act=${action} source=${source} queueLen=${this.pendingCommands.length}`);
@@ -384,6 +389,9 @@ export class MqttClientService {
           ctrlAction.command = cmd.action;
           let paramMap: Record<string, number> = {};
           paramMap['duration_seconds'] = cmd.paramDuration;
+          if (cmd.paramBrightness >= 0) {
+            paramMap['brightness'] = cmd.paramBrightness;
+          }
           ctrlAction.parameters = paramMap;
 
           let ctrlMsg = new ControlMessage();

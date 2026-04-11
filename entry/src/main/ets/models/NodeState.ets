@@ -6,6 +6,8 @@ export class NodeState {
   controlStateBootstrapped: boolean = false;
   // 动态键值存储，key 来自后端 equipment-meta
   equipmentStates: Record<string, boolean> = {};
+  /** 设备数值状态（如 LED 亮度 0-100） */
+  equipmentValues: Record<string, number> = {};
   /** 每个设备最后一次发送命令的时间戳，用于防抖 */
   commandTimestamps: Record<string, number> = {};
   /** 防抖间隔（毫秒） */
@@ -22,6 +24,18 @@ export class NodeState {
 
   setState(key: string, val: boolean): void {
     this.equipmentStates[key] = val;
+    this.revision++;
+  }
+
+  /** 获取设备数值（如亮度），默认 0 */
+  getValue(key: string): number {
+    return this.equipmentValues[key] ?? 0;
+  }
+
+  /** 设置设备数值并联动布尔状态 */
+  setValue(key: string, val: number): void {
+    this.equipmentValues[key] = val;
+    this.equipmentStates[key] = val > 0;
     this.revision++;
   }
 

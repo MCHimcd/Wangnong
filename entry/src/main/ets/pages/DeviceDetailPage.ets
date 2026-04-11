@@ -72,6 +72,9 @@ struct DeviceDetailPage {
         parsed.action = '开启';
       } else if (obj['action'] === 'turn_off') {
         parsed.action = '关闭';
+      } else if (obj['action'] === 'set_brightness') {
+        const br = obj['brightness'];
+        parsed.action = br !== undefined ? `亮度 ${br}%` : '亮度调节';
       } else if (obj['action'] !== undefined) {
         parsed.action = obj['action'];
       }

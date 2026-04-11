@@ -1396,6 +1396,12 @@ components:
                 name: 水泵
                 icon: 💦
                 controllable: true
+                controlType: toggle
+              - key: led_light
+                name: 补光灯
+                icon: 💡
+                controllable: true
+                controlType: slider
 
     AgriQARequest:
       messageId: AgriQARequest
@@ -1842,8 +1848,23 @@ components:
               type: string
               description: |
                 控制指令。执行器使用 `turn_on` / `turn_off`；
+                LED 补光灯额外支持 `set_brightness`（配合 parameters.brightness 0-100）；
                 模式使用 `smart` / `manual`。
               example: turn_on
+            parameters:
+              type: object
+              description: 命令参数（可选）
+              properties:
+                duration_seconds:
+                  type: integer
+                  description: 执行持续时间（秒），水泵/水阀使用
+                  example: 30
+                brightness:
+                  type: integer
+                  description: LED 亮度百分比（0-100），仅 set_brightness 命令使用
+                  minimum: 0
+                  maximum: 100
+                  example: 75
 
     EnvironmentData:
       type: object
@@ -1864,12 +1885,18 @@ components:
     EquipmentState:
       type: object
       description: |
-        执行器当前开关状态（动态键值对）。
+        执行器当前状态（动态键值对）。
         键名由 equipment-meta 接口定义，常见键：water_valve, water_pump, led_light, camera。
+        - 普通设备（water_valve, water_pump, camera）：布尔值 true/false
+        - LED 补光灯（led_light）：整数 0-100 表示亮度百分比，0 = 关闭
       additionalProperties:
-        type: boolean
+        oneOf:
+          - type: boolean
+          - type: integer
+            minimum: 0
+            maximum: 100
       example:
         water_valve: false
         water_pump: false
-        led_light: true
+        led_light: 75
         camera: false

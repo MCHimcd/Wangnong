@@ -99,7 +99,15 @@ struct Index {
                   const equip = data['equipment'] as Record<string, boolean | number>;
                   const equipKeys = Object.keys(equip);
                   for (let i = 0; i < equipKeys.length; i++) {
-                    node.nodeState.setState(equipKeys[i], Boolean(equip[equipKeys[i]]));
+                    if (node.nodeState.isDebouncing(equipKeys[i])) {
+                      continue; // 用户刚操作过，跳过遥测覆盖
+                    }
+                    const val = equip[equipKeys[i]];
+                    if (typeof val === 'number') {
+                      node.nodeState.setValue(equipKeys[i], val);
+                    } else {
+                      node.nodeState.setState(equipKeys[i], Boolean(val));
+                    }
                   }
                 }
                 if (data['mode'] !== undefined) {

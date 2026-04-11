@@ -103,6 +103,10 @@ export struct MonitorView {
     return v.toFixed(1);
   }
 
+  private isSliderControl(meta: EquipmentMetaItem): boolean {
+    return meta.controlType === 'slider' || meta.key === 'led_light';
+  }
+
   // ═══════════════ 生命周期 ═══════════════
 
   aboutToAppear(): void {
@@ -524,57 +528,105 @@ export struct MonitorView {
 
   @Builder
   EquipmentCard(meta: EquipmentMetaItem) {
-    Row() {
+    Column() {
       Row() {
-        Text(meta.icon).fontSize(this.sf(18))
-      }
-      .width(this.sf(36)).height(this.sf(36)).borderRadius(this.sf(18))
-      .justifyContent(FlexAlign.Center)
-      .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.DeviceOffBg)
-
-      Column() {
-        Text(meta.name)
-          .fontSize(this.sf(AppFontSize.Caption)).fontWeight(FontWeight.Medium)
-          .fontColor(AppColors.TextPrimary).maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row() {
-          Circle({ width: 6, height: 6 })
-            .fill(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
-            .margin({ right: 3 })
-          Text(this.nodeState.getState(meta.key) ? '运行' : '停止')
-            .fontSize(this.sf(AppFontSize.Mini))
-            .fontColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
-        }.margin({ top: 2 })
-      }.layoutWeight(1).alignItems(HorizontalAlign.Start).padding({ left: AppSpacing.SM })
+          Text(meta.icon).fontSize(this.sf(18))
+        }
+        .width(this.sf(36)).height(this.sf(36)).borderRadius(this.sf(18))
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.DeviceOffBg)
 
-      Toggle({ type: ToggleType.Switch, isOn: this.nodeState.getState(meta.key) })
-        .selectedColor(AppColors.Primary)
-        .enabled(!this.nodeState.smartMode)
-        .opacity(this.nodeState.smartMode ? 0.5 : 1)
-        .onChange((isOn: boolean) => {
-          if (this.nodeState.getState(meta.key) === isOn) {
-            return;
-          }
-          if (this.nodeState.smartMode) {
-            promptAction.showToast({ message: '智能模式下禁止手动操作' });
-            return;
-          }
-          if (this.nodeState.isDebouncing(meta.key)) {
-            promptAction.showToast({ message: '操作过于频繁，请稍候' });
-            return;
-          }
-          this.nodeState.setState(meta.key, isOn);
-          this.nodeState.markCommandSent(meta.key);
-          MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key, isOn ? 'turn_on' : 'turn_off');
-          promptAction.showToast({ message: (isOn ? '开启' : '关闭') + ' ' + meta.name });
-        })
+        Column() {
+          Text(meta.name)
+            .fontSize(this.sf(AppFontSize.Caption)).fontWeight(FontWeight.Medium)
+            .fontColor(AppColors.TextPrimary).maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Row() {
+            Circle({ width: 6, height: 6 })
+              .fill(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
+              .margin({ right: 3 })
+            Text(this.nodeState.getState(meta.key) ? '运行' : '停止')
+              .fontSize(this.sf(AppFontSize.Mini))
+              .fontColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOn : AppColors.DeviceOff)
+          }.margin({ top: 2 })
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start).padding({ left: AppSpacing.SM })
+
+        Toggle({ type: ToggleType.Switch, isOn: this.nodeState.getState(meta.key) })
+          .selectedColor(AppColors.Primary)
+          .enabled(!this.nodeState.smartMode)
+          .opacity(this.nodeState.smartMode ? 0.5 : 1)
+          .onChange((isOn: boolean) => {
+            if (this.nodeState.getState(meta.key) === isOn) {
+              return;
+            }
+            if (this.nodeState.smartMode) {
+              promptAction.showToast({ message: '智能模式下禁止手动操作' });
+              return;
+            }
+            if (this.nodeState.isDebouncing(meta.key)) {
+              promptAction.showToast({ message: '操作过于频繁，请稍候' });
+              return;
+            }
+            if (this.isSliderControl(meta)) {
+              this.nodeState.setValue(meta.key, isOn ? 100 : 0);
+              this.nodeState.markCommandSent(meta.key);
+              MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key,
+                isOn ? 'turn_on' : 'turn_off');
+            } else {
+              this.nodeState.setState(meta.key, isOn);
+              this.nodeState.markCommandSent(meta.key);
+              MqttClientService.getInstance().enqueueCommand(this.nodeId, meta.key,
+                isOn ? 'turn_on' : 'turn_off');
+            }
+            promptAction.showToast({ message: (isOn ? '开启' : '关闭') + ' ' + meta.name });
+          })
+      }
+      .width('100%').height(this.sf(56)).alignItems(VerticalAlign.Center)
+
+      if (this.isSliderControl(meta)) {
+        Row() {
+          Text('💡').fontSize(this.sf(AppFontSize.Mini))
+          Slider({
+            value: this.nodeState.getValue(meta.key),
+            min: 0,
+            max: 100,
+            step: 1,
+            style: SliderStyle.OutSet
+          })
+            .blockColor(AppColors.Primary)
+            .trackColor(AppColors.Divider)
+            .selectedColor(AppColors.PrimaryLight)
+            .layoutWeight(1)
+            .enabled(this.nodeState.getState(meta.key) && !this.nodeState.smartMode)
+            .opacity(this.nodeState.getState(meta.key) && !this.nodeState.smartMode ? 1 : 0.4)
+            .onChange((value: number, mode: SliderChangeMode) => {
+              if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                let brightness = Math.round(value);
+                this.nodeState.setValue(meta.key, brightness);
+                this.nodeState.markCommandSent(meta.key);
+                let brParam: Record<string, number> = {};
+                brParam['brightness'] = brightness;
+                MqttClientService.getInstance().enqueueCommand(
+                  this.nodeId, meta.key, 'set_brightness', brParam);
+                promptAction.showToast({ message: meta.name + ' 亮度 ' + brightness + '%' });
+              }
+            })
+          Text(this.nodeState.getValue(meta.key).toString() + '%')
+            .fontSize(this.sf(AppFontSize.Mini))
+            .fontColor(AppColors.TextSecondary)
+            .width(this.sf(36))
+            .textAlign(TextAlign.End)
+        }
+        .width('100%').padding({ left: AppSpacing.SM, right: AppSpacing.SM })
+        .alignItems(VerticalAlign.Center)
+      }
     }
-    .width('100%').height(this.sf(56))
+    .width('100%')
     .padding({ left: AppSpacing.SM, right: AppSpacing.SM })
     .backgroundColor(this.nodeState.getState(meta.key) ? AppColors.DeviceOnBg : AppColors.Surface)
     .borderRadius(AppRadius.SM)
     .border({ width: 1, color: this.nodeState.getState(meta.key) ? AppColors.DeviceOnBorder : AppColors.Divider })
-    .alignItems(VerticalAlign.Center)
     .onClick(() => {
       router.pushUrl({
         url: 'pages/DeviceDetailPage',

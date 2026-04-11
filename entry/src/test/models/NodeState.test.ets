@@ -68,5 +68,33 @@ export default function nodeStateTest() {
     it('initial_equipmentStates_is_empty', 0, () => {
       expect(Object.keys(nodeState.equipmentStates).length).assertEqual(0);
     });
+
+    // ── Brightness / Value support ──
+
+    it('getValue_returns_zero_for_unknown_key', 0, () => {
+      expect(nodeState.getValue('led_light')).assertEqual(0);
+    });
+
+    it('setValue_and_getValue_roundtrip', 0, () => {
+      nodeState.setValue('led_light', 75);
+      expect(nodeState.getValue('led_light')).assertEqual(75);
+    });
+
+    it('setValue_positive_sets_state_true', 0, () => {
+      nodeState.setValue('led_light', 50);
+      expect(nodeState.getState('led_light')).assertTrue();
+    });
+
+    it('setValue_zero_sets_state_false', 0, () => {
+      nodeState.setValue('led_light', 50);
+      nodeState.setValue('led_light', 0);
+      expect(nodeState.getState('led_light')).assertFalse();
+    });
+
+    it('setValue_increments_revision', 0, () => {
+      let before = nodeState.revision;
+      nodeState.setValue('led_light', 80);
+      expect(nodeState.revision).assertEqual(before + 1);
+    });
   });
 }

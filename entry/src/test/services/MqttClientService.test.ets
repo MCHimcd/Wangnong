@@ -132,6 +132,16 @@ export default function mqttClientServiceTest() {
       svc.clearCommandQueue();
     });
 
+    it('enqueueCommand_with_brightness_param', 0, () => {
+      let svc = MqttClientService.getInstance();
+      svc.clearCommandQueue();
+      let params: Record<string, number> = {};
+      params['brightness'] = 75;
+      svc.enqueueCommand('A03_Node_01', 'led_light', 'set_brightness', params);
+      expect(svc.getCommandQueueLength()).assertEqual(1);
+      svc.clearCommandQueue();
+    });
+
     it('clearCommandQueue_empties_queue', 0, () => {
       let svc = MqttClientService.getInstance();
       svc.enqueueCommand('A03_Node_01', 'fan', 'turn_on');

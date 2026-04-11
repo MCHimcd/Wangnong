@@ -35,7 +35,7 @@ export function createHandledAlert(id: string, timestamp: number = 1711900000): 
 // ========== Telemetry JSON 工厂 ==========
 
 export function createTelemetryJson(nodeId: string, temperature: number = 25.3, humidity: number = 68): string {
-  return `{"msg_type":"telemetry","node_id":"${nodeId}","timestamp":${Date.now()},"data":{"environment":{"temperature":${temperature},"humidity":${humidity}},"equipment":{"water_pump":true,"fan":false},"mode":true}}`;
+  return `{"msg_type":"telemetry","node_id":"${nodeId}","timestamp":${Date.now()},"data":{"environment":{"temperature":${temperature},"humidity":${humidity}},"equipment":{"water_pump":true,"fan":false,"led_light":75},"mode":true}}`;
 }
 
 export function createAlertJson(nodeId: string, alertId: string, level: string = 'critical'): string {
