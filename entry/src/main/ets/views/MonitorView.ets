@@ -350,7 +350,11 @@ export struct MonitorView {
         Toggle({ type: ToggleType.Switch, isOn: this.nodeState.smartMode })
           .selectedColor(AppColors.Primary)
           .onChange((isOn: boolean) => {
+            if (this.nodeState.smartMode === isOn) {
+              return;
+            }
             this.nodeState.smartMode = isOn;
+            this.nodeState.smartModeCommandAt = Date.now();
             MqttClientService.getInstance().enqueueCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
             promptAction.showToast({ message: `已切换至${isOn ? '智能' : '手动'}模式` });
           })

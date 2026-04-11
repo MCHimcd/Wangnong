@@ -38,19 +38,20 @@ Wangnong/
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
 │       │   ├── services/            # 5 个单例服务
 │       │   ├── models/              # 8 个数据模型
-│       │   └── common/              # 公用配置与工具 (6)
+│       │   └── common/              # 公用配置与工具 (7)
 │       │       ├── AppConfig.ets
 │       │       ├── DesignToken.ets
 │       │       ├── BreakpointSystem.ets
 │       │       ├── AvatarCaptureHelper.ets
 │       │       ├── AvatarCropMath.ets
+│       │       ├── MarkdownParser.ets
 │       │       └── TraceabilityFlowHelper.ets
 │       ├── test/                    # 本地单元测试
 │       │   ├── List.test.ets        # 测试入口
 │       │   ├── testutils/           # 测试工厂 & 辅助
 │       │   ├── models/              # 模型层测试 (4)
 │       │   ├── services/            # 服务层测试 (5)
-│       │   └── common/              # 公用工具测试 (6)
+│       │   └── common/              # 公用工具测试 (7)
 │       ├── ohosTest/                # OHOS 仪器测试 (设备/模拟器)
 │       │   └── ets/test/
 │       │       ├── pages/           # 页面冒烟测试
@@ -125,7 +126,7 @@ Index (底部 Tab 容器)
 | `HomeView.ets` | 侧边栏 + 内容路由 (MonitorView / AgriQAView / ScheduledTaskView) |
 | `MonitorView.ets` | 传感器卡片网格 + 设备控制 + 视频入口；仅展示有有效状态的数据类型，硬件未连接时整页显示统一提示 |
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
-| `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入) |
+| `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入)，支持 Markdown 格式渲染 (标题、列表、代码块、加粗、斜体、引用) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
 | `ProfileView.ets` | 个人中心卡片 (头像拍照/相册选择、角色、登出) |
 
@@ -286,13 +287,13 @@ Index (底部 Tab 容器)
 
 ### 覆盖范围
 
-**本地单元测试 (15 个测试套件)**:
+**本地单元测试 (16 个测试套件)**:
 
 | 层 | 测试套件 | 测试点 |
 |----|---------|--------|
 | 模型 (4) | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
 | 服务 (5) | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
-| 公用 (6) | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath, AvatarCaptureHelper | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程、裁剪区域计算、头像拍摄辅助 |
+| 公用 (7) | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath, AvatarCaptureHelper, MarkdownParser | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程、裁剪区域计算、头像拍摄辅助、Markdown 解析 |
 
 **OHOS 仪器测试 (8 个冒烟测试)**:
 - Ability.test (基础测试能力校验)

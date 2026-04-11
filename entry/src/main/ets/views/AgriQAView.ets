@@ -2,6 +2,7 @@ import { promptAction } from '@kit.ArkUI';
 import picker from '@ohos.file.picker';
 import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
+import { MarkdownParser, MarkdownBlock, MarkdownSegment } from '../common/MarkdownParser';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -94,10 +95,14 @@ export struct AgriQAView {
           .margin({ bottom: 6 })
       }
       if (msg.content.length > 0) {
-        Text(msg.content)
-          .fontSize(AppFontSize.Body)
-          .fontColor(msg.role === 'user' ? AppColors.TextOnPrimary : AppColors.TextPrimary)
-          .lineHeight(22)
+        if (msg.role === 'user') {
+          Text(msg.content)
+            .fontSize(AppFontSize.Body)
+            .fontColor(AppColors.TextOnPrimary)
+            .lineHeight(22)
+        } else {
+          this.MarkdownContent(msg.content)
+        }
       }
     }
     .padding(AppSpacing.MD)
@@ -105,6 +110,148 @@ export struct AgriQAView {
     .borderRadius(AppRadius.LG)
     .shadow({ radius: AppShadow.CardRadius, color: AppShadow.CardColor, offsetY: AppShadow.CardOffsetY })
     .constraintSize({ maxWidth: '75%' })
+  }
+
+  @Builder
+  MarkdownContent(content: string) {
+    Column({ space: 4 }) {
+      ForEach(MarkdownParser.parse(content), (block: MarkdownBlock, idx: number) => {
+        if (block.type === 'heading') {
+          this.HeadingBlock(block)
+        } else if (block.type === 'listItem') {
+          this.ListItemBlock(block)
+        } else if (block.type === 'orderedListItem') {
+          this.OrderedListItemBlock(block)
+        } else if (block.type === 'codeBlock') {
+          this.CodeBlock(block)
+        } else if (block.type === 'blockquote') {
+          this.BlockquoteBlock(block)
+        } else {
+          this.ParagraphBlock(block)
+        }
+      }, (_block: MarkdownBlock, idx: number) => `md_${idx}`)
+    }
+  }
+
+  @Builder
+  HeadingBlock(block: MarkdownBlock) {
+    Row() {
+      ForEach(block.segments, (seg: MarkdownSegment, idx: number) => {
+        Text(seg.content)
+          .fontSize(block.level === 1 ? AppFontSize.H1 :
+            block.level === 2 ? AppFontSize.H2 : AppFontSize.H3)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.TextPrimary)
+      }, (_seg: MarkdownSegment, idx: number) => `hs_${idx}`)
+    }
+    .margin({ top: AppSpacing.SM, bottom: AppSpacing.XS })
+  }
+
+  @Builder
+  ListItemBlock(block: MarkdownBlock) {
+    Row() {
+      Text('•')
+        .fontSize(AppFontSize.Body)
+        .fontColor(AppColors.Primary)
+        .margin({ right: AppSpacing.SM })
+      this.InlineSegments(block.segments)
+    }
+    .margin({ left: AppSpacing.MD })
+  }
+
+  @Builder
+  OrderedListItemBlock(block: MarkdownBlock) {
+    Row() {
+      this.InlineSegments(block.segments)
+    }
+    .margin({ left: AppSpacing.MD })
+  }
+
+  @Builder
+  CodeBlock(block: MarkdownBlock) {
+    Column() {
+      if (block.language.length > 0) {
+        Text(block.language)
+          .fontSize(AppFontSize.Caption)
+          .fontColor(AppColors.TextTertiary)
+          .margin({ bottom: AppSpacing.XS })
+      }
+      Scroll() {
+        Text(block.content)
+          .fontSize(AppFontSize.Caption)
+          .fontColor(AppColors.TextPrimary)
+          .fontFamily('monospace')
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .padding(AppSpacing.MD)
+    .backgroundColor(AppColors.Divider)
+    .borderRadius(AppRadius.SM)
+    .margin({ top: AppSpacing.XS, bottom: AppSpacing.XS })
+  }
+
+  @Builder
+  BlockquoteBlock(block: MarkdownBlock) {
+    Row() {
+      Column()
+        .width(3)
+        .height('100%')
+        .backgroundColor(AppColors.Primary)
+        .borderRadius(2)
+        .margin({ right: AppSpacing.SM })
+      Column() {
+        this.InlineSegments(block.segments)
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .padding({ left: AppSpacing.SM, top: AppSpacing.XS, bottom: AppSpacing.XS, right: AppSpacing.SM })
+    .backgroundColor(AppColors.PrimaryBg)
+    .borderRadius(AppRadius.SM)
+  }
+
+  @Builder
+  ParagraphBlock(block: MarkdownBlock) {
+    Row() {
+      this.InlineSegments(block.segments)
+    }
+  }
+
+  @Builder
+  InlineSegments(segments: MarkdownSegment[]) {
+    Text() {
+      ForEach(segments, (seg: MarkdownSegment, idx: number) => {
+        if (seg.type === 'bold') {
+          Span(seg.content)
+            .fontSize(AppFontSize.Body)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(AppColors.TextPrimary)
+        } else if (seg.type === 'italic') {
+          Span(seg.content)
+            .fontSize(AppFontSize.Body)
+            .fontStyle(FontStyle.Italic)
+            .fontColor(AppColors.TextPrimary)
+        } else if (seg.type === 'boldItalic') {
+          Span(seg.content)
+            .fontSize(AppFontSize.Body)
+            .fontWeight(FontWeight.Bold)
+            .fontStyle(FontStyle.Italic)
+            .fontColor(AppColors.TextPrimary)
+        } else if (seg.type === 'code') {
+          Span(` ${seg.content} `)
+            .fontSize(AppFontSize.Caption)
+            .fontFamily('monospace')
+            .fontColor(AppColors.TextPrimary)
+        } else {
+          Span(seg.content)
+            .fontSize(AppFontSize.Body)
+            .fontColor(AppColors.TextPrimary)
+        }
+      }, (_seg: MarkdownSegment, idx: number) => `seg_${idx}`)
+    }
+    .lineHeight(22)
   }
 
   build() {

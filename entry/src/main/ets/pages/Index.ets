@@ -103,11 +103,17 @@ struct Index {
                   }
                 }
                 if (data['mode'] !== undefined) {
-                  const mode = data['mode'];
-                  if (typeof mode === 'string') {
-                    node.nodeState.smartMode = mode.toLowerCase() === 'smart';
-                  } else if (typeof mode === 'boolean') {
-                    node.nodeState.smartMode = mode;
+                  // 用户刚切换模式后 5 秒内，忽略遥测覆盖，防止 Toggle 双发命令
+                  const MODE_COOLDOWN_MS = 5000;
+                  if (Date.now() - node.nodeState.smartModeCommandAt < MODE_COOLDOWN_MS) {
+                    console.info('[Index] Skipping telemetry mode update during cooldown');
+                  } else {
+                    const mode = data['mode'];
+                    if (typeof mode === 'string') {
+                      node.nodeState.smartMode = mode.toLowerCase() === 'smart';
+                    } else if (typeof mode === 'boolean') {
+                      node.nodeState.smartMode = mode;
+                    }
                   }
                 }
               }

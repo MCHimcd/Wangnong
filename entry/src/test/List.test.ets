@@ -17,6 +17,7 @@ import designTokenTest from './common/DesignToken.test';
 import traceabilityFlowHelperTest from './common/TraceabilityFlowHelper.test';
 import avatarCropMathTest from './common/AvatarCropMath.test';
 import avatarCaptureHelperTest from './common/AvatarCaptureHelper.test';
+import markdownParserTest from './common/MarkdownParser.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -38,4 +39,5 @@ export default function testsuite() {
   traceabilityFlowHelperTest();
   avatarCropMathTest();
   avatarCaptureHelperTest();
+  markdownParserTest();
 }
