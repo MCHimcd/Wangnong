@@ -18,6 +18,7 @@ export interface PlaybackItem {
   quality: string;
   available: boolean;
   abnormalCount: number;
+  videoUrl?: string;
 }
 
 export interface KeyframeImageItem {
@@ -26,6 +27,7 @@ export interface KeyframeImageItem {
   label: string;
   confidence: number;
   thumbnailHint: string;
+  imageUrl?: string;
   isAbnormal: boolean;
   abnormalType: string;
   severity: AbnormalSeverity;

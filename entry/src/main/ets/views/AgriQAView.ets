@@ -131,6 +131,7 @@ export struct AgriQAView {
         }
       }, (_block: MarkdownBlock, idx: number) => `md_${idx}`)
     }
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder

@@ -265,31 +265,35 @@ export struct HomeView {
         .shadow({ radius: 8, color: 'rgba(30,70,40,0.04)', offsetY: 2 })
 
         // 内容区
-        Scroll() {
-          Column() {
-            if (this.currentSidebarIndex === 0) {
-              MonitorView({
-                nodeId: this.node.id,
-                nodeStatus: this.node.status,
-                mqttHeartbeatOffline: this.mqttHeartbeatOffline || this.connectionStatus === 'disconnected',
-                sensorData: this.node.sensorData,
-                nodeState: this.node.nodeState,
-                sensorMeta: this.node.sensorMeta,
-                equipmentMeta: this.node.equipmentMeta
-              })
-            } else if (this.currentSidebarIndex === 1) {
-              AgriQAView()
-            } else if (this.currentSidebarIndex === 2) {
-              ScheduledTaskView()
-            } else if (this.currentSidebarIndex === 3) {
-              this.SwitchDeviceContent()
+        if (this.currentSidebarIndex === 1) {
+          AgriQAView()
+            .layoutWeight(1)
+            .width('100%')
+        } else {
+          Scroll() {
+            Column() {
+              if (this.currentSidebarIndex === 0) {
+                MonitorView({
+                  nodeId: this.node.id,
+                  nodeStatus: this.node.status,
+                  mqttHeartbeatOffline: this.mqttHeartbeatOffline || this.connectionStatus === 'disconnected',
+                  sensorData: this.node.sensorData,
+                  nodeState: this.node.nodeState,
+                  sensorMeta: this.node.sensorMeta,
+                  equipmentMeta: this.node.equipmentMeta
+                })
+              } else if (this.currentSidebarIndex === 2) {
+                ScheduledTaskView()
+              } else if (this.currentSidebarIndex === 3) {
+                this.SwitchDeviceContent()
+              }
             }
+            .width('100%')
           }
+          .layoutWeight(1)
           .width('100%')
+          .scrollBar(BarState.Off)
         }
-        .layoutWeight(1)
-        .width('100%')
-        .scrollBar(BarState.Off)
       }
       .width('100%')
       .height('100%')

@@ -41,6 +41,11 @@ export struct MonitorView {
   // ───────── 内部状态：竖屏 Tab ─────────
   @State currentTab: number = 0;
 
+  // ───────── 内部状态：全屏回放 / 关键帧查看 ─────────
+  @State playbackFullscreenUrl: string = '';
+  @State keyframeFullscreenUrl: string = '';
+  @State imageScale: number = 1;
+
   // ───────── 内部状态：硬件摄像头图片 ─────────
   @State cameraPixelMap: image.PixelMap | undefined = undefined;
   private lastDecodeBase64: string = '';
@@ -83,10 +88,10 @@ export struct MonitorView {
   }
 
   private isWarning(meta: SensorMetaItem, value: number): boolean {
-    if (meta.warningMax !== undefined && value > meta.warningMax) {
+    if (meta.warningMax !== undefined && typeof meta.warningMax === 'number' && value > meta.warningMax) {
       return true;
     }
-    if (meta.warningMin !== undefined && value < meta.warningMin) {
+    if (meta.warningMin !== undefined && typeof meta.warningMin === 'number' && value < meta.warningMin) {
       return true;
     }
     return false;
@@ -302,7 +307,9 @@ export struct MonitorView {
   @Builder
   PlaybackPanel() {
     Column() {
-      this.SectionHeader('监控回放', AppColors.Accent)
+      Row() {
+        this.SectionHeader('监控回放', AppColors.Accent)
+      }.width('100%')
       if (this.playbackItems.length === 0) {
         Text(this.playbackLoading ? '加载中...' : '暂无回放记录')
           .fontSize(this.sf(AppFontSize.Caption)).fontColor(AppColors.TextTertiary)
@@ -330,9 +337,18 @@ export struct MonitorView {
                     .borderRadius(AppRadius.SM)
                     .margin({ right: AppSpacing.SM })
                 }
-                Text(item.available ? '查看' : '待生成')
+                Text(item.available ? '▶ 查看' : '待生成')
                   .fontSize(this.sf(AppFontSize.Mini))
                   .fontColor(item.available ? AppColors.Primary : AppColors.TextTertiary)
+                  .onClick(() => {
+                    if (item.available) {
+                      if (item.videoUrl !== undefined && item.videoUrl.length > 0) {
+                        this.playbackFullscreenUrl = item.videoUrl;
+                      } else {
+                        promptAction.showToast({ message: item.date + ' 回放详情: ' + item.duration + ' · ' + item.quality, duration: 2000 });
+                      }
+                    }
+                  })
               }
               .width('100%').padding(AppSpacing.SM)
               .backgroundColor(item.date === this.selectedDate ? AppColors.PrimaryBg : AppColors.Background)
@@ -387,7 +403,13 @@ export struct MonitorView {
                     .borderRadius(AppRadius.SM)
                     .backgroundColor(item.severity === 'critical'
                       ? AppColors.AlertCriticalBg : AppColors.AlertWarningBg)
-                  Text(item.thumbnailHint).fontSize(this.sf(22))
+                  if (item.imageUrl !== undefined && item.imageUrl.length > 0) {
+                    Image(item.imageUrl)
+                      .width(this.sf(60)).height(this.sf(60))
+                      .borderRadius(AppRadius.SM).objectFit(ImageFit.Cover)
+                  } else {
+                    Text('📷').fontSize(this.sf(22))
+                  }
                 }.margin({ right: AppSpacing.SM })
 
                 Column() {
@@ -417,7 +439,19 @@ export struct MonitorView {
               .backgroundColor(item.severity === 'critical' ? '#FFF5F5' : '#FFFDF8')
               .borderRadius(AppRadius.SM)
               .onClick(() => {
-                promptAction.showToast({ message: item.label + ' ' + item.captureTime, duration: 1800 });
+                if (item.imageUrl !== undefined && item.imageUrl.length > 0) {
+                  this.imageScale = 1;
+                  this.keyframeFullscreenUrl = item.imageUrl;
+                } else {
+                  promptAction.showDialog({
+                    title: item.label,
+                    message: '类型: ' + item.abnormalType + '\n'
+                      + '严重度: ' + (item.severity === 'critical' ? '高危' : '一般') + '\n'
+                      + '置信度: ' + item.confidence.toFixed(0) + '%\n'
+                      + '时间: ' + item.captureTime,
+                    buttons: [{ text: '确定', color: AppColors.Primary }]
+                  });
+                }
               })
             }
           }, (item: KeyframeImageItem) => item.id)
@@ -554,8 +588,8 @@ export struct MonitorView {
 
         Toggle({ type: ToggleType.Switch, isOn: this.nodeState.getState(meta.key) })
           .selectedColor(AppColors.Primary)
-          .enabled(!this.nodeState.smartMode)
-          .opacity(this.nodeState.smartMode ? 0.5 : 1)
+          .enabled(!this.nodeState.smartMode && !this.nodeState.isDebouncing(meta.key))
+          .opacity(this.nodeState.smartMode || this.nodeState.isDebouncing(meta.key) ? 0.5 : 1)
           .onChange((isOn: boolean) => {
             if (this.nodeState.getState(meta.key) === isOn) {
               return;
@@ -648,6 +682,8 @@ export struct MonitorView {
           .margin({ right: AppSpacing.XS })
         Toggle({ type: ToggleType.Switch, isOn: this.nodeState.smartMode })
           .selectedColor(AppColors.Primary)
+          .enabled(!this.nodeState.isSmartModeDebouncing())
+          .opacity(this.nodeState.isSmartModeDebouncing() ? 0.5 : 1)
           .onChange((isOn: boolean) => {
             if (this.nodeState.smartMode === isOn) {
               return;
@@ -658,6 +694,9 @@ export struct MonitorView {
             }
             this.nodeState.smartMode = isOn;
             this.nodeState.smartModeCommandAt = Date.now();
+            setTimeout(() => {
+              this.nodeState.revision++;
+            }, NodeState.DEBOUNCE_MS);
             MqttClientService.getInstance().enqueueCommand(this.nodeId, 'mode', isOn ? 'smart' : 'manual');
             promptAction.showToast({ message: '已切换至' + (isOn ? '智能' : '手动') + '模式' });
           })
@@ -740,6 +779,78 @@ export struct MonitorView {
     }.justifyContent(FlexAlign.Center).width('100%').height('100%')
   }
 
+  // ═══════════════ 全屏回放视频覆盖 ═══════════════
+
+  @Builder
+  PlaybackFullscreenOverlay() {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Column() {
+        Video({ src: this.playbackFullscreenUrl })
+          .width('100%').height('100%').controls(true)
+          .objectFit(ImageFit.Contain)
+      }
+      .width('100%').height('100%')
+      .backgroundColor('#000000')
+      .justifyContent(FlexAlign.Center)
+
+      Text('✕')
+        .fontSize(24).fontColor('#FFFFFF')
+        .width(44).height(44).textAlign(TextAlign.Center)
+        .borderRadius(AppRadius.Full)
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .margin({ top: AppSpacing.XXL, right: AppSpacing.LG })
+        .onClick(() => {
+          this.playbackFullscreenUrl = '';
+        })
+    }
+    .width('100%').height('100%')
+  }
+
+  // ═══════════════ 全屏关键帧图片覆盖 ═══════════════
+
+  @Builder
+  KeyframeFullscreenOverlay() {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Column() {
+        Image(this.keyframeFullscreenUrl)
+          .width('100%').height('100%')
+          .objectFit(ImageFit.Contain)
+          .scale({ x: this.imageScale, y: this.imageScale })
+          .gesture(
+            PinchGesture({ fingers: 2 })
+              .onActionUpdate((event: GestureEvent) => {
+                let newScale = this.imageScale * event.scale;
+                if (newScale < 0.5) {
+                  newScale = 0.5;
+                } else if (newScale > 5) {
+                  newScale = 5;
+                }
+                this.imageScale = newScale;
+              })
+          )
+      }
+      .width('100%').height('100%')
+      .backgroundColor('#000000')
+      .justifyContent(FlexAlign.Center)
+      .onClick(() => {
+        this.keyframeFullscreenUrl = '';
+        this.imageScale = 1;
+      })
+
+      Text('✕')
+        .fontSize(24).fontColor('#FFFFFF')
+        .width(44).height(44).textAlign(TextAlign.Center)
+        .borderRadius(AppRadius.Full)
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .margin({ top: AppSpacing.XXL, right: AppSpacing.LG })
+        .onClick(() => {
+          this.keyframeFullscreenUrl = '';
+          this.imageScale = 1;
+        })
+    }
+    .width('100%').height('100%')
+  }
+
   // ═══════════════ 左侧整列（视频+回放+关键帧）═══════════════
 
   @Builder
@@ -764,74 +875,84 @@ export struct MonitorView {
   // ═══════════════ 主布局 ═══════════════
 
   build() {
-    Column() {
-      if (!this.isNodeConnected()) {
-        this.OfflineContent()
-      } else if (this.currentBreakpoint === 'lg') {
-        Scroll() {
-          Row({ space: AppSpacing.SM }) {
-            Column() {
-              this.LeftColumn()
-            }.width('55%')
+    Stack() {
+      Column() {
+        if (!this.isNodeConnected()) {
+          this.OfflineContent()
+        } else if (this.currentBreakpoint === 'lg') {
+          Scroll() {
+            Row({ space: AppSpacing.SM }) {
+              Column() {
+                this.LeftColumn()
+              }.width('55%')
 
-            Column() {
-              this.RightColumn()
-            }.width('45%')
+              Column() {
+                this.RightColumn()
+              }.width('45%')
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Top)
           }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-        }
-        .width('100%').layoutWeight(1)
-        .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
-      } else if (this.currentBreakpoint === 'md') {
-        Scroll() {
-          Row({ space: AppSpacing.SM }) {
-            Column() {
-              this.LeftColumn()
-            }.width('50%')
+          .width('100%').layoutWeight(1)
+          .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
+        } else if (this.currentBreakpoint === 'md') {
+          Scroll() {
+            Row({ space: AppSpacing.SM }) {
+              Column() {
+                this.LeftColumn()
+              }.width('50%')
 
-            Column() {
-              this.RightColumn()
-            }.width('50%')
+              Column() {
+                this.RightColumn()
+              }.width('50%')
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Top)
           }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-        }
-        .width('100%').layoutWeight(1)
-        .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
-      } else {
-        Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
-          TabContent() {
-            Scroll() {
-              this.LeftColumn()
-            }.width('100%').height('100%')
-              .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
-          }.tabBar(this.SmTabBar('📹', '监控', 0))
+          .width('100%').layoutWeight(1)
+          .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
+        } else {
+          Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
+            TabContent() {
+              Scroll() {
+                this.LeftColumn()
+              }.width('100%').height('100%')
+                .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
+            }.tabBar(this.SmTabBar('📹', '监控', 0))
 
-          TabContent() {
-            Scroll() {
-              this.SensorPanel()
-            }.width('100%').height('100%')
-              .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
-          }.tabBar(this.SmTabBar('🌡️', '数据', 1))
+            TabContent() {
+              Scroll() {
+                this.SensorPanel()
+              }.width('100%').height('100%')
+                .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
+            }.tabBar(this.SmTabBar('🌡️', '数据', 1))
 
-          TabContent() {
-            Scroll() {
-              this.ControlPanel()
-            }.width('100%').height('100%')
-              .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
-          }.tabBar(this.SmTabBar('⚙️', '控制', 2))
+            TabContent() {
+              Scroll() {
+                this.ControlPanel()
+              }.width('100%').height('100%')
+                .scrollBar(BarState.Auto).edgeEffect(EdgeEffect.Spring)
+            }.tabBar(this.SmTabBar('⚙️', '控制', 2))
+          }
+          .width('100%').layoutWeight(1)
+          .barHeight(this.sf(48)).barMode(BarMode.Fixed)
+          .animationDuration(200)
+          .onChange((idx: number) => {
+            this.currentTab = idx;
+          })
         }
-        .width('100%').layoutWeight(1)
-        .barHeight(this.sf(48)).barMode(BarMode.Fixed)
-        .animationDuration(200)
-        .onChange((idx: number) => {
-          this.currentTab = idx;
-        })
+      }
+      .width('100%').height('100%')
+      .padding(this.isNodeConnected() ? AppSpacing.SM : 0)
+      .backgroundColor(AppColors.Background)
+
+      if (this.playbackFullscreenUrl.length > 0) {
+        this.PlaybackFullscreenOverlay()
+      }
+      if (this.keyframeFullscreenUrl.length > 0) {
+        this.KeyframeFullscreenOverlay()
       }
     }
     .width('100%').height('100%')
-    .padding(this.isNodeConnected() ? AppSpacing.SM : 0)
-    .backgroundColor(AppColors.Background)
   }
 }

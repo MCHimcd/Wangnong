@@ -39,9 +39,12 @@ export class NodeState {
     this.revision++;
   }
 
-  /** 记录设备命令发送时间 */
+  /** 记录设备命令发送时间，并在防抖结束后自动刷新 UI */
   markCommandSent(key: string): void {
     this.commandTimestamps[key] = Date.now();
+    setTimeout(() => {
+      this.revision++;
+    }, NodeState.DEBOUNCE_MS);
   }
 
   /** 检查设备是否在防抖冷却期内 */

@@ -157,10 +157,13 @@ struct Index {
           { text: '立即查看', color: AppColors.AlertCritical }
         ]
       }).then((res) => {
+        AlertSyncService.getInstance().markDialogClosed();
         if (res.index === 1) {
           this.currentTabIndex = 1;
         }
-      }).catch(() => {});
+      }).catch(() => {
+        AlertSyncService.getInstance().markDialogClosed();
+      });
     });
     AlertSyncService.getInstance().startRealtimeSync();
   }

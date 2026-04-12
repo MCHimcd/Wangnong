@@ -170,6 +170,10 @@ export class AlertSyncService {
     this.alertDialogCallback = cb;
   }
 
+  public markDialogClosed() {
+    this.isDialogShowing = false;
+  }
+
   private showGlobalAlert(alert: AlertData) {
     if (this.isDialogShowing) return;
     const isLoggedIn = AppStorage.get<boolean>('isLoggedIn');
@@ -180,7 +184,6 @@ export class AlertSyncService {
     this.isDialogShowing = true;
     if (this.alertDialogCallback) {
       this.alertDialogCallback(alert);
-      this.isDialogShowing = false;
     } else {
       this.isDialogShowing = false;
     }
