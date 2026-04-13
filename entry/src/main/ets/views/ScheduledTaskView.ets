@@ -7,6 +7,15 @@ import {
 } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
+/**
+ * Purpose: 在首页内嵌展示定时任务列表，并提供轻量的新建、启停和删除操作。
+ * Responsibilities: 加载节点与任务、管理创建弹窗字段，并把任务变更同步到后端后刷新列表。
+ * Flow: aboutToAppear() 拉取节点和任务；新建/切换/删除动作成功后统一重新 loadTasks()。
+ * Dependencies: 依赖 HttpService 的任务接口和 DesignToken。
+ * Input: 任务列表、节点列表和创建弹窗中的设备/动作/时间/重复配置。
+ * Output: 首页任务卡片区域和任务创建弹窗。
+ * Boundary: repeatDays 仍沿用后端的 1-7 编码；本视图只负责展示和创建，不做复杂编辑。
+ */
 @Component
 export struct ScheduledTaskView {
   @State tasks: ScheduledTaskItem[] = [];
@@ -41,6 +50,7 @@ export struct ScheduledTaskView {
   async loadNodes() {
     let list = await HttpService.getInstance().getNodes();
     if (list) {
+      // Reason: 默认指向第一个节点，保证创建弹窗随时可提交完整请求。
       this.nodes = list;
       if (this.dNodeId === '' && list.length > 0) {
         this.dNodeId = list[0].id;
@@ -60,6 +70,7 @@ export struct ScheduledTaskView {
       promptAction.showToast({ message: '请输入任务名称' });
       return;
     }
+    // Flow: 首页视图的新建逻辑与独立页面保持同一份协议映射，确保两个入口创建出的任务结构一致。
     let req = new CreateTaskRequest();
     req.nodeId = this.dNodeId;
     req.equipmentKey = this.dEquipmentKey;
@@ -107,6 +118,7 @@ export struct ScheduledTaskView {
   }
 
   resetDialog() {
+    // Boundary: 关闭弹窗或创建成功后恢复默认模板，避免上一次输入污染下一次新建。
     this.dTaskName = '';
     this.dEquipmentKey = 'water_pump';
     this.dAction = 'turn_on';
@@ -121,6 +133,7 @@ export struct ScheduledTaskView {
   }
 
   formatRepeatDays(days: string): string {
+    // Reason: 后端存储的是数字编码，列表展示时再转换为中文星期，减少界面直接暴露协议细节。
     if (!days || days === '1,2,3,4,5,6,7') return '每天';
     let dayNames: Record<string, string> = {
       '1': '周一', '2': '周二', '3': '周三', '4': '周四',

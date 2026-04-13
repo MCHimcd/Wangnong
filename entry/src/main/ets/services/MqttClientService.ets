@@ -9,6 +9,15 @@ import type {
 } from '@ohos/mqtt';
 import { MqttAsync } from '@ohos/mqtt';
 
+/**
+ * Purpose: 统一管理 MQTT 连接、主题订阅、遥测缓存和控制命令发布。
+ * Responsibilities: 建立单例连接、维护重连退避、缓存 60 点趋势数据、分发遥测/告警监听器，并串行排空控制命令队列。
+ * Flow: Index 调用 connect() 后进入 doConnect()；消息统一在 messageArrived() 中分发；页面通过 enqueueCommand() 入队控制命令。
+ * Dependencies: 依赖 @ohos/mqtt 提供客户端能力，被 Index、AlertSyncService、MonitorView 等页面与服务共享。
+ * Input: Broker 地址、客户端 ID、MQTT 消息、控制命令参数。
+ * Output: 连接状态回调、趋势缓存、告警/遥测监听通知和发布到 command topic 的控制消息。
+ * Invariant: 遥测缓存最多保留 60 个点；控制命令应先入队再由 kickDrain() 统一发布，避免 UI 线程直接构造复杂 MQTT 对象。
+ */
 export class CachedTrendPoint {
   time: string = '';
   value: number = 0;
@@ -117,6 +126,7 @@ export class MqttClientService {
     let cacheKey = `${nodeId}_${metric}`;
     let cachedPoints = this.trendCache[cacheKey] || [];
     let lastPoint = cachedPoints.length > 0 ? cachedPoints[cachedPoints.length - 1] : null;
+    // Reason: 连续相同值不重复入缓存，可减少静态平台期对图表刷新和存储的噪声。
     if (lastPoint && lastPoint.value === value) {
       this.trendCache[cacheKey] = cachedPoints;
       return;
@@ -134,6 +144,7 @@ export class MqttClientService {
       return;
     }
 
+    // Flow: 只缓存 environment 指标，设备开关状态仍直接交给业务层处理，不混入趋势图缓存。
     let env: EnvironmentData = data.environment;
     let timeLabel = this.formatTrendTime(timestamp || new Date().getTime());
 
@@ -246,6 +257,7 @@ export class MqttClientService {
             let telemetrySubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/telemetry', qos: 1 };
             let alertSubOpts: MqttSubscribeOptions = { topic: '/wangnong_2026/node/+/alert', qos: 1 };
 
+            // Flow: 所有下游页面都从统一的 messageArrived() 分发入口拿消息，这里负责按 msg_type 切分告警与遥测。
             this.client.connectLost((err: Error, data: MqttResponse) => {
               console.warn(`[MQTT] Connection lost: ${JSON.stringify(data)}`);
               this.connected = false;
@@ -326,6 +338,7 @@ export class MqttClientService {
       console.info('[MQTT] Attempting reconnect...');
       this.doConnect();
     }, this.reconnectDelay);
+    // Reason: 使用指数退避避免在 Broker 不可用时持续高频重试；成功连接后会把延迟重置回初始值。
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, MqttClientService.MAX_RECONNECT_DELAY_MS);
   }
 
@@ -361,6 +374,7 @@ export class MqttClientService {
         cmd.paramBrightness = br;
       }
     }
+    // Boundary: UI 层只提交原始控制意图，真正的 MQTT payload 组装延后到 drain tick 中执行。
     this.pendingCommands.push(cmd);
     console.info(`[MQTT] Command enqueued: node=${nodeId} dev=${targetDevice} act=${action} source=${source} queueLen=${this.pendingCommands.length}`);
   }
@@ -383,7 +397,7 @@ export class MqttClientService {
         console.info(`[MQTT] drain tick #${this.drainSeq}: publishing ${batch.length} command(s)`);
         for (let i = 0; i < batch.length; i++) {
           let cmd = batch[i];
-          // ---- 在 timer 回调内构造全部对象 ----
+          // Reason: 在 timer 回调里现构造发布对象，可复用已验证的异步上下文，降低直接从 UI 事件中 publish 的不稳定性。
           let ctrlAction = new ControlAction();
           ctrlAction.target_device = cmd.targetDevice;
           ctrlAction.command = cmd.action;

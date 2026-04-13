@@ -13,6 +13,15 @@ import image from '@ohos.multimedia.image';
 import buffer from '@ohos.buffer';
 import router from '@ohos.router';
 
+/**
+ * Purpose: 作为综合监控主视图，聚合实时环境数据、设备控制、视频直播、回放和异常关键帧展示。
+ * Responsibilities: 接收当前节点的传感器与控制状态，加载视频数据，解码硬件图片帧，并在不同断点下组织监控布局。
+ * Flow: aboutToAppear() 并行加载直播信息、控制初始态和回放数据，同时启动图片帧轮询解码；用户操作设备时通过 MqttClientService 入队控制命令。
+ * Dependencies: 依赖 VideoMonitorService、HttpService、MqttClientService、NodeState/SensorData 和 DesignToken。
+ * Input: 父组件传入的 nodeId、连接状态、sensorData、nodeState 以及 sensor/equipment 元数据。
+ * Output: 监控面板 UI、设备控制命令、视频回放/关键帧展示和详情页跳转。
+ * Side Effects: 轮询解码 Base64 图片、读取节点详情、发出 MQTT 控制命令、跳转到设备详情页。
+ */
 @Component
 export struct MonitorView {
   // ───────── 对外 Props（接口不变）─────────
@@ -125,6 +134,7 @@ export struct MonitorView {
   // ═══════════════ 生命周期 ═══════════════
 
   aboutToAppear(): void {
+    // Flow: 视频、控制态和回放数据相互独立，因此并行启动；图片帧使用定时检查，避免每次 sensorData 微小变化都重复解码。
     void this.loadVideoInfo();
     void this.bootstrapControlState();
     void this.loadPlaybackData();
@@ -149,12 +159,14 @@ export struct MonitorView {
     if (base64Str.length === 0 || base64Str === this.lastDecodeBase64) {
       return;
     }
+    // Reason: 仅在图片帧发生变化时才重新解码，可显著减少像素图创建和 release 的频率。
     this.lastDecodeBase64 = base64Str;
     void this.decodeBase64ToPixelMap(base64Str);
   }
 
   private async decodeBase64ToPixelMap(base64Str: string): Promise<void> {
     try {
+      // Flow: Base64 -> Buffer -> Uint8Array -> ImageSource -> PixelMap，旧 PixelMap 必须释放，否则长时间监控会积累内存占用。
       const buf: buffer.Buffer = buffer.from(base64Str, 'base64');
       const uint8Array = new Uint8Array(buf.length);
       for (let i = 0; i < buf.length; i++) {
@@ -189,6 +201,7 @@ export struct MonitorView {
     if (this.nodeState.controlStateBootstrapped) {
       return;
     }
+    // Reason: 首次进入监控页时先用节点详情回填控制态，避免 MQTT 首条遥测未到达前所有开关都显示默认关闭。
     const detail = await HttpService.getInstance().getNodeDetail(this.nodeId);
     if (detail && detail.nodeState) {
       const st: Record<string, boolean | undefined> = detail.nodeState;
@@ -215,6 +228,7 @@ export struct MonitorView {
       const svc = VideoMonitorService.getInstance();
       this.playbackItems = await svc.getDailyPlaybackList(this.nodeId);
       if (this.playbackItems.length > 0) {
+        // Flow: 默认选中最新一天的回放，并立即拉取该日期的异常关键帧，保证回放区首次进入就有可见内容。
         this.selectedDate = this.playbackItems[0].date;
         const frames = await svc.getKeyframesByDate(this.nodeId, this.selectedDate);
         this.abnormalFrames = frames.filter((f: KeyframeImageItem) => f.isAbnormal);
@@ -631,6 +645,7 @@ export struct MonitorView {
               promptAction.showToast({ message: '操作过于频繁，请稍候' });
               return;
             }
+            // Boundary: 手动控制只在“非智能模式且未处于设备冷却期”时生效；状态先本地乐观更新，再等待 MQTT 回显对齐。
             if (this.isSliderControl(meta)) {
               this.nodeState.setValue(meta.key, isOn ? 100 : 0);
               this.nodeState.markCommandSent(meta.key);
@@ -721,6 +736,7 @@ export struct MonitorView {
               promptAction.showToast({ message: '操作过于频繁，请稍候' });
               return;
             }
+            // Reason: 智能模式切换先更新本地态并写入 smartModeCommandAt，再发命令；这样 Index 里的遥测冷却逻辑才能识别这次用户操作。
             this.nodeState.smartMode = isOn;
             this.nodeState.smartModeCommandAt = Date.now();
             setTimeout(() => {

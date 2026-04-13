@@ -15,6 +15,15 @@ import { BreakpointSystem } from '../common/BreakpointSystem';
 import { promptAction } from '@kit.ArkUI';
 import router from '@ohos.router';
 
+/**
+ * Purpose: 作为登录后的主页面容器，负责初始化节点数据、建立 MQTT 与告警同步，并承载底部三 Tab 导航。
+ * Responsibilities: 加载节点与元数据、启动会话探活、分发实时遥测到 Node、处理服务器断线与告警弹窗。
+ * Flow: aboutToAppear() 先启动可用性监控和断点系统，再拉取节点/元数据，随后建立 MQTT 连接并启动 AlertSyncService。
+ * Dependencies: 依赖 HttpService、MqttClientService、AlertSyncService、ServerAvailabilityService、BreakpointSystem 和三个 Tab 视图。
+ * Input: 登录态下的节点列表、MQTT 遥测/告警、服务器可用性变化。
+ * Output: 首页 Tab UI、全局连接状态、节点实时数据和可能触发的重新登录跳转。
+ * Side Effects: 注册全局监听器、修改 AppStorage、建立/断开 MQTT 连接、弹出全局告警对话框。
+ */
 @Entry
 @Component
 struct Index {
@@ -67,6 +76,7 @@ struct Index {
   }
 
   async aboutToAppear() {
+    // Flow: 初始化顺序必须是“会话探活 -> 断点注册 -> 节点与元数据加载 -> MQTT/告警同步”，否则页面会在依赖未准备好时提前消费状态。
     this.isForceLogoutHandling = false;
     this.availabilityService.addForceLogoutListener(this.onForceLogout);
     await this.availabilityService.startSessionMonitoring();
@@ -88,6 +98,7 @@ struct Index {
               if (node.id === nodeId) {
                 node.status = 'online';
                 this.mqttHeartbeatOffline = false;
+                // Flow: 遥测回调同时负责环境指标、设备状态、智能模式和硬件图片四类更新，统一收口到当前 Node 上。
                 if (data['environment']) {
                   const env = data['environment'] as Record<string, number>;
                   const envKeys = Object.keys(env);
@@ -111,7 +122,7 @@ struct Index {
                   }
                 }
                 if (data['mode'] !== undefined) {
-                  // 用户刚切换模式后 5 秒内，忽略遥测覆盖，防止 Toggle 双发命令
+                  // Boundary: 模式切换后的短冷却窗优先相信用户本地操作，避免服务器回显把 Toggle 立即改回去。
                   const MODE_COOLDOWN_MS = 5000;
                   if (Date.now() - node.nodeState.smartModeCommandAt < MODE_COOLDOWN_MS) {
                     console.info('[Index] Skipping telemetry mode update during cooldown');
@@ -149,6 +160,7 @@ struct Index {
       }
     });
     AlertSyncService.getInstance().setAlertDialogCallback((alert: AlertData) => {
+      // Boundary: 告警详情跳转不直接 push 页面，而是切到消息 Tab，让列表页和详情页共享统一的告警缓存入口。
       promptAction.showDialog({
         title: '新告警提示',
         message: `检测到新告警（最新：${alert.type_name}），是否立即查看？`,
@@ -169,6 +181,7 @@ struct Index {
   }
 
   aboutToDisappear() {
+    // Reason: 这里必须按“取消监听 -> 停轮询 -> 注销断点 -> 停告警 -> 断 MQTT”的顺序清理，避免页面消失后仍有回调写状态。
     this.availabilityService.removeForceLogoutListener(this.onForceLogout);
     this.availabilityService.stopPolling();
     BreakpointSystem.getInstance().unregister();
@@ -182,6 +195,7 @@ struct Index {
       return;
     }
 
+    // Invariant: 强制登出只能执行一次；否则多个失败回调会重复清理状态并产生多次跳转。
     this.isForceLogoutHandling = true;
     this.availabilityService.stopPolling();
     AlertSyncService.getInstance().stopRealtimeSync();
@@ -225,6 +239,7 @@ struct Index {
             nodesList: this.nodes.map(d => d.name),
             currentNodeIndex: this.currentNodeIndex,
             onSwitchNode: (idx: number) => {
+              // Flow: 节点切换由父页面统一更新 currentNodeIndex 和 HttpService 上下文，避免子视图自行持有不一致的 nodeId。
               this.currentNodeIndex = idx;
               HttpService.getInstance().setNodeId(this.nodes[idx].id);
             },

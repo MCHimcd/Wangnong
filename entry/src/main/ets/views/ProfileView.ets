@@ -9,6 +9,15 @@ import { HttpService } from '../services/HttpService';
 import { AvatarCaptureHelper } from '../common/AvatarCaptureHelper';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 渲染个人中心视图，承接头像、个人资料、设置、溯源入口和登录态操作。
+ * Responsibilities: 刷新用户资料、管理头像采集入口、根据角色显示管理后台入口，并处理退出登录。
+ * Flow: aboutToAppear() 拉取资料并同步到 AppStorage；用户点击头像时走拍照/相册选择，再跳转到 AvatarCropPage。
+ * Dependencies: 依赖 HttpService、AvatarCaptureHelper、Preferences、文件系统与相机/相册能力。
+ * Input: 来自 AppStorage 的用户角色、用户名、头像地址，以及用户在本页触发的交互动作。
+ * Output: 个人中心 UI、头像跳转、退出登录副作用和全局资料同步。
+ * Side Effects: 会申请相机权限、拷贝图片到沙盒、写 Preferences/AppStorage、清空 token。
+ */
 @Component
 export struct ProfileView {
   @State avatarSrc: ResourceStr = $r('app.media.startIcon');
@@ -27,6 +36,7 @@ export struct ProfileView {
   private async refreshProfile() {
     let profile = await HttpService.getInstance().getUserProfile();
     if (profile) {
+      // Reason: ProfileView 是多个“个人资料展示位”的共享来源，因此把关键字段同步回 AppStorage，避免其他页面显示旧值。
       if (profile.userId) this.userId = profile.userId;
       if (profile.userName) this.userName = profile.userName;
       this.userRole = profile.role || 'user';
@@ -63,6 +73,7 @@ export struct ProfileView {
     }
   }
 
+  // Boundary: 裁剪页需要稳定的沙盒文件路径；相册或相机返回的 uri 不一定能被后续图像 API 直接读取。
   private copyUriToSandbox(sourceUri: string): string {
     const context = getContext(this) as common.UIAbilityContext;
     const timestamp = Date.now();
@@ -205,7 +216,7 @@ export struct ProfileView {
                   return;
                 }
 
-                // 复制到应用沙盒，确保裁剪页能正确读取
+                // Flow: 无论来源是相机还是相册，都先复制到沙盒，再把 file:// 路径传给裁剪页，避免后续读取权限不一致。
                 let sandboxPath: string = '';
                 try {
                   sandboxPath = this.copyUriToSandbox(pickedUri);
@@ -299,6 +310,7 @@ export struct ProfileView {
         .padding({ left: AppSpacing.PagePadding, right: AppSpacing.PagePadding, top: AppSpacing.SM, bottom: AppSpacing.XXL })
         .onClick(async () => {
           try {
+            // Flow: 即使远端退出失败，也要优先清理本地登录态，避免用户卡在半退出状态。
             const remoteLogoutOk = await HttpService.getInstance().logout();
             let context = getContext(this) as common.UIAbilityContext;
             let pref = await preferences.getPreferences(context, 'AppPreferences');

@@ -6,6 +6,15 @@ import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } fro
 import { promptAction } from '@kit.ArkUI';
 import router from '@ohos.router';
 
+/**
+ * Purpose: 作为首页 Tab 内的内容路由容器，负责在监控、农业问答、定时任务和节点切换之间切换。
+ * Responsibilities: 管理侧边栏状态、把当前节点与连接状态分发给子视图，并暴露切换节点/新增节点回调。
+ * Flow: Index 把当前 Node 和节点列表传入；HomeView 根据 currentSidebarIndex 渲染不同内容，并通过回调把节点切换请求抛回父页面。
+ * Dependencies: 依赖 MonitorView、AgriQAView、ScheduledTaskView、router 和 DesignToken。
+ * Input: 当前节点对象、节点列表、当前节点索引和连接状态。
+ * Output: 首页主内容区域、侧边栏抽屉和节点切换交互。
+ * Boundary: 该视图不直接持久化节点数据，节点切换结果必须回到父页面统一处理。
+ */
 interface SidebarMenuItem {
   label: string;
   icon: string;
@@ -93,6 +102,7 @@ export struct HomeView {
             .borderRadius({ topRight: AppRadius.MD, bottomRight: AppRadius.MD })
           }
           .onClick(() => {
+            // Flow: 侧边栏只决定当前内容路由；真正的数据状态仍由外层 Index 持有。
             this.currentSidebarIndex = index;
             this.isSidebarShow = false;
           })
@@ -265,6 +275,7 @@ export struct HomeView {
         .shadow({ radius: 8, color: 'rgba(30,70,40,0.04)', offsetY: 2 })
 
         // 内容区
+        // Flow: HomeView 自身只做内容路由。监控和任务视图放在可滚动容器内，问答视图保留独立整页布局。
         if (this.currentSidebarIndex === 1) {
           AgriQAView()
             .layoutWeight(1)

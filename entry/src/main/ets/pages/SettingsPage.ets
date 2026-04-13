@@ -1,10 +1,19 @@
 import router from '@ohos.router';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 提供个人设置入口页，集中承载资料编辑、密码修改和协议查看导航。
+ * Responsibilities: 组织设置菜单行、版本信息卡片和返回导航，不直接处理业务保存逻辑。
+ * Flow: 用户从 ProfileView 进入后，通过各设置行跳转到对应页面；协议页通过 params 区分文档类型。
+ * Dependencies: 依赖 router 进行页面跳转，依赖 DesignToken 构建统一列表样式。
+ * Input: 无外部参数。
+ * Output: 设置入口列表和版本展示。
+ */
 @Entry
 @Component
 struct SettingsPage {
 
+  // Purpose: 复用统一的设置行视觉结构，把真正的点击跳转放在调用方容器上处理。
   @Builder SettingsRow(icon: string, label: string) {
     Row() {
       Text(icon)

@@ -8,6 +8,15 @@ import { TraceabilityDetailNavParams, TraceabilityInfo } from '../models/Traceab
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 import { TraceabilityFlowHelper } from '../common/TraceabilityFlowHelper';
 
+/**
+ * Purpose: 提供溯源码扫描入口，支持内联摄像头扫码和相册二维码识别两条路径。
+ * Responsibilities: 管理扫码权限、相机预览面、重复识别抑制、引导文案轮播，以及扫码结果提交与跳转。
+ * Flow: aboutToAppear() 启动引导文案和内联扫码；识别到二维码后统一走 handleRecognizedCode() 和 submitScanResult()。
+ * Dependencies: 依赖 ScanKit、文件选择器、HttpService 和 TraceabilityFlowHelper。
+ * Input: 摄像头/相册识别出的二维码文本、用户手动触发的识别动作。
+ * Output: 溯源详情页跳转，或扫码失败/权限失败提示。
+ * Side Effects: 申请相机权限、初始化/释放 customScan、导航到 TraceabilityDetailPage。
+ */
 @Entry
 @Component
 struct TraceabilityScanPage {
@@ -57,6 +66,7 @@ struct TraceabilityScanPage {
       return;
     }
 
+    // Boundary: 相机回调可能在短时间内重复命中同一二维码，必须先做去重，再发起后端请求和页面跳转。
     const now = Date.now();
     if (TraceabilityFlowHelper.shouldIgnoreDuplicateCode(this.lastScanCode, this.lastScanAt, normalizedCode, now, 800)) {
       return;
@@ -89,6 +99,7 @@ struct TraceabilityScanPage {
         i++;
       }
 
+      // Reason: 权限一旦确认通过就缓存结果，避免同一页面生命周期内重复弹系统授权框。
       this.cameraPermissionGranted = granted;
       return granted;
     } catch (err) {
@@ -109,6 +120,7 @@ struct TraceabilityScanPage {
     }
 
     try {
+      // Flow: 只有 surfaceId 已就绪且权限通过时才初始化 customScan，避免无效初始化占用相机资源。
       if (!this.customScanInitialized) {
         const options: scanBarcode.ScanOptions = {
           scanTypes: [scanCore.ScanType.QR_CODE],
@@ -220,6 +232,7 @@ struct TraceabilityScanPage {
     this.guideText = '识别成功，已获取溯源信息';
     promptAction.showToast({ message: '溯源查询成功' });
 
+    // Flow: 扫码页把完整结果序列化后传给详情页，避免详情页重复请求同一份溯源数据。
     let navParams = new TraceabilityDetailNavParams();
     navParams.infoJson = JSON.stringify(result);
 

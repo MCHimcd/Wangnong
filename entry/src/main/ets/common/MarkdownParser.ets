@@ -1,7 +1,11 @@
 /**
- * MarkdownParser — 轻量级 Markdown 解析器
- * 将 Markdown 文本解析为类型化的块级/行内节点数组，供 UI 渲染。
- * 支持：标题、无序/有序列表、代码块、引用、粗体、斜体、行内代码、粗斜体。
+ * Purpose: 将农业问答返回的 Markdown 文本转换为可被 ArkUI 逐块渲染的结构化节点。
+ * Responsibilities: 解析标题、列表、引用、代码块和基础行内样式，并保持结果类型稳定。
+ * Flow: AgriQAView 调用 parse() 先做逐行块级拆分，再由 parseInline() 解析每一行的行内样式。
+ * Dependencies: 供聊天消息渲染层直接消费 MarkdownBlock 和 MarkdownSegment。
+ * Input: 原始 Markdown 字符串。
+ * Output: 按显示顺序排列的 MarkdownBlock 数组。
+ * Boundary: 只支持项目当前用到的 Markdown 子集，不实现完整 CommonMark。
  */
 
 export class MarkdownSegment {
@@ -36,6 +40,7 @@ export class MarkdownParser {
         continue;
       }
 
+      // Flow: 块级解析按“代码块 > 标题 > 列表 > 引用 > 段落”的优先级执行，避免同一行被多个规则重复消费。
       // 代码块
       if (line.trimStart().startsWith('```')) {
         const codeResult = MarkdownParser.parseCodeBlock(lines, i);
@@ -200,6 +205,7 @@ export class MarkdownParser {
     let i: number = 0;
     let buffer: string = '';
 
+    // Boundary: 行内解析先匹配代码和长标记，再匹配短标记，避免 *** / ** / * 之间的前缀冲突破坏渲染结果。
     while (i < text.length) {
       // 行内代码 `...`
       if (text.charAt(i) === '`') {

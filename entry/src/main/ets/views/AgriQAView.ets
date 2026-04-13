@@ -4,6 +4,15 @@ import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 import { MarkdownParser, MarkdownBlock, MarkdownSegment } from '../common/MarkdownParser';
 
+/**
+ * Purpose: 提供农业知识问答聊天视图，支持文本提问、图片提问和 Markdown 回复渲染。
+ * Responsibilities: 管理消息列表、输入框、待发送图片和发送中状态，并把回复渲染为结构化 Markdown 块。
+ * Flow: sendMessage() 先把用户消息写入本地列表，再请求 HttpService.sendAgriQA()，最后追加助手回复并滚动到底部。
+ * Dependencies: 依赖 HttpService、MarkdownParser、相册选择器和 DesignToken。
+ * Input: 用户输入文本、选中的图片 URI，以及后端返回的 Markdown 字符串。
+ * Output: 聊天气泡列表和 Markdown 格式化内容。
+ * Side Effects: 调起相册选择器，调用农业问答接口，驱动滚动条自动到底。
+ */
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -26,6 +35,7 @@ export struct AgriQAView {
       return;
     }
 
+    // Flow: 先乐观写入用户消息，再清空输入框并发送网络请求，这样聊天界面能立即给出响应感。
     const userMsg: ChatMessage = {
       role: 'user',
       content: text,
@@ -115,6 +125,7 @@ export struct AgriQAView {
   @Builder
   MarkdownContent(content: string) {
     Column({ space: 4 }) {
+      // Boundary: 所有助手回复都先过 MarkdownParser，再按 block.type 分发到对应 Builder，避免在视图层直接处理原始 Markdown 细节。
       ForEach(MarkdownParser.parse(content), (block: MarkdownBlock, idx: number) => {
         if (block.type === 'heading') {
           this.HeadingBlock(block)

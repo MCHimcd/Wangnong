@@ -5,6 +5,15 @@ import { HttpService } from '../services/HttpService';
 import { ServerAvailabilityMode, ServerAvailabilityService } from '../services/ServerAvailabilityService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppSize } from '../common/DesignToken';
 
+/**
+ * Purpose: 承载登录、注册、找回密码和自动登录入口，并在进入应用前统一处理服务器可用性检查。
+ * Responsibilities: 管理认证表单状态、验证码倒计时、自动登录偏好、协议同意状态和服务器恢复后的重试逻辑。
+ * Flow: aboutToAppear() 调用 initializePage() 启动 startup 探活；服务器可用时再执行 checkAutoLogin() 或手动登录/注册流程。
+ * Dependencies: 依赖 HttpService 完成认证请求，依赖 Preferences 保存自动登录信息，依赖 ServerAvailabilityService 管理启动阶段探活。
+ * Input: 用户输入的账号、密码、手机号、验证码以及本地偏好数据。
+ * Output: 登录相关 UI、自动登录结果，以及成功后跳转到 Index。
+ * Side Effects: 读写 Preferences、写入 AppStorage、展示服务器不可用提示和验证码倒计时。
+ */
 @Entry
 @Component
 struct LoginPage {
@@ -35,6 +44,7 @@ struct LoginPage {
     if (!available) {
       return;
     }
+    // Reason: 只有“服务器恢复”“当前不在自动登录中”“启动探活已结束”三个条件同时满足时，才允许补做自动登录。
     if (this.pendingAutoLoginAfterRecovery && !this.isAutoLoggingIn && !this.isCheckingServer) {
       this.pendingAutoLoginAfterRecovery = false;
       this.isAutoLoggingIn = true;
@@ -54,6 +64,7 @@ struct LoginPage {
   }
 
   private async initializePage(): Promise<void> {
+    // Flow: 启动页先确认服务器可用，再决定是否自动登录；这样能避免在服务不可用时直接触发无意义的认证请求。
     this.isCheckingServer = true;
     this.isAutoLoggingIn = false;
     this.pendingAutoLoginAfterRecovery = true;
@@ -96,6 +107,7 @@ struct LoginPage {
   private startCodeTimer(): void {
     this.stopCodeTimer();
     this.codeCountdown = 60;
+    // Boundary: 倒计时既是 UX 反馈，也是前端节流，避免在验证码接口未做更强限流时被重复点击淹没。
     this.codeTimerId = setInterval(() => {
       if (this.codeCountdown <= 1) {
         this.codeCountdown = 0;
@@ -129,11 +141,13 @@ struct LoginPage {
       return;
     }
 
+    // Boundary: 当前提示明确说明验证码为测试固定值，后续接入真实短信网关时应同步移除该 mock 说明。
     promptAction.showToast({ message: '验证码已发送（测试固定为1234）' });
     this.startCodeTimer();
   }
 
   async checkAutoLogin() {
+    // Flow: 自动登录失败时不会阻塞页面，而是回填已保存账号信息，退回到可手动登录的状态。
     if (!this.serverAvailable) {
       this.isAutoLoggingIn = false;
       return;
@@ -191,6 +205,7 @@ struct LoginPage {
         let context = getContext(this) as common.UIAbilityContext;
         let dataPreferences = await preferences.getPreferences(context, this.PREF_NAME);
         
+        // Boundary: autoLogin 依赖 rememberPassword 持有同一份凭据，因此两者任一为 true 时都要保留用户名和密码。
         if (this.rememberPassword || this.autoLogin) {
           await dataPreferences.put('username', this.username);
           await dataPreferences.put('password', this.password);

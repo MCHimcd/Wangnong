@@ -3,6 +3,15 @@ import { promptAction } from '@kit.ArkUI';
 import { HttpService, NodeListItem, AdminUserInfo, OperationLogItem, OperationLogPage } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 提供管理员使用的节点管理、用户角色管理、节点授权和操作日志查看入口。
+ * Responsibilities: 在单页内切换三个管理 Tab，组织节点 CRUD、用户角色变更、节点访问授权和日志分页加载。
+ * Flow: aboutToAppear() 触发 refreshAll()；页面把节点、用户和日志数据加载到本地状态，再由不同 Tab 渲染对应管理界面。
+ * Dependencies: 依赖 HttpService 的管理员接口和 DesignToken。
+ * Input: 当前管理员角色、各管理动作触发的表单输入与节点/用户选择。
+ * Output: 管理后台 UI，以及创建节点、改角色、保存授权等后台请求。
+ * Boundary: 该页假定调用方已完成管理员权限控制；页面内部不再做二次鉴权跳转。
+ */
 @Entry
 @Component
 struct AdminPage {
@@ -36,6 +45,7 @@ struct AdminPage {
   }
 
   private async refreshAll() {
+    // Flow: 首屏统一串行刷新三类数据，保证节点授权弹窗拿到的 allNodeIds 与用户列表处于同一快照。
     this.isLoading = true;
     await this.loadNodes();
     await this.loadUsers();
@@ -67,6 +77,7 @@ struct AdminPage {
   }
 
   private async openNodeAccess(user: AdminUserInfo) {
+    // Flow: 先记录当前用户，再拉取其已授权节点，最后打开弹窗，避免弹窗先显示后补数据导致闪动。
     this.nodeAccessUserId = user.id;
     this.nodeAccessUserName = user.userName || user.phone;
     let ids = await HttpService.getInstance().adminGetUserNodes(user.id);
@@ -75,6 +86,7 @@ struct AdminPage {
   }
 
   private async saveNodeAccess() {
+    // Reason: 节点授权单独走保存动作，避免在勾选过程中频繁写后端。
     let ok = await HttpService.getInstance().adminSetUserNodes(this.nodeAccessUserId, this.nodeAccessIds);
     if (ok) {
       promptAction.showToast({ message: '授权已保存' });
@@ -113,6 +125,7 @@ struct AdminPage {
   }
 
   private async doEditNode() {
+    // Boundary: 编辑模式只允许改名称，不允许修改节点 ID，避免现有设备绑定和主题命名失效。
     if (!this.dialogNodeName.trim()) {
       promptAction.showToast({ message: '名称不能为空' });
       return;
@@ -130,6 +143,7 @@ struct AdminPage {
   }
 
   private confirmDeleteNode(nodeId: string) {
+    // Forbidden: 删除节点不可恢复，因此先通过确认框阻断误操作，再发真正删除请求。
     AlertDialog.show({
       title: '确认删除',
       message: `确定删除节点 ${nodeId}？此操作不可恢复。`,

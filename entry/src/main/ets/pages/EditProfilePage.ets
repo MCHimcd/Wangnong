@@ -4,6 +4,15 @@ import { HttpService } from '../services/HttpService';
 import { UserProfile } from '../models/UserData';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
+/**
+ * Purpose: 提供用户资料编辑页，负责展示并保存昵称、性别和生日。
+ * Responsibilities: 读取当前资料、维护编辑态、把保存结果同步回 AppStorage 供个人中心即时刷新。
+ * Flow: aboutToAppear() 拉取资料并初始化表单；保存时组装完整 UserProfile 后调用 updateUserProfile()。
+ * Dependencies: 依赖 HttpService 获取与保存资料，依赖 AppStorage 同步 profileUserName/profileAvatarSrc。
+ * Input: 当前登录用户资料，以及页面内的表单编辑结果。
+ * Output: 更新后的用户资料被提交到后端，并把关键显示字段写回全局存储。
+ * Boundary: originalProfile 保留了后端原始 userId/avatar/role，避免保存时丢失未在表单中展示的字段。
+ */
 @Entry
 @Component
 struct EditProfilePage {
@@ -15,6 +24,7 @@ struct EditProfilePage {
   async aboutToAppear() {
     let profile = await HttpService.getInstance().getUserProfile();
     if (profile) {
+      // Reason: 页面保存时只允许编辑少数字段，因此先缓存完整 profile，回写时复用其余字段。
       this.originalProfile = profile;
       this.userName = profile.userName;
       this.gender = profile.gender || '保密';
@@ -143,6 +153,7 @@ struct EditProfilePage {
           .fontSize(AppFontSize.Body)
           .margin({ top: 36 })
           .onClick(async () => {
+             // Boundary: 更新接口需要完整 UserProfile；即使页面只编辑部分字段，也要把未编辑字段一并带回。
              let newProfile: UserProfile = {
                userId: this.originalProfile ? this.originalProfile.userId : '',
                userName: this.userName,

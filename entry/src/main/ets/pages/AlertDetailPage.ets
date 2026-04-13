@@ -4,6 +4,15 @@ import { AlertSyncService } from '../services/AlertSyncService';
 import { promptAction } from '@kit.ArkUI';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
+/**
+ * Purpose: 展示单条告警的详细信息，并提供“标记为已处理”的补充操作。
+ * Responsibilities: 从 AlertSyncService 当前内存态中按 alertId 取出告警、格式化展示状态和时间、提交处理动作。
+ * Flow: AlertView 传入 alertId 后，本页在 aboutToAppear() 中查找对应告警；未找到则显示空状态。
+ * Dependencies: 依赖 AlertSyncService 读取和更新告警状态，依赖 router 获取导航参数。
+ * Input: router params.alertId。
+ * Output: 告警详情页 UI，以及可能触发的 markHandled() 请求。
+ * Boundary: 页面不直接请求告警详情接口，依赖全局告警同步服务中已有的数据快照。
+ */
 @Entry
 @Component
 struct AlertDetailPage {
@@ -12,6 +21,7 @@ struct AlertDetailPage {
 
   aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
+    // Reason: 详情页复用全局告警缓存，避免重复请求并保持与列表视图状态一致。
     if (params && params['alertId']) {
       let alertId = params['alertId'] as string;
       let all = AlertSyncService.getInstance().getAllAlerts();
@@ -53,6 +63,7 @@ struct AlertDetailPage {
   }
 
   async markAsHandled() {
+    // Flow: 处理状态统一通过 AlertSyncService 更新，确保列表页和详情页看到的是同一份内存态。
     const success = await AlertSyncService.getInstance().markHandled(this.alert.alert_id);
     if (success) {
       this.alert.is_handled = true;

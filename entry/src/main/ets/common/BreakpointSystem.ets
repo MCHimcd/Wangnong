@@ -1,12 +1,11 @@
 /**
- * 响应式断点系统
- * 使用 @ohos.mediaquery 监听屏幕宽度变化
- * 通过 AppStorage 广播当前断点给所有页面
- *
- * 断点:
- *   'sm'  — <600vp   手机竖屏
- *   'md'  — 600-840vp 手机横屏 / 小平板
- *   'lg'  — >840vp   平板横屏 / 电脑
+ * Purpose: 在应用级维护统一的响应式断点状态，供页面和视图通过 AppStorage 读取。
+ * Responsibilities: 监听屏幕宽度区间，写入 sm/md/lg 断点，并提供断点到列数的基础映射。
+ * Flow: 入口页调用 register() 建立监听；各组件通过 @StorageLink('currentBreakpoint') 响应布局变化。
+ * Dependencies: 依赖 @kit.ArkUI.mediaquery 和 AppStorage。
+ * Input: 系统窗口宽度变化事件。
+ * Output: 全局存储键 currentBreakpoint，以及 columnsForBreakpoint() 的列数结果。
+ * Boundary: 这里只定义宽度断点，不负责页面级的复杂布局策略。
  */
 import { mediaquery } from '@kit.ArkUI';
 
@@ -29,6 +28,7 @@ export class BreakpointSystem {
     return BreakpointSystem.instance;
   }
 
+  // Reason: 先 setOrCreate 默认值，再注册三个区间监听，可保证页面首次渲染时已有稳定断点值。
   register(): void {
     AppStorage.setOrCreate<string>(STORAGE_KEY, 'sm');
 
@@ -76,7 +76,10 @@ export class BreakpointSystem {
   }
 }
 
-/** 根据断点返回对应列数 */
+/**
+ * Purpose: 为简单网格布局提供默认列数映射。
+ * Boundary: 更复杂的断点布局仍应在页面内部显式处理。
+ */
 export function columnsForBreakpoint(bp: string): number {
   if (bp === 'lg') {
     return 4;

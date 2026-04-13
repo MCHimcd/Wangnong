@@ -4,6 +4,15 @@ import { AlertSyncService } from '../services/AlertSyncService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 import router from '@ohos.router';
 
+/**
+ * Purpose: 展示全局告警列表，并提供排序、查看详情和标记处理操作。
+ * Responsibilities: 订阅 AlertSyncService 的数据变化、在本地按当前排序规则重排，并驱动详情页导航。
+ * Flow: aboutToAppear() 订阅并启动实时同步；告警变化后通过 onDataChange 刷新列表；用户可进入详情或直接标记处理。
+ * Dependencies: 依赖 AlertSyncService、router 和 DesignToken。
+ * Input: 告警同步服务中的全量告警数据，以及当前排序方式。
+ * Output: 排序后的告警列表 UI 和处理动作请求。
+ * Boundary: 列表页只做展示排序，不在这里定义告警去重或全局弹窗策略。
+ */
 @Component
 export struct AlertView {
   @State alerts: AlertData[] = [];
@@ -18,6 +27,7 @@ export struct AlertView {
   }
 
   aboutToAppear() {
+    // Flow: 进入页面即订阅内存态更新，保证处理状态和 MQTT 新告警能即时反映到当前列表。
     AlertSyncService.getInstance().subscribeDataChange(this.onDataChange);
     AlertSyncService.getInstance().startRealtimeSync();
     this.alerts = AlertSyncService.getInstance().getAllAlerts();
@@ -29,6 +39,7 @@ export struct AlertView {
   }
 
   sortAlertsLocally() {
+    // Reason: 服务层维护的是统一告警池；排序属于当前视图偏好，放在本地处理可避免影响其他消费方。
     this.alerts = this.alerts.sort((a, b) => {
       let result = 0;
       if (this.sortBy === 'timestamp') {

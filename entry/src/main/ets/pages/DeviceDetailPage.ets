@@ -2,6 +2,15 @@ import router from '@ohos.router';
 import { HttpService, OperationLogItem } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 展示单个设备的操作日志时间线，并提供按日期范围筛选的能力。
+ * Responsibilities: 读取路由传入的设备信息、分页加载 DEVICE_CONTROL 日志、解析 detail JSON 并渲染成可读动作文本。
+ * Flow: aboutToAppear() 解析设备参数后调用 loadLogs()；日期筛选变化时通过 resetAndReload() 重新从第一页加载。
+ * Dependencies: 依赖 HttpService.getOperationLogs() 和 DesignToken。
+ * Input: 路由参数中的设备类型/标题/当前状态，以及筛选起止日期。
+ * Output: 日志卡片列表、日期筛选栏和加载更多动作。
+ * Boundary: detail 字段来自历史日志，格式可能存在兼容分支，因此解析必须容错。
+ */
 @Entry
 @Component
 struct DeviceDetailPage {
@@ -30,6 +39,7 @@ struct DeviceDetailPage {
   private async loadLogs(): Promise<void> {
     this.loading = true;
     try {
+      // Flow: 日期筛选为空时不传查询参数，由后端返回默认范围；翻页时沿用当前筛选条件继续追加。
       const startDate = this.filterStartDate.length > 0 ? this.filterStartDate : undefined;
       const endDate = this.filterEndDate.length > 0 ? this.filterEndDate : undefined;
       const result = await HttpService.getInstance().getOperationLogs(
@@ -55,6 +65,7 @@ struct DeviceDetailPage {
   }
 
   private resetAndReload(): void {
+    // Flow: 条件变更后必须清空旧分页状态，否则新筛选结果会与旧列表拼接混在一起。
     this.logs = [];
     this.currentPage = 1;
     this.total = 0;
@@ -67,6 +78,7 @@ struct DeviceDetailPage {
       return parsed;
     }
     try {
+      // Reason: 先按 JSON 新格式解析 action/mode/source；若历史数据不是标准 JSON，再退回字符串包含匹配。
       const obj: Record<string, string> = JSON.parse(detail) as Record<string, string>;
       if (obj['action'] === 'turn_on') {
         parsed.action = '开启';

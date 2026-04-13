@@ -1,5 +1,14 @@
 import image from '@ohos.multimedia.image';
 
+/**
+ * Purpose: 为头像裁剪页提供纯数学映射，负责把屏幕坐标转换为原图裁剪区域。
+ * Responsibilities: 计算显示尺寸、限制缩放范围、吸附旋转角度，并生成 image.Region。
+ * Flow: AvatarCropPage 先根据图片与容器尺寸调用 computeRegion()，再将结果传给图像裁剪与导出流程。
+ * Dependencies: 依赖 @ohos.multimedia.image 的 Region 类型作为输出格式。
+ * Input: 原图尺寸、视图尺寸、裁剪框直径、中心点和缩放值。
+ * Output: 合法的正方形 CropRegion 和对应的 image.Region。
+ * Invariant: 输出区域始终保持在源图边界内，且宽高相等，避免底层图像 API 越界。
+ */
 export class CropRegion {
   x: number = 0;
   y: number = 0;
@@ -55,6 +64,7 @@ export class AvatarCropMath {
     return AvatarCropMath.clamp(scale, min, max);
   }
 
+  // Reason: UI 中的拖拽中心点和缩放值都基于“填充满视图”的显示结果，必须先映射回源图坐标再裁剪，否则导出的头像会与预览不一致。
   static computeRegion(
     sourceWidth: number,
     sourceHeight: number,
@@ -92,6 +102,7 @@ export class AvatarCropMath {
     return region;
   }
 
+  // Output: 裁剪输出统一转换为 OpenHarmony 图像裁剪接口可接受的 Region 结构。
   static toImageRegion(crop: CropRegion): image.Region {
     const mapped: image.Region = {
       x: crop.x,

@@ -23,6 +23,15 @@ import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } fro
 import { CachedTrendPoint, MqttClientService } from '../services/MqttClientService';
 import { promptAction } from '@kit.ArkUI';
 
+/**
+ * Purpose: 展示单个传感器指标的实时趋势、历史趋势和阈值编辑能力。
+ * Responsibilities: 根据路由参数确定指标键、维护双图表模型、订阅实时遥测并同步阈值设置。
+ * Flow: 页面进入后解析参数、恢复实时缓存、初始化图表，再并行启动实时流、历史数据加载和阈值刷新。
+ * Dependencies: 依赖 HttpService 获取历史数据和阈值元数据，依赖 MqttClientService 接收实时遥测。
+ * Input: 路由传入的 nodeId/type/title/metricKey/currentValue 等参数，以及 MQTT 环境遥测数据。
+ * Output: 实时图、历史图、统计摘要和阈值保存动作。
+ * Side Effects: 注册/移除 telemetryListener，调用阈值更新接口。
+ */
 export interface HistoricalDatapoint {
   time: string;
   value: number;
@@ -117,6 +126,7 @@ struct SensorDetailPage {
           const metric = this.metricKey.length > 0 ? this.metricKey : this.getMetricKey();
           let val = env[metric];
           if (val !== undefined) {
+             // Flow: 实时图使用滑动窗口保留最近 60 个点；超出窗口后重排 X 坐标，保持图表连续滚动。
              this.currentValue = val;
              this.realTimeEntries.add(new EntryOhos(this.realTimePoints, val));
              this.realTimeLabels.push(this.getTimeString(new Date()));
@@ -148,7 +158,7 @@ struct SensorDetailPage {
 
   getMetricKey(): string {
     let t = (this.type + this.title).toLowerCase();
-    // 优先匹配土壤相关的关键字，否则 "soilTemp" 会被 "temp" 拦截，"土壤温度" 会被 "温度" 拦截
+    // Boundary: 先匹配土壤类关键字，再匹配通用温湿度，避免 soilTemp / 土壤温度 被更宽泛的 temp / 温度规则截走。
     if (t.includes('soiltemp') || t.includes('土壤温度') || t.includes('土温')) return 'soilTemp';
     if (t.includes('soilhumidity') || t.includes('土壤湿度') || t.includes('土湿')) return 'soilHumidity';
     if (t.includes('soilph') || t.includes('土壤ph') || t.includes('ph')) return 'soilPh';
@@ -188,6 +198,7 @@ struct SensorDetailPage {
     this.editWarningMin = (this.warningMin == null || this.warningMin === -Infinity) ? '' : this.warningMin.toString();
     this.editWarningMax = (this.warningMax == null || this.warningMax === Infinity) ? '' : this.warningMax.toString();
 
+    // Flow: 页面先恢复 MQTT 趋势缓存，再初始化图表，保证首次打开详情页时不会因为等待新遥测而出现空图。
     this.restoreRealTimeCache();
     
     this.initChartModel(this.realTimeModel);
@@ -429,7 +440,8 @@ struct SensorDetailPage {
       for (let i = 0; i < res.points.length; i++) {
         let p = res.points[i];
         
-        let diff = Math.abs(p.value) * 0.05 + 0.5; // 生成平滑的包络线而非随机跳动点
+        // Reason: 历史图的 max/min 线使用稳定包络线模拟，不直接复用单点值，便于在 UI 上呈现波动区间而不是三条完全重叠的线。
+        let diff = Math.abs(p.value) * 0.05 + 0.5;
         let pMax = p.value + diff;
         let pMin = p.value - diff;
 

@@ -2,6 +2,15 @@ import router from '@ohos.router';
 import { TraceabilityDetailNavParams, TraceabilityInfo, TraceabilityStepInfo } from '../models/TraceabilityInfo';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 展示单次溯源查询的详情，包括产品信息、质检信息和流转时间线。
+ * Responsibilities: 反序列化扫码页传入的 TraceabilityInfo，并按区块渲染头图、基础信息和时间线。
+ * Flow: aboutToAppear() 读取 params.infoJson 并解析；loaded 为 true 后渲染滚动详情内容。
+ * Dependencies: 依赖 router 获取导航参数，依赖 TraceabilityInfo 模型与 DesignToken。
+ * Input: TraceabilityDetailNavParams.infoJson。
+ * Output: 溯源详情页 UI。
+ * Boundary: 详情页不再重复请求后端，完全基于扫码页传入的数据快照展示。
+ */
 @Entry
 @Component
 struct TraceabilityDetailPage {
@@ -11,6 +20,7 @@ struct TraceabilityDetailPage {
   aboutToAppear() {
     const params = router.getParams() as TraceabilityDetailNavParams;
     if (params && params.infoJson.length > 0) {
+      // Reason: 使用 JSON 字符串承载详情对象，能避免 ArkTS 路由参数在复杂对象传递上的兼容问题。
       let json = params.infoJson;
       let parsed = JSON.parse(json) as TraceabilityInfo;
       this.info = parsed;
@@ -159,6 +169,7 @@ struct TraceabilityDetailPage {
 
   @Builder StepsTimeline() {
     if (this.info.steps.length > 0) {
+      // Flow: 时间线严格按 steps 当前顺序渲染，首节点高亮，其余节点通过竖线串联形成流转链路。
       Column() {
         Text('流转记录')
           .fontSize(AppFontSize.H3)

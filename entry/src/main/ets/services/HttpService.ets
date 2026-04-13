@@ -1,3 +1,12 @@
+/**
+ * Purpose: 作为前端唯一的 HTTP 入口，统一封装认证、节点、告警、视频、管理和溯源等 REST 请求。
+ * Responsibilities: 保存 token 与当前节点上下文，提供 JSON / multipart 两种请求入口，并负责头像 URL 和上传文件路径归一化。
+ * Flow: 页面或服务通过 getInstance() 调用具体 API 方法；所有请求最终都汇总到 request() 或 requestMultipart()。
+ * Dependencies: 依赖 @ohos.net.http、文件系统、buffer，以及多组 models 作为输入输出类型。
+ * Input: 各业务页传入的表单数据、节点 ID、查询参数和上传文件路径。
+ * Output: 类型化的 API 响应数据或 null/boolean 结果。
+ * Invariant: 所有网络访问都应经过此服务，以保证 Bearer Token、超时和错误处理策略一致。
+ */
 import http from '@ohos.net.http';
 import { LoginResponse, UserProfile, BaseResponse } from '../models/UserData';
 import { SensorMetaItem } from '../models/SensorMeta';
@@ -43,6 +52,7 @@ export function normalizeAvatarSrcForDisplay(rawAvatarSrc: string): string {
   const serverOrigin = getServerOriginFromBaseUrl();
   const apiBase = getApiBaseUrl();
 
+  // Reason: 测试环境可能返回 localhost、/api、/uploads 或裸 uploads 路径，显示层统一在这里折叠为可访问 URL。
   if (src.startsWith('http://localhost') || src.startsWith('https://localhost') ||
     src.startsWith('http://127.0.0.1') || src.startsWith('https://127.0.0.1')) {
     const apiIndex = src.indexOf('/api/');
@@ -358,6 +368,7 @@ export class HttpService {
     let httpRequest = http.createHttp();
     let url = `${BASE_URL}${path}`;
 
+    // Flow: 所有 JSON 请求统一在这里注入 token、序列化 extraData 并回收 httpRequest 实例。
     let header: Record<string, string> = { 
       'Content-Type': 'application/json' 
     };
@@ -399,7 +410,7 @@ export class HttpService {
     let httpRequest = http.createHttp();
     let url = `${BASE_URL}${path}`;
 
-    // SDK 默认请求头是 application/json，multipart 必须显式覆盖。
+    // Boundary: SDK 默认请求头是 application/json；上传头像时必须显式改成 multipart/form-data，否则后端无法正确解析文件。
     let header: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
     if (this.token) {
       header['Authorization'] = `Bearer ${this.token}`;
@@ -660,7 +671,7 @@ export class HttpService {
     let body: Record<string, string> = { "message": message };
     if (imageUri) {
         try {
-          // 读取文件并转换为 Base64
+          // Flow: 图片问答统一先转 Base64 再走同一个聊天接口，避免为图文问答额外维护上传协议。
           const base64Image = await this.readImageAsBase64(imageUri);
           if (base64Image) {
             body['image_base64'] = base64Image;
@@ -683,9 +694,8 @@ export class HttpService {
   }
   
     /**
-     * 从 HarmonyOS file:// URI 读取图片文件，转换为 Base64 字符串
-     * @param fileUri 文件 URI，如 "file://media/Photo/1/IMG_1775556839_000/111.png"
-     * @return Base64 编码的图片数据
+     * Purpose: 将 HarmonyOS 可访问的图片 URI 转成 Base64，供农业问答接口直接内联上传。
+     * Boundary: 这里只处理读取和编码，不校验图片大小或压缩策略。
      */
     private async readImageAsBase64(fileUri: string): Promise<string | null> {
       try {

@@ -3,6 +3,15 @@ import { AlertData } from '../models/AlertData';
 import { AlertListItem, HttpService } from './HttpService';
 import { MqttClientService } from './MqttClientService';
 
+/**
+ * Purpose: 聚合告警的启动加载、实时推送和本地处理状态，向多个页面提供同一份告警内存态。
+ * Responsibilities: 维护告警列表、合并 HTTP 与 MQTT 来源、广播数据变化，并控制全局告警弹窗显示时机。
+ * Flow: 首次 startRealtimeSync() 时注册 MQTT 告警监听并触发启动批量加载；后续所有更新都统一走 mergeAlert()。
+ * Dependencies: 依赖 HttpService 获取启动告警和处理告警，依赖 MqttClientService 接收实时告警。
+ * Input: MQTT alert payload、告警列表接口返回值和用户的处理操作。
+ * Output: 排序后的 AlertData 列表、数据变化通知和全局告警弹窗回调。
+ * Invariant: 告警只以 alert_id 去重；所有来源写入都必须经过 mergeAlert()，避免列表和弹窗策略分叉。
+ */
 interface AlertPushPayload {
   msg_type?: string;
   node_id?: string;
@@ -64,6 +73,7 @@ export class AlertSyncService {
       return;
     }
 
+    // Flow: 启动实时同步时同时补一轮历史告警，确保列表页不会只看到“进入页面之后”产生的告警。
     this.realtimeStarted = true;
     MqttClientService.getInstance().addAlertListener(this.onAlertPush);
     void this.loadStartupAlerts();
@@ -79,6 +89,7 @@ export class AlertSyncService {
   }
 
   private mergeAlert(alert: AlertData, shouldNotifyDialog: boolean, shouldNotifyDataChange: boolean = true): boolean {
+    // Reason: 新告警与已存在告警都走同一路径，这样 HTTP 启动同步和 MQTT 实时推送才能共享去重、排序和通知策略。
     let changed = false;
     const index = this.alerts.findIndex((item: AlertData) => item.alert_id === alert.alert_id);
     if (index >= 0) {
@@ -125,6 +136,7 @@ export class AlertSyncService {
       return;
     }
 
+    // Boundary: 启动阶段固定拉取最近 200 条并只做一次，避免每次切换回告警页都重复打接口或反复插入旧数据。
     this.startupLoading = true;
     const res = await HttpService.getInstance().getAlerts('startup', 1, 200, 'timestamp', 'desc', '', '');
     if (!res || !res.data) {
@@ -175,6 +187,7 @@ export class AlertSyncService {
   }
 
   private showGlobalAlert(alert: AlertData) {
+    // Boundary: 未登录或当前正处于告警 Tab 时不弹窗，避免重复打断用户正在查看的内容。
     if (this.isDialogShowing) return;
     const isLoggedIn = AppStorage.get<boolean>('isLoggedIn');
     if (!isLoggedIn) return;

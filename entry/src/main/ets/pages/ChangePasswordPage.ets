@@ -3,6 +3,15 @@ import { promptAction } from '@kit.ArkUI';
 import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
+/**
+ * Purpose: 提供已登录用户的密码修改表单页。
+ * Responsibilities: 收集旧密码与两次新密码、做前端一致性校验，并调用 HttpService 提交修改请求。
+ * Flow: 用户填写表单后点击确认；页面先校验必填与两次新密码一致，再请求后端并根据结果返回上一页。
+ * Dependencies: 依赖 HttpService.changePassword() 和 promptAction 提示反馈。
+ * Input: 用户输入的旧密码、新密码和确认密码。
+ * Output: 成功时触发密码修改请求并返回；失败时保留当前表单状态。
+ * Boundary: 这里只做最小前端校验，密码复杂度规则仍以后端为准。
+ */
 @Entry
 @Component
 struct ChangePasswordPage {
@@ -63,6 +72,7 @@ struct ChangePasswordPage {
           .borderRadius(AppRadius.MD)
           .fontSize(AppFontSize.Body)
           .onClick(async () => {
+            // Flow: 先做本地校验，再发请求；这样可以避免无效输入直接打到后端。
             if (!this.oldPass || !this.newPass || !this.confirmPass) {
               promptAction.showToast({ message: '请填写完整信息' });
               return;

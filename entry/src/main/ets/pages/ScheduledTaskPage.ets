@@ -7,6 +7,15 @@ import {
   NodeListItem
 } from '../services/HttpService';
 
+/**
+ * Purpose: 提供定时任务列表与新建入口，负责把前端表单转换为后端任务请求结构。
+ * Responsibilities: 加载节点与任务列表、维护新建弹窗状态、创建/切换/删除定时任务，并格式化重复周期展示。
+ * Flow: aboutToAppear() 先加载节点再加载任务；新建时组装 CreateTaskRequest，成功后刷新列表并重置弹窗字段。
+ * Dependencies: 依赖 HttpService 的任务接口和节点列表接口。
+ * Input: 当前节点列表、任务列表以及弹窗中的设备/动作/时间/重复日配置。
+ * Output: 定时任务卡片列表和任务创建/切换/删除请求。
+ * Boundary: repeatDays 采用逗号分隔的 1-7 编码，必须与后端约定保持一致。
+ */
 @Entry
 @Component
 struct ScheduledTaskPage {
@@ -42,6 +51,7 @@ struct ScheduledTaskPage {
   async loadNodes() {
     let list = await HttpService.getInstance().getNodes();
     if (list) {
+      // Reason: 创建弹窗默认选第一个节点，避免页面首次进入时 dNodeId 为空导致请求参数不完整。
       this.nodes = list;
       if (this.dNodeId === '' && list.length > 0) {
         this.dNodeId = list[0].id;
@@ -61,6 +71,7 @@ struct ScheduledTaskPage {
       promptAction.showToast({ message: '请输入任务名称' });
       return;
     }
+    // Flow: 弹窗字段直接映射到 CreateTaskRequest；页面不做额外转换，唯一的协议约束是 repeatDays 的字符串编码。
     let req = new CreateTaskRequest();
     req.nodeId = this.dNodeId;
     req.equipmentKey = this.dEquipmentKey;
@@ -108,6 +119,7 @@ struct ScheduledTaskPage {
   }
 
   resetDialog() {
+    // Boundary: 重置为“每天 08:00 开启水泵”的默认模板，便于连续创建多个常规任务。
     this.dTaskName = '';
     this.dEquipmentKey = 'water_pump';
     this.dAction = 'turn_on';
@@ -121,6 +133,7 @@ struct ScheduledTaskPage {
   }
 
   formatRepeatDays(days: string): string {
+    // Reason: 列表展示用中文星期格式提升可读性，但底层仍保留后端约定的数字编码字符串。
     if (!days || days === '1,2,3,4,5,6,7') return '每天';
     let dayNames: Record<string, string> = {
       '1': '周一', '2': '周二', '3': '周三', '4': '周四',

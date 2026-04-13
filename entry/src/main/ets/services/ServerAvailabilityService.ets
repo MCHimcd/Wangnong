@@ -1,5 +1,14 @@
 import { HttpService } from './HttpService';
 
+/**
+ * Purpose: 统一管理前端对后端可用性的轮询探测和强制登出判定。
+ * Responsibilities: 提供 startup/session 两种探测模式、记录连续失败次数，并在阈值满足时通知监听器。
+ * Flow: LoginPage 启动时调用 startStartupPolling()；登录后 Index 调用 startSessionMonitoring() 持续会话探活。
+ * Dependencies: 依赖 HttpService.checkServerHealth()，并向页面暴露状态变化与强制登出事件。
+ * Input: 健康检查结果、轮询模式和可选轮询间隔。
+ * Output: 当前可用性状态、连续失败计数以及监听器回调。
+ * Boundary: 这里只负责连接可用性判定，不决定具体的 UI 提示样式。
+ */
 export enum ServerAvailabilityMode {
   STARTUP = 'startup',
   SESSION = 'session'
@@ -75,6 +84,7 @@ export class ServerAvailabilityService {
       this.notifyStatusChanged(this.available);
     }
 
+    // Reason: 只有会话监控阶段才会因为连续失败触发强制登出；启动探活阶段只用于阻止无效登录重试。
     const shouldForceLogout =
       mode === ServerAvailabilityMode.SESSION &&
       !available &&
@@ -118,6 +128,7 @@ export class ServerAvailabilityService {
   }
 
   private async startPolling(mode: ServerAvailabilityMode, intervalMs: number): Promise<boolean> {
+    // Flow: 先立即探测一次，再建立定时轮询，避免页面必须等待首个 interval 才得到服务器状态。
     this.stopPolling();
     const first = await this.retryNow(mode);
     this.timerId = setInterval(() => {

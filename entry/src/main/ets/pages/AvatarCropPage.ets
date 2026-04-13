@@ -8,6 +8,15 @@ import { AvatarCropMath } from '../common/AvatarCropMath';
 import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 
+/**
+ * Purpose: 提供头像裁剪页，负责把相机/相册图片裁成圆形头像并上传。
+ * Responsibilities: 读取图片尺寸、维护裁剪框中心/缩放/旋转状态、生成圆形 PNG 文件并触发头像更新。
+ * Flow: 页面进入后读取 imageUri 与图片信息；用户调整裁剪区域后调用 confirmCrop()，内部完成裁剪、圆形蒙版和上传。
+ * Dependencies: 依赖 AvatarCropMath 计算裁剪区域，依赖 image/fs 处理像素与文件，依赖 HttpService 上传头像。
+ * Input: 上一页传入的 imageUri，以及当前页的拖拽、缩放和旋转手势。
+ * Output: 上传后的头像地址或本地裁剪文件，并同步回 AppStorage。
+ * Side Effects: 创建缓存 PNG 文件、调用头像上传接口、更新 profileAvatarSrc/profileUserName。
+ */
 @Entry
 @Component
 struct AvatarCropPage {
@@ -35,6 +44,7 @@ struct AvatarCropPage {
     }
     this.cropCenterX = this.cropViewSize / 2;
     this.cropCenterY = this.cropViewSize / 2;
+    // Flow: 先把裁剪框重置到视图中心，再读取源图尺寸，确保后续数学映射以统一初始状态开始。
     this.loadImageInfo();
   }
 
@@ -89,6 +99,7 @@ struct AvatarCropPage {
   }
 
   private applyCircleMask(pixelBuffer: ArrayBuffer, size: number) {
+    // Reason: 导出头像最终要求是圆形透明 PNG，因此直接在 RGBA 缓冲区把圆外像素 alpha 置 0。
     const bytes = new Uint8Array(pixelBuffer);
     const center = size / 2;
     const radius = center;
@@ -117,6 +128,7 @@ struct AvatarCropPage {
     let packer: image.ImagePacker | null = null;
 
     try {
+      // Flow: 先根据当前交互状态映射出源图裁剪区，再统一缩放到 512x512，最后应用旋转和圆形蒙版。
       const region = AvatarCropMath.computeRegion(
         this.sourceWidth,
         this.sourceHeight,
@@ -189,6 +201,7 @@ struct AvatarCropPage {
         AppStorage.setOrCreate('profileUserName', profile.userName);
       }
 
+      // Boundary: 即使后端上传失败，也保留本地替换后的头像路径，避免用户感觉裁剪结果完全丢失。
       if (!profile) {
         promptAction.showToast({ message: '后端上传失败，已本地替换头像' });
       } else {
