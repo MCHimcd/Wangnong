@@ -662,8 +662,71 @@ def traceability_scan():
     trace_code = str(req_data.get('code') or '').strip()
     print(f"[Traceability] Received code: {trace_code}")
 
-    fixed_text = "溯源码识别结果（测试固定文本）：作物番茄，地块A03，当前状态正常。"
-    return fixed_text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    info = {
+        "productName": "有机番茄",
+        "batchCode": trace_code if trace_code else "WN-2026-A03-0412",
+        "variety": "粉果·千禧小番茄",
+        "origin": "山东省寿光市",
+        "farmName": "鸿蒙慧田智慧农场",
+        "plotId": "A03 温室大棚",
+        "plantDate": "2026-01-15",
+        "harvestDate": "2026-04-10",
+        "shelfLife": "常温7天 / 冷藏15天",
+        "qualityGrade": "绿色A级",
+        "certNo": "GR-2026-SD-003721",
+        "inspectorName": "张明远",
+        "inspectDate": "2026-04-11",
+        "steps": [
+            {
+                "stepName": "播种育苗",
+                "operator": "李大田",
+                "time": "2026-01-15 08:30",
+                "location": "A03 育苗室",
+                "remark": "基质穴盘128孔，发芽率96%"
+            },
+            {
+                "stepName": "定植移栽",
+                "operator": "李大田",
+                "time": "2026-02-10 09:00",
+                "location": "A03 温室大棚",
+                "remark": "株距40cm，行距60cm"
+            },
+            {
+                "stepName": "生长管理",
+                "operator": "王慧农",
+                "time": "2026-02-10 ~ 2026-04-08",
+                "location": "A03 温室大棚",
+                "remark": "智能灌溉+LED补光，AI病虫害监测0次告警"
+            },
+            {
+                "stepName": "采收入库",
+                "operator": "王慧农",
+                "time": "2026-04-10 06:45",
+                "location": "A03 采后处理间",
+                "remark": "人工采摘，即日分拣入库"
+            },
+            {
+                "stepName": "质量检测",
+                "operator": "张明远",
+                "time": "2026-04-11 10:00",
+                "location": "寿光农检中心",
+                "remark": "农残未检出，糖度9.2°Brix，合格"
+            },
+            {
+                "stepName": "包装出库",
+                "operator": "赵小禾",
+                "time": "2026-04-12 07:00",
+                "location": "冷链仓储中心",
+                "remark": "冷链运输，目标温度4℃"
+            }
+        ]
+    }
+
+    return jsonify({
+        "code": 200,
+        "message": "success",
+        "data": info
+    })
 
 @app.route('/api/v1/devices/<device_id>/sensor-meta', methods=['GET'])
 def get_sensor_meta(device_id):

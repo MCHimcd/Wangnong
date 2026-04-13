@@ -9,6 +9,7 @@
     "pages/ChangePasswordPage",
     "pages/AgreementPage",
     "pages/TraceabilityScanPage",
+    "pages/TraceabilityDetailPage",
     "pages/AvatarCropPage",
     "pages/AdminPage",
     "pages/AlertDetailPage",

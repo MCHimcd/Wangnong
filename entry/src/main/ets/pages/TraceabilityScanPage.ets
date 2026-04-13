@@ -4,6 +4,7 @@ import picker from '@ohos.file.picker';
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
 import { customScan, scanBarcode, scanCore, detectBarcode } from '@kit.ScanKit';
 import { HttpService } from '../services/HttpService';
+import { TraceabilityDetailNavParams, TraceabilityInfo } from '../models/TraceabilityInfo';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow } from '../common/DesignToken';
 import { TraceabilityFlowHelper } from '../common/TraceabilityFlowHelper';
 
@@ -208,7 +209,7 @@ struct TraceabilityScanPage {
     }
 
     this.isSubmitting = true;
-    let result = await HttpService.getInstance().uploadTraceCode(this.scanText.trim());
+    let result: TraceabilityInfo | null = await HttpService.getInstance().uploadTraceCode(this.scanText.trim());
     this.isSubmitting = false;
 
     if (!result) {
@@ -218,6 +219,14 @@ struct TraceabilityScanPage {
 
     this.guideText = '识别成功，已获取溯源信息';
     promptAction.showToast({ message: '溯源查询成功' });
+
+    let navParams = new TraceabilityDetailNavParams();
+    navParams.infoJson = JSON.stringify(result);
+
+    router.pushUrl({
+      url: 'pages/TraceabilityDetailPage',
+      params: navParams
+    });
   }
 
   private onScanSurfaceLoad() {

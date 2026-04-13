@@ -34,10 +34,10 @@ Wangnong/
 │   └── src/
 │       ├── main/ets/
 │       │   ├── entryability/        # 应用入口 (EntryAbility)
-│       │   ├── pages/               # 15 个页面
+│       │   ├── pages/               # 16 个页面
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
 │       │   ├── services/            # 5 个单例服务
-│       │   ├── models/              # 8 个数据模型
+│       │   ├── models/              # 9 个数据模型
 │       │   └── common/              # 公用配置与工具 (7)
 │       │       ├── AppConfig.ets
 │       │       ├── DesignToken.ets
@@ -97,9 +97,10 @@ Index (底部 Tab 容器)
   - VideoDetailPage     (已迁移至 MonitorView)
   - ScheduledTaskPage   (定时任务 CRUD)
   - TraceabilityScanPage(溯源扫码)
+  - TraceabilityDetailPage(溯源详情)
 ```
 
-### 页面清单 (15)
+### 页面清单 (16)
 
 | 页面 | 文件 | 说明 |
 |------|------|------|
@@ -114,6 +115,7 @@ Index (底部 Tab 容器)
 | 设置 | `SettingsPage.ets` | 设置菜单入口 |
 | 协议 | `AgreementPage.ets` | 用户协议 / 隐私政策 (参数化) |
 | 溯源扫码 | `TraceabilityScanPage.ets` | 二维码扫描查询产品溯源 |
+| 溯源详情 | `TraceabilityDetailPage.ets` | 展示产品产地、质检信息与流转时间线 |
 | 头像裁剪 | `AvatarCropPage.ets` | 头像拖拽/缩放裁剪，生成圆形头像并上传 |
 | 修改密码 | `ChangePasswordPage.ets` | 旧密码 → 新密码 |
 | 编辑资料 | `EditProfilePage.ets` | 用户名、性别、生日 |
@@ -140,7 +142,7 @@ Index (底部 Tab 容器)
 | `AlertSyncService.ets` | 告警状态聚合：启动时 HTTP 拉取 + 运行时 MQTT 推送，全局弹窗通知 |
 | `VideoMonitorService.ets` | 视频流封装：直播、回放、关键帧 |
 
-### 数据模型清单 (8)
+### 数据模型清单 (9)
 
 | 模型 | 关键类型 | 响应式 |
 |------|---------|--------|
@@ -151,6 +153,7 @@ Index (底部 Tab 容器)
 | `AlertData.ets` | `alert_id, type, level, timestamp, message, is_handled` | — |
 | `Node.ets` | `id, name, status, sensorData, nodeState, sensorMeta[], equipmentMeta[]` | @Observed |
 | `NodeState.ets` | `smartMode, equipmentStates: Record<string, boolean>` | @Observed |
+| `TraceabilityInfo.ets` | `TraceabilityInfo`, `TraceabilityStepInfo`, `TraceabilityDetailNavParams` | — |
 | `VideoMonitorData.ets` | `LiveStreamInfo`, `PlaybackItem`, `KeyframeImageItem` | — |
 
 ---

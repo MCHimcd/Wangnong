@@ -1,8 +1,11 @@
 import http from '@ohos.net.http';
 import { LoginResponse, UserProfile, BaseResponse } from '../models/UserData';
 import { SensorMetaItem } from '../models/SensorMeta';
+import fs from '@ohos.file.fs';
+import buffer from '@ohos.buffer';
 import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { LiveStreamInfo, PlaybackItem, KeyframeImageItem } from '../models/VideoMonitorData';
+import { TraceabilityInfo } from '../models/TraceabilityInfo';
 import { AppConfig } from '../common/AppConfig';
 
 const BASE_URL = AppConfig.BASE_URL;
@@ -383,8 +386,8 @@ export class HttpService {
         return JSON.parse(response.result as string) as T;
       }
       throw new Error(`HTTP ${response.responseCode}`);
-    } catch (e) {
-      console.warn(`[HttpService] Request to ${path} failed. Cause: ${e}`);
+    } catch {
+      console.warn(`[HttpService] Request to ${path} failed.`);
       return null;
     } finally {
       httpRequest.destroy();
@@ -420,8 +423,8 @@ export class HttpService {
         return JSON.parse(response.result as string) as T;
       }
       throw new Error(`HTTP ${response.responseCode}`);
-    } catch (e) {
-      console.warn(`[HttpService] Multipart request to ${path} failed. Cause: ${e}`);
+    } catch {
+      console.warn(`[HttpService] Multipart request to ${path} failed.`);
       return null;
     } finally {
       httpRequest.destroy();
@@ -559,10 +562,10 @@ export class HttpService {
     return res ? normalizeProfileAvatar(res.data) : null;
   }
 
-  public async uploadTraceCode(traceCode: string): Promise<string | null> {
+  public async uploadTraceCode(traceCode: string): Promise<TraceabilityInfo | null> {
     let payload = new TraceabilityScanRequest();
     payload.code = traceCode;
-    let res = await this.request<BaseResponse<string>>(
+    let res = await this.request<BaseResponse<TraceabilityInfo>>(
       '/api/v1/traceability/scan',
       http.RequestMethod.POST,
       payload
@@ -573,7 +576,10 @@ export class HttpService {
   public async getSensorHistory(nodeId: string, range: string, metric: string): Promise<SensorHistoryData | null> {
     let res = await this.request<BaseResponse<SensorHistoryData>>(
       `/api/v1/sensors/${nodeId}/history?range=${range}&metric=${metric}`,
-      http.RequestMethod.GET
+      http.RequestMethod.GET,
+      undefined,
+      5000,
+      5000
     );
     return res ? res.data : null;
   }
@@ -653,7 +659,15 @@ export class HttpService {
   public async sendAgriQA(message: string, imageUri?: string): Promise<string | null> {
     let body: Record<string, string> = { "message": message };
     if (imageUri) {
-      body['image_uri'] = imageUri;
+        try {
+          // 读取文件并转换为 Base64
+          const base64Image = await this.readImageAsBase64(imageUri);
+          if (base64Image) {
+            body['image_base64'] = base64Image;
+          }
+        } catch {
+          console.warn('[HttpService] Failed to read image as Base64.');
+        }
     }
     let res = await this.request<BaseResponse<Record<string, string>>>(
       '/api/v1/agri-qa/chat',
@@ -667,6 +681,36 @@ export class HttpService {
     }
     return null;
   }
+  
+    /**
+     * 从 HarmonyOS file:// URI 读取图片文件，转换为 Base64 字符串
+     * @param fileUri 文件 URI，如 "file://media/Photo/1/IMG_1775556839_000/111.png"
+     * @return Base64 编码的图片数据
+     */
+    private async readImageAsBase64(fileUri: string): Promise<string | null> {
+      try {
+        console.info(`[HttpService] Reading image from URI: ${fileUri}`);
+      
+        // HarmonyOS fs API 直接支持 file:// URI，无需剥离前缀
+        const file = fs.openSync(fileUri, fs.OpenMode.READ_ONLY);
+        const stat = fs.statSync(file.fd);
+        const fileBuffer = new ArrayBuffer(stat.size);
+      
+        fs.readSync(file.fd, fileBuffer);
+        fs.closeSync(file);
+      
+        // 转换为 Base64
+        const bytes = new Uint8Array(fileBuffer);
+        const base64Buffer: buffer.Buffer = buffer.from(bytes);
+        const base64String = base64Buffer.toString('base64');
+      
+        console.info(`[HttpService] Successfully converted image to Base64, size: ${base64String.length} chars`);
+        return base64String;
+      } catch {
+        console.error('[HttpService] readImageAsBase64 failed.');
+        return null;
+      }
+    }
 
   // ==== 视频流及抓拍 ====
   public async getCameraLive(nodeId: string): Promise<BaseResponse<LiveStreamInfo> | null> {
