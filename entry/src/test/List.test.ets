@@ -9,6 +9,9 @@ import httpServiceTest from './services/HttpService.test';
 import serverAvailabilityServiceTest from './services/ServerAvailabilityService.test';
 import mqttClientServiceTest from './services/MqttClientService.test';
 import alertSyncServiceTest from './services/AlertSyncService.test';
+import frontendSimNodeServiceTest from './services/FrontendSimNodeService.test';
+import smartControlServiceTest from './services/SmartControlService.test';
+import thresholdSyncServiceTest from './services/ThresholdSyncService.test';
 import videoMonitorServiceTest from './services/VideoMonitorService.test';
 // --- Common ---
 import breakpointSystemTest from './common/BreakpointSystem.test';
@@ -31,6 +34,9 @@ export default function testsuite() {
   serverAvailabilityServiceTest();
   mqttClientServiceTest();
   alertSyncServiceTest();
+  frontendSimNodeServiceTest();
+  smartControlServiceTest();
+  thresholdSyncServiceTest();
   videoMonitorServiceTest();
   // Common
   breakpointSystemTest();

@@ -7,7 +7,10 @@ import { ProfileView } from '../views/ProfileView';
 import { NodeListItem, HttpService } from '../services/HttpService';
 import { MqttClientService } from '../services/MqttClientService';
 import { AlertSyncService } from '../services/AlertSyncService';
+import { FrontendSimNodeService } from '../services/FrontendSimNodeService';
 import { ServerAvailabilityService } from '../services/ServerAvailabilityService';
+import { SmartControlService } from '../services/SmartControlService';
+import { ThresholdSyncEvent, ThresholdSyncService } from '../services/ThresholdSyncService';
 import { AlertData } from '../models/AlertData';
 import { AppConfig } from '../common/AppConfig';
 import { AppColors, AppFontSize, AppSpacing, AppRadius } from '../common/DesignToken';
@@ -41,9 +44,39 @@ struct Index {
   @State mqttHeartbeatOffline: boolean = false;
   private isForceLogoutHandling: boolean = false;
   private readonly availabilityService: ServerAvailabilityService = ServerAvailabilityService.getInstance();
+  private readonly smartControlService: SmartControlService = SmartControlService.getInstance();
+  private readonly frontendSimNodeService: FrontendSimNodeService = FrontendSimNodeService.getInstance();
   private readonly onForceLogout = () => {
     void this.handleServerDisconnect();
   };
+  private readonly onThresholdUpdated = (event: ThresholdSyncEvent) => {
+    this.applyThresholdUpdate(event);
+  };
+
+  private applyThresholdUpdate(event: ThresholdSyncEvent): void {
+    for (let i = 0; i < this.nodes.length; i++) {
+      if (this.nodes[i].id !== event.nodeId) {
+        continue;
+      }
+
+      let updatedMeta: SensorMetaItem[] = [];
+      let found = false;
+      for (let j = 0; j < this.nodes[i].sensorMeta.length; j++) {
+        let meta = this.nodes[i].sensorMeta[j];
+        if (meta.key === event.sensorKey) {
+          meta.warningMin = event.warningMin === null ? undefined : event.warningMin;
+          meta.warningMax = event.warningMax === null ? undefined : event.warningMax;
+          found = true;
+        }
+        updatedMeta.push(meta);
+      }
+      if (found) {
+        this.nodes[i].sensorMeta = updatedMeta;
+        this.smartControlService.applyNode(this.nodes[i]);
+      }
+      return;
+    }
+  }
 
   private async loadNodesFromServer() {
     const remoteNodes = await HttpService.getInstance().getNodes();
@@ -80,6 +113,7 @@ struct Index {
     this.isForceLogoutHandling = false;
     this.availabilityService.addForceLogoutListener(this.onForceLogout);
     await this.availabilityService.startSessionMonitoring();
+    ThresholdSyncService.getInstance().addListener(this.onThresholdUpdated);
 
     BreakpointSystem.getInstance().register();
     await this.loadNodesFromServer();
@@ -92,6 +126,9 @@ struct Index {
       (nodeId, msgStr) => {
         try {
           const payload = JSON.parse(msgStr) as Record<string, Object | string | number | boolean>;
+          if (this.frontendSimNodeService.isManagedNode(nodeId) && payload['source'] !== 'frontend_sim') {
+            return;
+          }
           if (payload['data']) {
             const data = payload['data'] as Record<string, Object | string | number | boolean>;
             this.nodes.forEach(node => {
@@ -138,6 +175,7 @@ struct Index {
                 if (typeof data['image_base64'] === 'string' && (data['image_base64'] as string).length > 0) {
                   node.sensorData.setImageBase64(data['image_base64'] as string);
                 }
+                this.smartControlService.applyNode(node);
               }
             });
           }
@@ -178,11 +216,19 @@ struct Index {
       });
     });
     AlertSyncService.getInstance().startRealtimeSync();
+
+    for (let i = 0; i < this.nodes.length; i++) {
+      if (this.frontendSimNodeService.isManagedNode(this.nodes[i].id)) {
+        this.frontendSimNodeService.start(this.nodes[i]);
+      }
+    }
   }
 
   aboutToDisappear() {
     // Reason: 这里必须按“取消监听 -> 停轮询 -> 注销断点 -> 停告警 -> 断 MQTT”的顺序清理，避免页面消失后仍有回调写状态。
     this.availabilityService.removeForceLogoutListener(this.onForceLogout);
+    ThresholdSyncService.getInstance().removeListener(this.onThresholdUpdated);
+    this.frontendSimNodeService.stop();
     this.availabilityService.stopPolling();
     BreakpointSystem.getInstance().unregister();
     AlertSyncService.getInstance().stopRealtimeSync();

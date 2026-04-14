@@ -17,6 +17,7 @@ import {
 } from '@ohos/mpchart';
 
 import { HttpService, SensorHistoryData, ThresholdUpdateItem } from '../services/HttpService';
+import { ThresholdSyncService } from '../services/ThresholdSyncService';
 import { SensorMetaItem } from '../models/SensorMeta';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 
@@ -726,6 +727,12 @@ struct SensorDetailPage {
                   if (ok) {
                     this.warningMin = item.warningMin !== null ? item.warningMin : -Infinity;
                     this.warningMax = item.warningMax !== null ? item.warningMax : Infinity;
+                    ThresholdSyncService.getInstance().notifyThresholdUpdated(
+                      this.nodeId,
+                      this.metricKey,
+                      item.warningMin,
+                      item.warningMax
+                    );
                     promptAction.showToast({ message: '阈值已保存' });
                   } else {
                     promptAction.showToast({ message: '保存失败' });

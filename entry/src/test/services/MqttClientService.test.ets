@@ -95,6 +95,21 @@ export default function mqttClientServiceTest() {
       expect(trend1 !== trend2).assertTrue();
     });
 
+    it('emitLocalTelemetry_notifies_listener_and_caches_trend', 0, () => {
+      let svc = MqttClientService.getInstance();
+      let called = false;
+      let listener = (nodeId: string, msg: string) => {
+        called = nodeId === 'SIM_Node_01' && msg.indexOf('frontend_sim') >= 0;
+      };
+
+      svc.addTelemetryListener(listener);
+      svc.emitLocalTelemetry('SIM_Node_01', '{"msg_type":"telemetry","node_id":"SIM_Node_01","timestamp":1,"source":"frontend_sim","data":{"environment":{"temperature":25.0},"equipment":{"fan":false},"mode":false}}');
+      svc.removeTelemetryListener(listener);
+
+      expect(called).assertTrue();
+      expect(svc.getCachedTrend('SIM_Node_01', 'temperature').length > 0).assertTrue();
+    });
+
     // ===== 离线回调设置 =====
     it('setOnOfflineCallback_does_not_throw', 0, () => {
       let svc = MqttClientService.getInstance();

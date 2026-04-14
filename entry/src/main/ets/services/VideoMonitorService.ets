@@ -1,4 +1,5 @@
 import { KeyframeImageItem, LiveStreamInfo, PlaybackItem } from '../models/VideoMonitorData';
+import { FrontendSimNodeService } from './FrontendSimNodeService';
 import { HttpService } from './HttpService';
 
 /**
@@ -21,6 +22,9 @@ export class VideoMonitorService {
   }
 
   async getLiveStreamInfo(nodeId: string): Promise<LiveStreamInfo> {
+    if (FrontendSimNodeService.getInstance().isManagedNode(nodeId)) {
+      return FrontendSimNodeService.getInstance().buildLiveStreamInfo();
+    }
     let res = await HttpService.getInstance().getCameraLive(nodeId);
     if (res && res.data) {
       return res.data;
@@ -29,6 +33,9 @@ export class VideoMonitorService {
   }
 
   async getDailyPlaybackList(nodeId: string): Promise<PlaybackItem[]> {
+    if (FrontendSimNodeService.getInstance().isManagedNode(nodeId)) {
+      return FrontendSimNodeService.getInstance().buildPlaybackItems();
+    }
     // Boundary: 当前仍使用固定日期占位，后续若接入真实筛选条件，应从页面或服务层显式传入日期。
     let res = await HttpService.getInstance().getCameraPlayback(nodeId, '2026-03-16');
     if (res && res.data) {
@@ -38,6 +45,9 @@ export class VideoMonitorService {
   }
 
   async getKeyframesByDate(nodeId: string, date: string): Promise<KeyframeImageItem[]> {
+    if (FrontendSimNodeService.getInstance().isManagedNode(nodeId)) {
+      return FrontendSimNodeService.getInstance().buildKeyframesByDate(date);
+    }
     let res = await HttpService.getInstance().getCameraKeyframes(nodeId, date);
     if (res && res.data) {
       return res.data;

@@ -22,5 +22,28 @@ export default function videoMonitorServiceTest() {
       expect(svc !== null).assertTrue();
       expect(svc !== undefined).assertTrue();
     });
+
+    it('getLiveStreamInfo_sim_node_returns_frontend_fallback', 0, async () => {
+      let info = await VideoMonitorService.getInstance().getLiveStreamInfo('SIM_Node_01');
+      expect(info.cameraId).assertEqual('sim-frontend-camera');
+      expect(info.streamTag).assertEqual('前端模拟');
+    });
+
+    it('getDailyPlaybackList_sim_node_returns_frontend_fallback', 0, async () => {
+      let items = await VideoMonitorService.getInstance().getDailyPlaybackList('SIM_Node_01');
+      expect(items.length > 0).assertTrue();
+      expect(items[0].available).assertTrue();
+      expect(items[0].date).assertEqual('2026-03-16');
+      expect(items[0].duration).assertEqual('00:30:00');
+      expect(items[0].quality).assertEqual('1080p');
+    });
+
+    it('getKeyframesByDate_sim_node_returns_demo_keyframes', 0, async () => {
+      let items = await VideoMonitorService.getInstance().getKeyframesByDate('SIM_Node_01', '2026-03-16');
+      expect(items.length).assertEqual(2);
+      expect(items[0].thumbnailHint).assertEqual('sim_video_placeholder');
+      expect(items[0].label).assertEqual('叶片病害');
+      expect(items[1].label).assertEqual('虫害检测');
+    });
   });
 }

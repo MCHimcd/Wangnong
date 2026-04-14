@@ -53,6 +53,17 @@ export class AlertSyncService {
     return [...this.alerts];
   }
 
+  public resetForTest() {
+    this.initialized = false;
+    this.alerts = [];
+    this.isDialogShowing = false;
+    this.realtimeStarted = false;
+    this.startupLoaded = false;
+    this.startupLoading = false;
+    this.dataChangeListeners = [];
+    this.alertDialogCallback = null;
+  }
+
   public subscribeDataChange(listener: () => void) {
     if (this.dataChangeListeners.indexOf(listener) === -1) {
       this.dataChangeListeners.push(listener);
@@ -131,6 +142,11 @@ export class AlertSyncService {
     }
   }
 
+  public upsertLocalAlert(alert: AlertData) {
+    this.ensureInitialized();
+    this.mergeAlert(alert, true, true);
+  }
+
   private async loadStartupAlerts() {
     if (this.startupLoaded || this.startupLoading) {
       return;
@@ -187,6 +203,7 @@ export class AlertSyncService {
   }
 
   private showGlobalAlert(alert: AlertData) {
+    this.isDialogShowing=true;
     // Boundary: 未登录或当前正处于告警 Tab 时不弹窗，避免重复打断用户正在查看的内容。
     if (this.isDialogShowing) return;
     const isLoggedIn = AppStorage.get<boolean>('isLoggedIn');
@@ -204,6 +221,17 @@ export class AlertSyncService {
 
   public async markHandled(alertId: string): Promise<boolean> {
     this.ensureInitialized();
+    if (alertId.startsWith('SIM_LOCAL_')) {
+      const target = this.alerts.find((item: AlertData) => item.alert_id === alertId);
+      if (target) {
+        target.is_handled = true;
+        target.handle_time = new Date().getTime();
+        this.alerts = [...this.alerts];
+        this.notifyDataChange();
+      }
+      return true;
+    }
+
     const success = await HttpService.getInstance().handleAlert(alertId, 'handle');
     if (!success) {
       return false;

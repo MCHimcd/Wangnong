@@ -36,7 +36,7 @@ Wangnong/
 │       │   ├── entryability/        # 应用入口 (EntryAbility)
 │       │   ├── pages/               # 16 个页面
 │       │   ├── views/               # 6 个可复用视图 (Tab 级)
-│       │   ├── services/            # 5 个单例服务
+│       │   ├── services/            # 8 个单例服务
 │       │   ├── models/              # 9 个数据模型
 │       │   └── common/              # 公用配置与工具 (7)
 │       │       ├── AppConfig.ets
@@ -50,7 +50,7 @@ Wangnong/
 │       │   ├── List.test.ets        # 测试入口
 │       │   ├── testutils/           # 测试工厂 & 辅助
 │       │   ├── models/              # 模型层测试 (4)
-│       │   ├── services/            # 服务层测试 (5)
+│       │   ├── services/            # 服务层测试 (8)
 │       │   └── common/              # 公用工具测试 (7)
 │       ├── ohosTest/                # OHOS 仪器测试 (设备/模拟器)
 │       │   └── ets/test/
@@ -126,21 +126,24 @@ Index (底部 Tab 容器)
 | 视图 | 说明 |
 |------|------|
 | `HomeView.ets` | 侧边栏 + 内容路由 (MonitorView / AgriQAView / ScheduledTaskView) |
-| `MonitorView.ets` | 响应式综合监控面板：lg 左55%右45% / md 左50%右50% 分栏整页可滚动，sm 三Tab切换(监控/数据/控制)；左列=硬件 Base64 图片/实时视频+监控回放+AI异常关键帧(原VideoDetailPage功能)，右列=环境数据+设备控制；设备卡片点击→开关记录页；字号随断点缩放；Toggle式设备开关；离线统一提示 |
+| `MonitorView.ets` | 响应式综合监控面板：lg 左55%右45% / md 左50%右50% 分栏整页可滚动，sm 三Tab切换(监控/数据/控制)；左列=硬件 Base64 图片/实时视频+监控回放+AI异常关键帧(原VideoDetailPage功能)，右列=环境数据+设备控制；SIM_Node_01 的遥测/告警/直播回退数据全部由前端本地生成，智能模式基于当前阈值自动控制排风、加热、喷雾、遮阳、补光、灌溉与通风；设备卡片点击→开关记录页；字号随断点缩放；Toggle式设备开关；离线统一提示 |
 | `AlertView.ets` | 告警列表，按时间/类型排序，标记已处理 |
 | `AgriQAView.ets` | 农业知识问答聊天界面 (文本 + 图片输入)，支持 Markdown 格式渲染 (标题、列表、代码块、加粗、斜体、引用) |
 | `ScheduledTaskView.ets` | 定时任务列表与 CRUD |
 | `ProfileView.ets` | 个人中心卡片 (头像拍照/相册选择、角色、登出) |
 
-### 服务清单 (5 × Singleton)
+### 服务清单 (8 × Singleton)
 
 | 服务 | 说明 |
 |------|------|
 | `HttpService.ets` | HTTP REST 客户端 (40+ 方法)，统一 Bearer Token 鉴权 |
 | `ServerAvailabilityService.ets` | 服务器可用性探测：启动前检查、登录后会话探活、连续失败阈值判定 |
-| `MqttClientService.ets` | MQTT 实时通信：订阅遥测/告警，发布控制命令，维护 60 点趋势缓存 |
-| `AlertSyncService.ets` | 告警状态聚合：启动时 HTTP 拉取 + 运行时 MQTT 推送，全局弹窗通知 |
-| `VideoMonitorService.ets` | 视频流封装：直播、回放、关键帧 |
+| `MqttClientService.ets` | MQTT 实时通信：订阅遥测/告警，发布控制命令，维护 60 点趋势缓存，并支持本地注入 SIM telemetry |
+| `AlertSyncService.ets` | 告警状态聚合：启动时 HTTP 拉取 + 运行时 MQTT 推送，同时可承载 SIM 本地告警与本地处理 |
+| `VideoMonitorService.ets` | 视频流封装：直播、回放、关键帧；SIM_Node_01 缺省走前端本地回退数据 |
+| `SmartControlService.ets` | SIM_Node_01 智能模式规则引擎：按当前阈值把温度/湿度/光照/土壤湿度/CO₂ 绑定到对应设备并自动开关 |
+| `ThresholdSyncService.ets` | 阈值保存后的前端内存同步：通知 Index 更新节点 sensorMeta，使智能模式立即使用新阈值 |
+| `FrontendSimNodeService.ets` | SIM_Node_01 前端仿真服务：每秒生成符合温室常识的环境数据、触发本地告警，并提供直播/回放/关键帧回退数据 |
 
 ### 数据模型清单 (9)
 
@@ -221,7 +224,7 @@ Index (底部 Tab 容器)
 |------|------|---------|
 | 基础设施 | `/api/v1/` | health |
 | 认证 | `/api/v1/auth/` | login, register, forgot-password, send-verification-code, password (PUT), profile, logout, avatar/use-fixed, avatar/upload (multipart) |
-| 节点 | `/api/v1/devices/` | 列表, 详情, sensor-meta, equipment-meta |
+| 节点 | `/api/v1/nodes/` | 列表, 详情, sensor-meta, equipment-meta |
 | 传感器 | `/api/v1/sensors/` | `{device_id}/history` (24h/7d/30d) |
 | 设备 | `/api/v1/equipment/` | stats |
 | 告警 | `/api/v1/alerts/` | list (POST 分页), handle |
@@ -231,7 +234,7 @@ Index (底部 Tab 容器)
 | 定时任务 | `/api/v1/scheduled-tasks/` | CRUD |
 | 管理 | `/api/v1/admin/` | nodes CRUD, users 列表/角色, node-access |
 | 操作日志 | `/api/v1/operation-logs/` | 查询 |
-| 阈值 | `/api/v1/thresholds/` | 更新 |
+| 阈值 | `/api/v1/nodes/` | `{nodeId}/sensor-thresholds` |
 
 所有请求通过 `HttpService` 统一发出，Header 携带 `Authorization: Bearer <token>`。  
 响应格式统一为 `BaseResponse<T> { code, message, data }`。
@@ -291,12 +294,12 @@ Index (底部 Tab 容器)
 
 ### 覆盖范围
 
-**本地单元测试 (16 个测试套件)**:
+**本地单元测试 (19 个测试套件)**:
 
 | 层 | 测试套件 | 测试点 |
 |----|---------|--------|
 | 模型 (4) | SensorData, NodeState, AlertData, Node | 默认值、存取、revision 触发、实例独立性 |
-| 服务 (5) | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机 |
+| 服务 (8) | HttpService, ServerAvailabilityService, MqttClientService, AlertSyncService, VideoMonitorService, SmartControlService, ThresholdSyncService, FrontendSimNodeService | Singleton、数据类默认值、监听器注册/注销、缓存查询、可用性状态机、智能模式规则判定、阈值同步广播、前端仿真窗口 |
 | 公用 (7) | BreakpointSystem, AppConfig, DesignToken, TraceabilityFlowHelper, AvatarCropMath, AvatarCaptureHelper, MarkdownParser | columnsForBreakpoint 映射、URL 格式、色值/字号/间距有效性、扫码流程、裁剪区域计算、头像拍摄辅助、Markdown 解析 |
 
 **OHOS 仪器测试 (8 个冒烟测试)**:

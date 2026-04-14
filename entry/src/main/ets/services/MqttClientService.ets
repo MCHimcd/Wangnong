@@ -41,6 +41,7 @@ class TelemetryPayload {
   msg_type?: string;
   node_id?: string;
   timestamp?: number;
+  source?: string;
   data?: TelemetryData;
 }
 
@@ -200,6 +201,20 @@ export class MqttClientService {
     if (index > -1) {
       this.onAlertDataListeners.splice(index, 1);
     }
+  }
+
+  public emitLocalTelemetry(nodeId: string, msgStr: string): void {
+    try {
+      const payload = JSON.parse(msgStr) as TelemetryPayload;
+      this.cacheTelemetry(nodeId, payload.data, payload.timestamp);
+    } catch (e) {
+      console.error('[MQTT] Failed to emit local telemetry', e);
+      return;
+    }
+
+    this.onTelemetryDataListeners.forEach((listener: (nodeId: string, msgStr: string) => void) => {
+      listener(nodeId, msgStr);
+    });
   }
 
   public connect(brokerUrl: string, clientId: string,

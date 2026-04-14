@@ -5,6 +5,7 @@ import { EquipmentMetaItem } from '../models/EquipmentMeta';
 import { LiveStreamInfo, PlaybackItem, KeyframeImageItem } from '../models/VideoMonitorData';
 import { VideoMonitorService } from '../services/VideoMonitorService';
 import { MqttClientService } from '../services/MqttClientService';
+import { FrontendSimNodeService } from '../services/FrontendSimNodeService';
 import { HttpService } from '../services/HttpService';
 import { AppColors, AppFontSize, AppSpacing, AppRadius, AppShadow, AppSize } from '../common/DesignToken';
 import { AppConfig } from '../common/AppConfig';
@@ -55,6 +56,7 @@ export struct MonitorView {
   @State liveVideoError: boolean = false;
   @State playbackFullscreenUrl: string = '';
   @State keyframeFullscreenUrl: string = '';
+  @State keyframeFullscreenUseSimPlaceholder: boolean = false;
   @State imageScale: number = 1;
 
   // ───────── 内部状态：硬件摄像头图片 ─────────
@@ -83,6 +85,9 @@ export struct MonitorView {
   }
 
   private isNodeConnected(): boolean {
+    if (FrontendSimNodeService.getInstance().isManagedNode(this.nodeId)) {
+      return true;
+    }
     return this.nodeStatus === 'online' && !this.mqttHeartbeatOffline;
   }
 
@@ -129,6 +134,39 @@ export struct MonitorView {
 
   private isSliderControl(meta: EquipmentMetaItem): boolean {
     return meta.controlType === 'slider' || meta.key === 'led_light';
+  }
+
+  private isSimKeyframePlaceholder(item: KeyframeImageItem): boolean {
+    return FrontendSimNodeService.getInstance().isManagedNode(this.nodeId)
+      && item.thumbnailHint === 'sim_video_placeholder';
+  }
+
+  private openKeyframeFullscreen(item: KeyframeImageItem): void {
+    this.imageScale = 1;
+    if (item.imageUrl !== undefined && item.imageUrl.length > 0) {
+      this.keyframeFullscreenUseSimPlaceholder = false;
+      this.keyframeFullscreenUrl = this.resolveUrl(item.imageUrl);
+      return;
+    }
+    if (this.isSimKeyframePlaceholder(item)) {
+      this.keyframeFullscreenUrl = '';
+      this.keyframeFullscreenUseSimPlaceholder = true;
+      return;
+    }
+    promptAction.showDialog({
+      title: item.label,
+      message: '类型: ' + item.abnormalType + '\n'
+        + '严重度: ' + (item.severity === 'critical' ? '高危' : '一般') + '\n'
+        + '置信度: ' + item.confidence.toFixed(0) + '%\n'
+        + '时间: ' + item.captureTime,
+      buttons: [{ text: '确定', color: AppColors.Primary }]
+    });
+  }
+
+  private closeKeyframeFullscreen(): void {
+    this.keyframeFullscreenUrl = '';
+    this.keyframeFullscreenUseSimPlaceholder = false;
+    this.imageScale = 1;
   }
 
   // ═══════════════ 生命周期 ═══════════════
@@ -294,6 +332,12 @@ export struct MonitorView {
         Image(this.cameraPixelMap)
           .width('100%').aspectRatio(16 / 9).borderRadius(AppRadius.SM)
           .objectFit(ImageFit.Contain).backgroundColor('#1A2332')
+      } else if (this.liveInfo.streamTag === '前端模拟') {
+        Stack({ alignContent: Alignment.Center }) {
+          Image($r('app.media.sim_video_placeholder'))
+            .width('100%').aspectRatio(16 / 9).borderRadius(AppRadius.SM)
+            .objectFit(ImageFit.Cover).backgroundColor('#1A2332')
+        }
       } else if (this.liveInfo.status === 'online' && this.liveInfo.streamUrl.length > 0) {
         if (this.liveVideoError) {
           Stack({ alignContent: Alignment.Center }) {
@@ -445,6 +489,10 @@ export struct MonitorView {
                     Image(this.resolveUrl(item.imageUrl))
                       .width(this.sf(60)).height(this.sf(60))
                       .borderRadius(AppRadius.SM).objectFit(ImageFit.Cover)
+                  } else if (this.isSimKeyframePlaceholder(item)) {
+                    Image($r('app.media.sim_video_placeholder'))
+                      .width(this.sf(60)).height(this.sf(60))
+                      .borderRadius(AppRadius.SM).objectFit(ImageFit.Cover)
                   } else {
                     Text('📷').fontSize(this.sf(22))
                   }
@@ -477,19 +525,7 @@ export struct MonitorView {
               .backgroundColor(item.severity === 'critical' ? '#FFF5F5' : '#FFFDF8')
               .borderRadius(AppRadius.SM)
               .onClick(() => {
-                if (item.imageUrl !== undefined && item.imageUrl.length > 0) {
-                  this.imageScale = 1;
-                  this.keyframeFullscreenUrl = this.resolveUrl(item.imageUrl);
-                } else {
-                  promptAction.showDialog({
-                    title: item.label,
-                    message: '类型: ' + item.abnormalType + '\n'
-                      + '严重度: ' + (item.severity === 'critical' ? '高危' : '一般') + '\n'
-                      + '置信度: ' + item.confidence.toFixed(0) + '%\n'
-                      + '时间: ' + item.captureTime,
-                    buttons: [{ text: '确定', color: AppColors.Primary }]
-                  });
-                }
+                this.openKeyframeFullscreen(item);
               })
             }
           }, (item: KeyframeImageItem) => item.id)
@@ -865,29 +901,47 @@ export struct MonitorView {
   KeyframeFullscreenOverlay() {
     Stack({ alignContent: Alignment.TopEnd }) {
       Column() {
-        Image(this.keyframeFullscreenUrl)
-          .width('100%').height('100%')
-          .objectFit(ImageFit.Contain)
-          .scale({ x: this.imageScale, y: this.imageScale })
-          .gesture(
-            PinchGesture({ fingers: 2 })
-              .onActionUpdate((event: GestureEvent) => {
-                let newScale = this.imageScale * event.scale;
-                if (newScale < 0.5) {
-                  newScale = 0.5;
-                } else if (newScale > 5) {
-                  newScale = 5;
-                }
-                this.imageScale = newScale;
-              })
-          )
+        if (this.keyframeFullscreenUseSimPlaceholder) {
+          Image($r('app.media.sim_video_placeholder'))
+            .width('100%').height('100%')
+            .objectFit(ImageFit.Contain)
+            .scale({ x: this.imageScale, y: this.imageScale })
+            .gesture(
+              PinchGesture({ fingers: 2 })
+                .onActionUpdate((event: GestureEvent) => {
+                  let newScale = this.imageScale * event.scale;
+                  if (newScale < 0.5) {
+                    newScale = 0.5;
+                  } else if (newScale > 5) {
+                    newScale = 5;
+                  }
+                  this.imageScale = newScale;
+                })
+            )
+        } else {
+          Image(this.keyframeFullscreenUrl)
+            .width('100%').height('100%')
+            .objectFit(ImageFit.Contain)
+            .scale({ x: this.imageScale, y: this.imageScale })
+            .gesture(
+              PinchGesture({ fingers: 2 })
+                .onActionUpdate((event: GestureEvent) => {
+                  let newScale = this.imageScale * event.scale;
+                  if (newScale < 0.5) {
+                    newScale = 0.5;
+                  } else if (newScale > 5) {
+                    newScale = 5;
+                  }
+                  this.imageScale = newScale;
+                })
+            )
+        }
       }
       .width('100%').height('100%')
       .backgroundColor('#000000')
       .justifyContent(FlexAlign.Center)
       .onClick(() => {
-        this.keyframeFullscreenUrl = '';
-        this.imageScale = 1;
+        this.closeKeyframeFullscreen();
       })
 
       Text('✕')
@@ -897,8 +951,7 @@ export struct MonitorView {
         .backgroundColor('rgba(0,0,0,0.5)')
         .margin({ top: AppSpacing.XXL, right: AppSpacing.LG })
         .onClick(() => {
-          this.keyframeFullscreenUrl = '';
-          this.imageScale = 1;
+          this.closeKeyframeFullscreen();
         })
     }
     .width('100%').height('100%')
@@ -996,7 +1049,7 @@ export struct MonitorView {
       if (this.playbackFullscreenUrl.length > 0) {
         this.PlaybackFullscreenOverlay()
       }
-      if (this.keyframeFullscreenUrl.length > 0) {
+      if (this.keyframeFullscreenUrl.length > 0 || this.keyframeFullscreenUseSimPlaceholder) {
         this.KeyframeFullscreenOverlay()
       }
     }
