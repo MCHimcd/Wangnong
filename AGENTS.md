@@ -16,6 +16,7 @@ Non-negotiable rules:
 - Clarify unclear requirements before implementation.
 - Update tests first or together with the implementation.
 - Read `README.md` before larger code changes and sync it when pages, services, models, utilities, HTTP APIs, MQTT contracts, navigation, AppStorage keys, design tokens, or build/test setup change.
+- After each modification, append the change to `CHANGELOG.md`.
 - Final verification must include the project-required build and test steps from `build-and-verify.instructions.md`.
 
 Key coding constraints:
